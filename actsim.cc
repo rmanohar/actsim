@@ -208,6 +208,7 @@ ActSimCore::~ActSimCore()
 void ActSimCore::_add_chp (act_chp *c)
 {
   ihash_bucket_t *b;
+#if 0  
   printf ("add-chp-inst: ");
   if (_curinst) {
     _curinst->Print (stdout);
@@ -216,6 +217,7 @@ void ActSimCore::_add_chp (act_chp *c)
     printf ("-none-");
   }
   printf ("\n");
+#endif  
 
   ChpSimGraph *sg;
   b = ihash_lookup (map, (long)_curproc);
@@ -229,6 +231,7 @@ void ActSimCore::_add_chp (act_chp *c)
     b->v = sg;
   }
   ChpSim *x = new ChpSim (sg, c->c, this);
+  x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
 }
@@ -562,31 +565,40 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  }
 	}
 
-	//printf ("inst: "); _curinst->Print (stdout); printf ("\n");
-	//printf ("  [bool %d] ", ibool);
 	for (int i=0; i < ibool/2; i++) {
-	  //printf(" %d", _cur_abs_port_bool[i]);
 	  int x = _cur_abs_port_bool[i];
 	  _cur_abs_port_bool[i] = _cur_abs_port_bool[ibool-1-i];
 	  _cur_abs_port_bool[ibool-1-i] = x;
 	}
-	//printf ("\n");
-	//printf ("  [int %d] ", iint);
 	for (int i=0; i < iint/2; i++) {
-	  //printf(" %d", _cur_abs_port_int[i]);
 	  int x = _cur_abs_port_int[i];
 	  _cur_abs_port_int[i] = _cur_abs_port_int[iint-1-i];
 	  _cur_abs_port_int[iint-1-i] = x;
 	}
-	//printf ("\n");
-	//printf ("  [chan %d] ", ichan);
 	for (int i=0; i < ichan/2; i++) {
 	  int x = _cur_abs_port_chan[i];
 	  _cur_abs_port_chan[i] = _cur_abs_port_chan[ichan-1-i];
 	  _cur_abs_port_chan[ichan-1-i] = x;
-	  //printf(" %d", _cur_abs_port_chan[i]);
 	}
-	//printf ("\n");
+
+#if 0	
+	printf ("inst: "); _curinst->Print (stdout); printf ("\n");
+	printf ("  [bool %d] ", ibool);
+	for (int i=0; i < ibool; i++) {
+	  printf (" %d", _cur_abs_port_bool[i]);
+	}
+	printf ("\n");
+	printf ("  [int %d] ", iint);
+	for (int i=0; i < iint; i++) {
+	  printf (" %d", _cur_abs_port_int[i]);
+	}
+	printf ("\n");
+	printf ("  [chan %d] ", ichan);
+	for (int i=0; i < ichan; i++) {
+	  printf(" %d", _cur_abs_port_chan[i]);
+	}
+	printf ("\n");
+#endif	
 	
 	_add_language (lev, x->getlang());
 	_add_all_inst (x->CurScope());
@@ -778,11 +790,15 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
 
   if (v->isport || v->ischpport) {
     /* this is a port... */
-    printf ("port-");
+#if 0    
+    printf ("port-'");
+#endif    
   }
+#if 0  
   printf ("Id: ");
   c->toid()->Print (stdout);
   printf ("; loc-offset: %d\n", x);
+#endif  
   return x;
 }  
 
@@ -830,7 +846,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
   }
   
   if (loc >= 0) {
-#if 0    
+#if 0
     printf (" -> %d var\n", locoff + loc);
 #endif
     return locoff + loc;
@@ -840,7 +856,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
     if (loc & 1) {
       /* local port */
       loc = (loc + 1)/2 - 1;
-#if 0      
+#if 0
       printf (" -> %d localport @ %d\n", portoff[loc], loc);
 #endif      
       return portoff[loc];
@@ -848,7 +864,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
     else {
       /* global */
       loc = loc/2 - 1;
-#if 0      
+#if 0
       printf (" -> %d global\n", loc);
 #endif
       return loc;

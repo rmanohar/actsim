@@ -72,18 +72,27 @@ void ChpSim::Step (int ev_type)
   forceret = 0;
 
   /*--- simulate statement until there's a blocking scenario ---*/
+  printf ("[%8lu %d] <", CurTimeLo(), flag);
+  name->Print (stdout);
+  printf ("> ");
   switch (stmt->type) {
   case CHPSIM_ASSIGN:
-    printf ("%p [%8lu] assign v[%d] := ", this, CurTimeLo(), stmt->u.assign.var);
+    printf ("assign v[%d] := ", stmt->u.assign.var);
     v = exprEval (stmt->u.assign.e);
-    printf ("  %d : %d\n", v.v, v.width);
+    printf ("  %d : %d", v.v, v.width);
     _pc[pc] = _pc[pc]->completed (pc, &forceret);
     if (stmt->u.assign.isbool) {
       off = getGlobalOffset (stmt->u.assign.var, 0);
+#if 0      
+      printf (" [glob=%d]", off);
+#endif      
       _sc->setBool (off, v.v);
     }
     else {
       off = getGlobalOffset (stmt->u.assign.var, 1);
+#if 0      
+      printf (" [glob=%d]", off);
+#endif
       _sc->setInt (off, v.v);
     }
     break;
@@ -100,8 +109,8 @@ void ChpSim::Step (int ev_type)
 	v.v = 0;
 	v.width = 0;
       }
-      printf ("%p [%8lu] send-%d! val=%d\n", this, CurTimeLo(), flag, v.v);
-      if (varSend (pc, stmt->u.send.chvar, v)) {
+      printf ("send val=%d", v.v);
+      if (varSend (pc, flag, stmt->u.send.chvar, v)) {
 	/* blocked */
 	forceret = 1;
       }
@@ -110,7 +119,10 @@ void ChpSim::Step (int ev_type)
       }
     }
     else {
-      _pc[pc] = _pc[pc]->completed (pc, &forceret);
+      printf ("send done");
+      if (!varSend (pc, flag, stmt->u.send.chvar, v)) {
+	_pc[pc] = _pc[pc]->completed (pc, &forceret);
+      }
     }
     break;
 
@@ -131,16 +143,25 @@ void ChpSim::Step (int ev_type)
       }
 
       if (varRecv (pc, flag, stmt->u.recv.chvar, &v)) {
+	printf ("recv blocked");
 	forceret = 1;
       }
       else {
-	printf ("%p [%8lu] recv-%d got %d!\n", this, CurTimeLo(), flag, v.v);
+	printf ("recv got %d!", v.v);
 	if (type != -1) {
 	  if (type == 0) {
-	    _sc->setBool (id, v.v);
+	    off = getGlobalOffset (id, 0);
+#if 0	    
+	    printf (" [glob=%d]", off);
+#endif	    
+	    _sc->setBool (off, v.v);
 	  }
 	  else {
-	    _sc->setInt (id, v.v);
+	    off = getGlobalOffset (id, 1);
+#if 0	    
+	    printf (" [glob=%d]", off);
+#endif	    
+	    _sc->setInt (off, v.v);
 	  }
 	}
 	_pc[pc] = _pc[pc]->completed (pc, &forceret);
@@ -149,7 +170,7 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_FUNC:
-    printf ("func!\n");
+    printf ("func!");
     break;
 
   case CHPSIM_COND:
@@ -157,6 +178,9 @@ void ChpSim::Step (int ev_type)
       chpsimcond *gc;
       int cnt = 0;
       expr_res res;
+
+      printf ("cond");
+      
       gc = &stmt->u.c;
       while (gc) {
 	if (!gc->g) {
@@ -190,6 +214,7 @@ void ChpSim::Step (int ev_type)
     fatal_error ("What?");
     break;
   }
+  printf ("\n");
   if (forceret) {
     return;
   }
@@ -214,11 +239,16 @@ void ChpSim::varSet (int id, int type, expr_res v)
 }
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int id, expr_res v)
+int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
+
+  if (wakeup) {
+    c->send_here = 0;
+    return 0;
+  }
 
   if (c->recv_here) {
     // blocked receive, because there was no data
@@ -573,7 +603,7 @@ expr_res ChpSim::exprEval (Expr *e)
     l.v = l.v & ((1 << r.v) - 1);
     break;
 
-#if 0    
+#if 0
   case E_FUNCTION:
     ret->u.fn.s = e->u.fn.s;
     ret->u.fn.r = NULL;
@@ -596,7 +626,7 @@ expr_res ChpSim::exprEval (Expr *e)
     }
     break;
 #endif
-    
+
   case E_FUNCTION:
   case E_SELF:
   default:

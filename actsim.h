@@ -88,13 +88,17 @@ public:
     _abs_port_chan = _chan;
   }
 
+  void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
+
 protected:
   chp_offsets _o;		/* my state offsets for all local
 				   state */
   ActSimCore *_sc;
+
+  ActId *name;
   
   int *_abs_port_bool;		/* index of ports: absolute scale */
-  int *_abs_port_chan;
+  int *_abs_port_chan;		/* these arrays are reversed! */
   int *_abs_port_int;
 };
 

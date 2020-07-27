@@ -79,7 +79,7 @@ int main (int argc, char **argv)
 
   /* do stuff here */
 
-  printf ("event = %d, simdes = %d\n", (int)sizeof (Event), (int)sizeof (SimDES));
+  //printf ("event = %d, simdes = %d\n", (int)sizeof (Event), (int)sizeof (SimDES));
 
   ActStatePass *sp = new ActStatePass (a);
   sp->run (p);

@@ -48,7 +48,7 @@ class ChpSim : public ActSimObj {
   /* type == 3 : probe */
 
   void varSet (int id, int type, expr_res v);
-  int varSend (int pc, int id, expr_res v);
+  int varSend (int pc, int wakeup, int id, expr_res v);
   int varRecv (int pc, int wakeup, int id, expr_res *v);
   
 };
