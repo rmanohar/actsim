@@ -28,6 +28,8 @@ class ChpSim;
 #define MAX(a,b) ((a) < (b) ? (b) : (a))
 #endif
 
+#define DUMP_ALL
+
 
 ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
 : ActSimObj (sim)
@@ -72,14 +74,20 @@ void ChpSim::Step (int ev_type)
   forceret = 0;
 
   /*--- simulate statement until there's a blocking scenario ---*/
+#ifdef DUMP_ALL  
   printf ("[%8lu %d] <", CurTimeLo(), flag);
   name->Print (stdout);
   printf ("> ");
+#endif  
   switch (stmt->type) {
   case CHPSIM_ASSIGN:
+#ifdef DUMP_ALL    
     printf ("assign v[%d] := ", stmt->u.assign.var);
+#endif
     v = exprEval (stmt->u.assign.e);
+#ifdef DUMP_ALL    
     printf ("  %d : %d", v.v, v.width);
+#endif
     _pc[pc] = _pc[pc]->completed (pc, &forceret);
     if (stmt->u.assign.isbool) {
       off = getGlobalOffset (stmt->u.assign.var, 0);
@@ -109,7 +117,9 @@ void ChpSim::Step (int ev_type)
 	v.v = 0;
 	v.width = 0;
       }
+#ifdef DUMP_ALL      
       printf ("send val=%d", v.v);
+#endif      
       if (varSend (pc, flag, stmt->u.send.chvar, v)) {
 	/* blocked */
 	forceret = 1;
@@ -119,7 +129,9 @@ void ChpSim::Step (int ev_type)
       }
     }
     else {
+#ifdef DUMP_ALL      
       printf ("send done");
+#endif      
       if (!varSend (pc, flag, stmt->u.send.chvar, v)) {
 	_pc[pc] = _pc[pc]->completed (pc, &forceret);
       }
@@ -143,11 +155,15 @@ void ChpSim::Step (int ev_type)
       }
 
       if (varRecv (pc, flag, stmt->u.recv.chvar, &v)) {
+#ifdef DUMP_ALL	
 	printf ("recv blocked");
+#endif	
 	forceret = 1;
       }
       else {
+#ifdef DUMP_ALL	
 	printf ("recv got %d!", v.v);
+#endif	
 	if (type != -1) {
 	  if (type == 0) {
 	    off = getGlobalOffset (id, 0);
@@ -179,17 +195,24 @@ void ChpSim::Step (int ev_type)
       int cnt = 0;
       expr_res res;
 
-      printf ("cond");
+#ifdef DUMP_ALL
+      if (_pc[pc]->next == NULL) {
+	printf ("cond");
+      }
+      else {
+	printf ("loop");
+      }
+#endif      
       
       gc = &stmt->u.c;
       while (gc) {
-	if (!gc->g) {
-	  res.v = 1;
-	}
-	else {
+	if (gc->g) {
 	  res = exprEval (gc->g);
 	}
-	if (res.v) {
+	if (!gc->g || res.v) {
+#ifdef DUMP_ALL	  
+	  printf (" gd#%d true", cnt);
+#endif	  
 	  _pc[pc] = _pc[pc]->all[cnt];
 	  break;
 	}
@@ -214,7 +237,9 @@ void ChpSim::Step (int ev_type)
     fatal_error ("What?");
     break;
   }
+#ifdef DUMP_ALL  
   printf ("\n");
+#endif
   if (forceret) {
     return;
   }

@@ -1155,6 +1155,14 @@ ChpSimGraph *ActSimCore::_build_chp_graph (act_chp_lang_t *c, ChpSimGraph **stop
 	  tmp2->next = *stop;
 	}
       }
+      else {
+	if (c->type != ACT_CHP_LOOP) {
+	  ret->all[i] = (*stop);
+	}
+	else {
+	  ret->all[i] = ret;
+	}
+      }
       i++;
     }
     break;
