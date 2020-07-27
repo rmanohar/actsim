@@ -60,7 +60,7 @@ void ChpSim::Step (int ev_type)
   int off;
 
   if (!_pc[pc]) {
-    fatal_error ("NULL _pc? (pc=%d)\n", pc);
+    return;
   }
 
   /*-- go forward through sim graph until there's some work --*/
@@ -69,17 +69,37 @@ void ChpSim::Step (int ev_type)
     if (forceret) return;
   }
   if (!_pc[pc]) return;
-  
+
   chpsimstmt *stmt = _pc[pc]->stmt;
   forceret = 0;
 
-  /*--- simulate statement until there's a blocking scenario ---*/
 #ifdef DUMP_ALL  
-  printf ("[%8lu %d] <", CurTimeLo(), flag);
+  printf ("[%8lu %d; pc:%d] <", CurTimeLo(), flag, pc);
   name->Print (stdout);
   printf ("> ");
 #endif  
+
+  /*--- simulate statement until there's a blocking scenario ---*/
   switch (stmt->type) {
+  case CHPSIM_FORK:
+#ifdef DUMP_ALL
+    printf ("fork");
+#endif    
+    forceret = 1;
+    {
+      ChpSimGraph *g = _pc[pc];
+      for (int i=0; i < stmt->u.fork; i++) {
+	if (g->all[i]) {
+	  _pc[i] = g->all[i];
+	  new Event (this, SIM_EV_MKTYPE (i,0), 10);
+	}
+	else {
+	  _pc[i] = NULL;
+	}
+      }
+    }
+    break;
+
   case CHPSIM_ASSIGN:
 #ifdef DUMP_ALL    
     printf ("assign v[%d] := ", stmt->u.assign.var);

@@ -243,10 +243,12 @@ struct chpsimcond {
 #define CHPSIM_SEND   2
 #define CHPSIM_RECV   3
 #define CHPSIM_FUNC   4  /* built-in functions */
+#define CHPSIM_FORK   5
 
 struct chpsimstmt {
   int type;
   union {
+    int fork;			/* # of forks */
     chpsimcond c;		/* conditional */
     struct {
       int isbool;
@@ -270,7 +272,8 @@ class ChpSimGraph {
   ChpSimGraph (ActSimCore *);
   ActSimCore *state;
   chpsimstmt *stmt;		/* object to simulate */
-  WaitForAll *w;		/* for concurrency */
+  int wait;			/* for concurrency */
+  int tot;
   ChpSimGraph *next;
   ChpSimGraph **all;		/* successors, if multiple.
 				   used by comma and selections 

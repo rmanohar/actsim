@@ -1063,7 +1063,8 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
   stmt = NULL;
   next = NULL;
   all = NULL;
-  w = NULL;
+  wait = 0;
+  tot = 0;
 }
 
 
@@ -1122,7 +1123,10 @@ ChpSimGraph *ActSimCore::_build_chp_graph (act_chp_lang_t *c, ChpSimGraph **stop
       i++;
     }
     if (count > 0) {
-      (*stop)->w = new WaitForAll (count, 0);
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->type = CHPSIM_FORK;
+      ret->stmt->u.fork = count;
+      (*stop)->wait = count;
     }
     break;
 
@@ -1252,9 +1256,10 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
   if (!next) {
     return NULL;
   }
-  if (next->w) {
-    if (w->NotifyAny (pc)) {
-      *done = 1;
+  if (next->wait > 0) {
+    next->tot++;
+    if (next->wait == next->tot) {
+      next->tot = 0;
       return next;
     }
     else {
