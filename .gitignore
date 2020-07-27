@@ -1,0 +1,6 @@
+*~
+actsim.i386_*
+actsim.x86_64_*
+Makefile.dep
+i386_*
+x86_84_*
