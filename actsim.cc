@@ -1221,7 +1221,32 @@ ChpSimGraph *ActSimCore::_build_chp_graph (act_chp_lang_t *c, ChpSimGraph **stop
     break;
 
   case ACT_CHP_FUNC:
-    /*-- new --*/
+    if (strcmp (string_char (c->u.func.name), "log") != 0) {
+      warning ("Built-in function `%s' is not known; valid values: log",
+	       c->u.func.name);
+    }
+    else {
+      listitem_t *li;
+      ret = new ChpSimGraph (this);
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->type = CHPSIM_FUNC;
+      ret->stmt->u.fn.name = string_char (c->u.func.name);
+      ret->stmt->u.fn.l = list_new();
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	act_func_arguments_t *x;
+	NEW (x, act_func_arguments_t);
+	x->isstring = tmp->isstring;
+	if (tmp->isstring) {
+	  x->u.s = tmp->u.s;
+	}
+	else {
+	  x->u.e = expr_to_chp_expr (tmp->u.e, this);
+	}
+	list_append (ret->stmt->u.fn.l, x);
+      }
+      (*stop) = ret;
+    }
     break;
     
   case ACT_CHP_ASSIGN:

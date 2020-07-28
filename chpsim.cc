@@ -28,7 +28,7 @@ class ChpSim;
 #define MAX(a,b) ((a) < (b) ? (b) : (a))
 #endif
 
-#define DUMP_ALL
+//#define DUMP_ALL
 
 
 ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
@@ -242,7 +242,21 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_FUNC:
-    printf ("func!");
+    printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
+    name->Print (stdout);
+    printf ("> ");
+    for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
+      act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+      if (arg->isstring) {
+	printf ("%s", string_char (arg->u.s));
+      }
+      else {
+	v = exprEval (arg->u.e);
+	printf ("%d", v.v);
+      }
+    }
+    printf ("\n");
+    pc = _updatepc (pc);
     break;
 
   case CHPSIM_COND:

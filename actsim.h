@@ -31,6 +31,10 @@
 #define E_CHP_VARINT   (E_NEWEND + 2)
 #define E_CHP_VARCHAN  (E_NEWEND + 3)
 
+#define E_CHP_VARBOOL_DEREF  (E_NEWEND + 4)
+#define E_CHP_VARINT_DEREF   (E_NEWEND + 5)
+#define E_CHP_VARCHAN_DEREF  (E_NEWEND + 6)
+
 /*
  *
  * Core simulation library
@@ -251,6 +255,10 @@ struct chpsimstmt {
     int fork;			/* # of forks */
     chpsimcond c;		/* conditional */
     struct {
+      const char *name;		/* function name */
+      list_t *l;		/* arguments */
+    } fn;
+    struct {
       int isbool;
       int var;
       Expr *e;
@@ -263,7 +271,6 @@ struct chpsimstmt {
       int chvar;
       list_t *vl;		/* list of vars */
     } recv;
-    Expr *fn;
   } u;
 };
 
