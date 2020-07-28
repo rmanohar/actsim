@@ -39,6 +39,7 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
     threads; those are the event types.
   */
   _npc = _max_program_counters (c);
+  _pcused = 1;
   Assert (_npc >= 1, "What?");
   MALLOC (_pc, ChpSimGraph *, _npc);
   for (int i=0; i < _npc; i++) {
@@ -48,7 +49,30 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
   Assert (_npc >= 1, "What?");
   _pc[0] = g;
 
-  new Event (this, SIM_EV_MKTYPE (0,0), 10);
+  new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
+}
+
+int ChpSim::_updatepc (int pc)
+{
+  int joined;
+  
+  _pc[pc] = _pc[pc]->completed(pc, &joined);
+  if (joined) {
+#if 0    
+    printf (" [joined]");
+#endif    
+    _pcused = _pcused - (_pc[pc]->wait - 1);
+  }
+  if (pc >= _pcused) {
+    ChpSimGraph *tmp = _pc[pc];
+    _pc[pc] = NULL;
+    pc = _pcused - 1;
+    _pc[pc] = tmp;
+#if 0    
+    printf (" [pc-adjust]");
+#endif    
+  }
+  return pc;
 }
 
 void ChpSim::Step (int ev_type)
@@ -56,6 +80,7 @@ void ChpSim::Step (int ev_type)
   int pc = SIM_EV_TYPE (ev_type);
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;
+  int joined;
   expr_res v;
   int off;
 
@@ -65,16 +90,16 @@ void ChpSim::Step (int ev_type)
 
   /*-- go forward through sim graph until there's some work --*/
   while (_pc[pc] && !_pc[pc]->stmt) {
-    _pc[pc] = _pc[pc]->completed(pc, &forceret);
-    if (forceret) return;
+    pc = _updatepc (pc);
+    /* if you go forward, then you're not waking up any more */
+    flag = 0;
   }
   if (!_pc[pc]) return;
 
   chpsimstmt *stmt = _pc[pc]->stmt;
-  forceret = 0;
 
 #ifdef DUMP_ALL  
-  printf ("[%8lu %d; pc:%d] <", CurTimeLo(), flag, pc);
+  printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
   name->Print (stdout);
   printf ("> ");
 #endif  
@@ -87,16 +112,27 @@ void ChpSim::Step (int ev_type)
 #endif    
     forceret = 1;
     {
+      int first = 1;
+      int count = 0;
+      int idx;
       ChpSimGraph *g = _pc[pc];
       for (int i=0; i < stmt->u.fork; i++) {
-	if (g->all[i]) {
-	  _pc[i] = g->all[i];
-	  new Event (this, SIM_EV_MKTYPE (i,0), 10);
+	if (first) {
+	  idx = pc;
+	  first = 0;
 	}
 	else {
-	  _pc[i] = NULL;
+	  idx = count + _pcused;
+	  count++;
+	}
+	_pc[idx] = g->all[i];
+	if (g->all[i]) {
+	  printf (" idx:%d", idx);
+	  new Event (this, SIM_EV_MKTYPE (idx,0), 10);
 	}
       }
+      _pcused += stmt->u.fork - 1;
+      printf (" _used:%d", _pcused);
     }
     break;
 
@@ -106,9 +142,9 @@ void ChpSim::Step (int ev_type)
 #endif
     v = exprEval (stmt->u.assign.e);
 #ifdef DUMP_ALL    
-    printf ("  %d : %d", v.v, v.width);
+    printf ("  %d (w=%d)", v.v, v.width);
 #endif
-    _pc[pc] = _pc[pc]->completed (pc, &forceret);
+    pc = _updatepc (pc);
     if (stmt->u.assign.isbool) {
       off = getGlobalOffset (stmt->u.assign.var, 0);
 #if 0      
@@ -145,7 +181,7 @@ void ChpSim::Step (int ev_type)
 	forceret = 1;
       }
       else {
-	_pc[pc] = _pc[pc]->completed (pc, &forceret);
+	pc = _updatepc (pc);
       }
     }
     else {
@@ -153,7 +189,7 @@ void ChpSim::Step (int ev_type)
       printf ("send done");
 #endif      
       if (!varSend (pc, flag, stmt->u.send.chvar, v)) {
-	_pc[pc] = _pc[pc]->completed (pc, &forceret);
+	pc = _updatepc (pc);
       }
     }
     break;
@@ -200,7 +236,7 @@ void ChpSim::Step (int ev_type)
 	    _sc->setInt (off, v.v);
 	  }
 	}
-	_pc[pc] = _pc[pc]->completed (pc, &forceret);
+	pc = _updatepc (pc);
       }
     }
     break;
@@ -247,7 +283,7 @@ void ChpSim::Step (int ev_type)
 	}
 	else {
 	  /* loop: we're done! */
-	  _pc[pc] = _pc[pc]->completed (pc, &forceret);
+	  pc = _updatepc (pc);
 	}
       }
     }
@@ -329,6 +365,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
     c->recv_here = 0;
   }
   else {
+#if 0    
+    printf (" [recv-blk %d]", pc);
+#endif    
     c->recv_here = (pc+1);
     c->w->AddObject (this);
     return 1;

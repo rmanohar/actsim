@@ -1259,6 +1259,7 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
   if (next->wait > 0) {
     next->tot++;
     if (next->wait == next->tot) {
+      *done = 1;
       next->tot = 0;
       return next;
     }

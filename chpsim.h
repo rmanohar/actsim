@@ -41,6 +41,8 @@ class ChpSim : public ActSimObj {
   int _npc;			/* # of program counters */
   ChpSimGraph **_pc;		/* current PC state of simulation */
 
+  int _pcused;			/* # of _pc[] slots currently being used */
+  
   int _max_program_counters (act_chp_lang_t *c);
 
   expr_res exprEval (Expr *e);
@@ -50,6 +52,8 @@ class ChpSim : public ActSimObj {
   void varSet (int id, int type, expr_res v);
   int varSend (int pc, int wakeup, int id, expr_res v);
   int varRecv (int pc, int wakeup, int id, expr_res *v);
+
+  int _updatepc (int pc);
   
 };
 
