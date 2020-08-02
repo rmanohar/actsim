@@ -408,10 +408,11 @@ expr_res ChpSim::varEval (int id, int type)
     act_channel_state *c = _sc->getChan (off);
     if (c->send_here) {
       r.width = 32;
-      r.v = c->data;
+      r.v = c->data2;
     }
     else {
-      r.width = 0;
+      /* value probe */
+      r.width = 1;
       r.v = 0;
     }
   }
