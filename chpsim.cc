@@ -75,6 +75,105 @@ int ChpSim::_updatepc (int pc)
   return pc;
 }
 
+void ChpSim::_collect_probes (Expr *e, int pc)
+{
+  if (!e) return;
+
+  switch (e->type) {
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+  case E_REAL:
+    break;
+
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    _collect_probes (e->u.e.l, pc);
+    _collect_probes (e->u.e.r, pc);
+    break;
+    
+  case E_UMINUS:
+  case E_COMPLEMENT:
+  case E_NOT:
+    _collect_probes (e->u.e.l, pc);
+    break;
+
+  case E_QUERY:
+    _collect_probes (e->u.e.l, pc);
+    _collect_probes (e->u.e.r->u.e.l, pc);
+    _collect_probes (e->u.e.r->u.e.r, pc);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    do {
+      _collect_probes (e->u.e.l, pc);
+      e = e->u.e.r;
+    } while (e);
+    break;
+
+  case E_BITFIELD:
+    break;
+
+  case E_CHP_VARBOOL:
+  case E_CHP_VARINT:
+  case E_VAR:
+    break;
+
+  case E_CHP_VARCHAN:
+  case E_PROBE:
+    {
+      int off = getGlobalOffset (e->u.v, 2);
+      act_channel_state *c = _sc->getChan (off);
+      c->w->AddObject (this);
+      /* XXX: FIXME */
+      c->recv_here = (pc+1);
+    }
+    break;
+
+  case E_BUILTIN_BOOL:
+  case E_BUILTIN_INT:
+    _collect_probes (e->u.e.l, pc);
+    break;
+
+  case E_FUNCTION:
+  case E_SELF:
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+}
+
+void ChpSim::_add_waitcond (chpsimcond *gc, int pc)
+{
+  while (gc) {
+    if (gc->g) {
+      _collect_probes (gc->g, pc);
+    }
+    gc = gc->next;
+  }
+}
+
 void ChpSim::Step (int ev_type)
 {
   int pc = SIM_EV_TYPE (ev_type);
@@ -292,7 +391,10 @@ void ChpSim::Step (int ev_type)
       /* all guards false */
       if (!gc) {
 	if (_pc[pc]->next == NULL) {
-	  /* selection: we just try again later */
+	  /* selection: we just try again later: add yourself to
+	     probed signals */
+	  _add_waitcond (&stmt->u.c, pc);
+	  forceret = 1;
 	  break;
 	}
 	else {

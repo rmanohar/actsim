@@ -54,6 +54,8 @@ class ChpSim : public ActSimObj {
   int varRecv (int pc, int wakeup, int id, expr_res *v);
 
   int _updatepc (int pc);
+  void _add_waitcond (chpsimcond *gc, int pc);
+  void _collect_probes (Expr *e, int pc);
   
 };
 
