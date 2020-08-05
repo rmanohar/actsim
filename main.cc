@@ -32,7 +32,7 @@
 
 static void usage (char *name)
 {
-  fprintf (stderr, "Usage: %s <actfile> <cells> <process>\n", name);
+  fprintf (stderr, "Usage: %s <actfile> <process>\n", name);
   exit (1);
 }
 
@@ -46,35 +46,32 @@ int main (int argc, char **argv)
   Act::Init (&argc, &argv);
 
   /* some usage check */
-  if (argc != 4) {
+  if (argc != 3) {
     usage (argv[0]);
   }
 
   /* read in the ACT file */
   a = new Act (argv[1]);
 
-  /* merge in cells */
-  a->Merge (argv[2]);
-
   /* expand it */
   a->Expand ();
 
   /* map to cells: these get characterized */
-  ActCellPass *cp = new ActCellPass (a);
-  cp->run();
+  //ActCellPass *cp = new ActCellPass (a);
+  //cp->run();
  
   /* read configuration file, if any */
   config_read ("prs2net.conf");
 
   /* find the process specified on the command line */
-  Process *p = a->findProcess (argv[3]);
+  Process *p = a->findProcess (argv[2]);
 
   if (!p) {
-    fatal_error ("Could not find process `%s' in file `%s'", argv[3], argv[1]);
+    fatal_error ("Could not find process `%s' in file `%s'", argv[2], argv[1]);
   }
 
   if (!p->isExpanded()) {
-    fatal_error ("Process `%s' is not expanded.", argv[3]);
+    fatal_error ("Process `%s' is not expanded.", argv[2]);
   }
 
   /* do stuff here */
