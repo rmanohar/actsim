@@ -24,6 +24,7 @@
 
 #include <bitset.h>
 #include <simdes.h>
+#include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
 
