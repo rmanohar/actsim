@@ -226,12 +226,16 @@ void ChpSim::Step (int ev_type)
 	}
 	_pc[idx] = g->all[i];
 	if (g->all[i]) {
+#if 0	  
 	  printf (" idx:%d", idx);
+#endif
 	  new Event (this, SIM_EV_MKTYPE (idx,0), 10);
 	}
       }
       _pcused += stmt->u.fork - 1;
+#if 0
       printf (" _used:%d", _pcused);
+#endif      
     }
     break;
 

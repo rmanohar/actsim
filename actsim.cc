@@ -478,7 +478,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    if (bnl->ports[i].omit) continue;
 	    Assert (iportbool < A_LEN (mynl->instports), "What?");
 
-	    act_connection *c = mynl->instchpports[iportchp];
+	    act_connection *c = mynl->instports[iportbool];
 	    int off = getLocalOffset (c, mysi, NULL);
 	      
 	    if (off < 0) {
@@ -858,7 +858,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
       loc = (loc + 1)/2 - 1;
 #if 0
       printf (" -> %d localport @ %d\n", portoff[loc], loc);
-#endif      
+#endif
       return portoff[loc];
     }
     else {
