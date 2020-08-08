@@ -432,7 +432,6 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	for (int i=0; i < A_LEN (bnl->ports); i++) {
 	  if (bnl->ports[i].omit == 0) {
 	    ports_exist++;
-	    break;
 	  }
 	}
 	for (int i=0; i < A_LEN (bnl->chpports); i++) {
@@ -450,7 +449,6 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    else {
 	      chpports_exist_bool++;
 	    }
-	    break;
 	  }
 	}
 
@@ -644,6 +642,71 @@ void ActSimCore::_initSim ()
   _curoffset = globals;
   _cursi = sp->getStateInfo (_curproc);
 
+  /*
+    Allocate top-level ports
+  */
+  act_boolean_netlist_t *bnl = bp->getBNL (_curproc);
+
+  int ports_exist = 0;
+  int chpports_exist_int = 0;
+  int chpports_exist_bool = 0;
+  int chpports_exist_chan = 0;
+
+  for (int i=0; i < A_LEN (bnl->ports); i++) {
+    if (bnl->ports[i].omit == 0) {
+      ports_exist++;
+    }
+  }
+  for (int i=0; i < A_LEN (bnl->chpports); i++) {
+    if (bnl->chpports[i].omit == 0) {
+      ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
+      act_booleanized_var_t *v;
+      Assert (xb, "What?");
+      v = (act_booleanized_var_t *)xb->v;
+      if (v->ischan) {
+	chpports_exist_chan++;
+      }
+      else if (v->isint) {
+	chpports_exist_int++;
+      }
+      else {
+	chpports_exist_bool++;
+      }
+    }
+  }
+
+  /* compute port bool, int and chan ports */
+  _cur_abs_port_bool = NULL;
+  _cur_abs_port_int = NULL;
+  _cur_abs_port_chan = NULL;
+
+  if (chpports_exist_bool || chpports_exist_int || chpports_exist_chan ||
+      ports_exist) {
+    if (chpports_exist_chan) {
+      MALLOC (_cur_abs_port_chan, int, chpports_exist_chan);
+    }
+    if (chpports_exist_int) {
+      MALLOC (_cur_abs_port_int, int, chpports_exist_int);
+    }
+    if (chpports_exist_bool || ports_exist) {
+      MALLOC (_cur_abs_port_bool, int, chpports_exist_bool + ports_exist);
+    }
+  }
+
+  int i;
+  for (i=0; i < ports_exist + chpports_exist_bool; i++) {
+    _cur_abs_port_bool[i] = i;
+  }
+  _curoffset.bools = i;
+  for (i=0; i < chpports_exist_int; i++) {
+    _cur_abs_port_int[i] = i;
+  }
+  _curoffset.ints = i;
+  for (i=0; i < chpports_exist_chan; i++) {
+    _cur_abs_port_chan[i] = i;
+  }
+  _curoffset.chans = i;
+  
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
 }
