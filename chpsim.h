@@ -41,7 +41,9 @@ class ChpSim : public ActSimObj {
   int _npc;			/* # of program counters */
   ChpSimGraph **_pc;		/* current PC state of simulation */
 
-  int _pcused;			/* # of _pc[] slots currently being used */
+  int _pcused;			/* # of _pc[] slots currently being
+				   used */
+  int _stalled_pc;
   
   int _max_program_counters (act_chp_lang_t *c);
 
@@ -54,8 +56,11 @@ class ChpSim : public ActSimObj {
   int varRecv (int pc, int wakeup, int id, expr_res *v);
 
   int _updatepc (int pc);
-  void _add_waitcond (chpsimcond *gc, int pc);
-  void _collect_probes (Expr *e, int pc);
+  int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);
+  int _collect_sharedvars (Expr *e, int pc, int undo);
+
+  WaitForOne *gshared;		// global wait condition for shared
+				// variables 
   
 };
 

@@ -251,6 +251,8 @@ void ActSimCore::_add_dflow (act_dataflow *d)
 
 void ActSimCore::_add_hse (act_chp *c)
 {
+  ihash_bucket_t *b;
+#if 0 
   printf ("add-hse-inst: ");
   if (_curinst) {
     _curinst->Print (stdout);
@@ -259,7 +261,23 @@ void ActSimCore::_add_hse (act_chp *c)
     printf ("-none-");
   }
   printf ("\n");
+#endif  
 
+  ChpSimGraph *sg;
+  b = ihash_lookup (map, (long)_curproc);
+  if (b) {
+    sg = (ChpSimGraph *)b->v;
+  }
+  else {
+    ChpSimGraph *stop;
+    b = ihash_add (map, (long)_curproc);
+    sg = _build_chp_graph (c->c,  &stop);
+    b->v = sg;
+  }
+  ChpSim *x = new ChpSim (sg, c->c, this);
+  x->setName (_curinst);
+  x->setOffsets (&_curoffset);
+  x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
 }
 
 void ActSimCore::_add_prs (act_prs *p)
@@ -734,7 +752,8 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   printf ("# bools=%d, ints=%d, chans=%d\n",
 	  bools, ints, chantot);
 #endif
-
+  nbools = bools;
+  
   if (bools > 0) {
     bits = bitset_new (bools);
   }
@@ -765,6 +784,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   else {
     chans = NULL;
   }
+  gshared = new WaitForOne (10);
 }
 
 ActSimState::~ActSimState()
@@ -776,11 +796,14 @@ ActSimState::~ActSimState()
     FREE (ival);
   }
   if (chans) {
+    for (int i=0; i < nchans; i++) {
+      delete chans[i].w;
+    }
     FREE (chans);
   }
+  delete gshared;
 }
 		 
-
 
 ActSim::ActSim (Process *root) : ActSimCore (root)
 {

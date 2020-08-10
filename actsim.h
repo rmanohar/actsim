@@ -51,6 +51,9 @@ struct act_channel_state {
   int data, data2;
   WaitForOne *w;
 };
+
+#define MAX_LOCAL_PCS 1024
+
   
 class ActSimState {
 public:
@@ -62,9 +65,13 @@ public:
   int getBool (int x);
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
+
+  void gStall (SimDES *s) { gshared->AddObject (s); }
+  void gWakeup () { gshared->Notify (MAX_LOCAL_PCS); }
   
 private:
-  bitset_t *bits;		/* booleans */
+  bitset_t *bits;		/* Booleans */
+  int nbools;			/* # of Booleans */
   
   int *ival;			/* integers */
   int nints;			/* number of integers */
@@ -74,7 +81,7 @@ private:
 
   /*--- what about other bits of state?! ---*/
   
-  
+  WaitForOne *gshared;
 };
 
 

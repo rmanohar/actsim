@@ -49,6 +49,8 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
   Assert (_npc >= 1, "What?");
   _pc[0] = g;
 
+  _stalled_pc = -1;
+
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
 }
 
@@ -75,9 +77,10 @@ int ChpSim::_updatepc (int pc)
   return pc;
 }
 
-void ChpSim::_collect_probes (Expr *e, int pc)
+int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 {
-  if (!e) return;
+  int ret = 0;
+  if (!e) return ret;
 
   switch (e->type) {
   case E_TRUE:
@@ -104,20 +107,20 @@ void ChpSim::_collect_probes (Expr *e, int pc)
   case E_GE:
   case E_EQ:
   case E_NE:
-    _collect_probes (e->u.e.l, pc);
-    _collect_probes (e->u.e.r, pc);
+    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
+    ret = ret | _collect_sharedvars (e->u.e.r, pc, undo);
     break;
     
   case E_UMINUS:
   case E_COMPLEMENT:
   case E_NOT:
-    _collect_probes (e->u.e.l, pc);
+    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
   case E_QUERY:
-    _collect_probes (e->u.e.l, pc);
-    _collect_probes (e->u.e.r->u.e.l, pc);
-    _collect_probes (e->u.e.r->u.e.r, pc);
+    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
+    ret = ret | _collect_sharedvars (e->u.e.r->u.e.l, pc, undo);
+    ret = ret | _collect_sharedvars (e->u.e.r->u.e.r, pc, undo);
     break;
 
   case E_COLON:
@@ -127,7 +130,7 @@ void ChpSim::_collect_probes (Expr *e, int pc)
 
   case E_CONCAT:
     do {
-      _collect_probes (e->u.e.l, pc);
+      ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
       e = e->u.e.r;
     } while (e);
     break;
@@ -138,6 +141,11 @@ void ChpSim::_collect_probes (Expr *e, int pc)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
+    {
+      if (e->u.v < 0) {
+	ret = 1;
+      }
+    }
     break;
 
   case E_CHP_VARCHAN:
@@ -145,15 +153,21 @@ void ChpSim::_collect_probes (Expr *e, int pc)
     {
       int off = getGlobalOffset (e->u.v, 2);
       act_channel_state *c = _sc->getChan (off);
-      c->w->AddObject (this);
-      /* XXX: FIXME */
-      c->recv_here = (pc+1);
+      if (undo) {
+	c->w->DelObject (this);
+	c->recv_here = 0;
+      }
+      else {
+	/* XXX: FIXME */
+	c->w->AddObject (this);
+	c->recv_here = (pc+1);
+      }
     }
     break;
 
   case E_BUILTIN_BOOL:
   case E_BUILTIN_INT:
-    _collect_probes (e->u.e.l, pc);
+    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
   case E_FUNCTION:
@@ -162,16 +176,19 @@ void ChpSim::_collect_probes (Expr *e, int pc)
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
   }
+  return ret;
 }
 
-void ChpSim::_add_waitcond (chpsimcond *gc, int pc)
+int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
 {
+  int ret = 0;
   while (gc) {
     if (gc->g) {
-      _collect_probes (gc->g, pc);
+      ret = ret | _collect_sharedvars (gc->g, pc, undo);
     }
     gc = gc->next;
   }
+  return ret;
 }
 
 void ChpSim::Step (int ev_type)
@@ -182,6 +199,11 @@ void ChpSim::Step (int ev_type)
   int joined;
   expr_res v;
   int off;
+
+  if (pc == MAX_LOCAL_PCS) {
+    pc = _stalled_pc;
+    _stalled_pc = -1;
+  }
 
   if (!_pc[pc]) {
     return;
@@ -368,6 +390,10 @@ void ChpSim::Step (int ev_type)
       int cnt = 0;
       expr_res res;
 
+      if (flag) {
+	/*-- release wait conditions in case there are multiple --*/
+      }
+
 #ifdef DUMP_ALL
       if (_pc[pc]->next == NULL) {
 	printf ("cond");
@@ -397,8 +423,16 @@ void ChpSim::Step (int ev_type)
 	if (_pc[pc]->next == NULL) {
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
-	  _add_waitcond (&stmt->u.c, pc);
 	  forceret = 1;
+	  if (_add_waitcond (&stmt->u.c, pc)) {
+	    if (_stalled_pc == -1) {
+	      gshared->AddObject (this);
+	      _stalled_pc = pc;
+	    }
+	    else {
+	      forceret = 0;
+	    }
+	  }
 	  break;
 	}
 	else {
