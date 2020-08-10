@@ -52,6 +52,11 @@ struct act_channel_state {
   WaitForOne *w;
 };
 
+struct expr_res {
+  unsigned int v;		/* value */
+  int width;			/* bitwidth */
+};
+
 #define MAX_LOCAL_PCS 1024
 
   

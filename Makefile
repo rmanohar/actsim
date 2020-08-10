@@ -24,7 +24,7 @@ TARGETS=$(EXE)
 TARGETINCS=actsim.h
 TARGETINCSUBDIR=act
 
-OBJS=actsim.o main.o chpsim.o
+OBJS=actsim.o main.o chpsim.o prssim.o
 
 SRCS=$(OBJS:.o=.cc)
 

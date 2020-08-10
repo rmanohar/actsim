@@ -21,7 +21,7 @@
  */
 #include "actsim.h"
 #include "chpsim.h"
-
+#include "prssim.h"
 
 /*
 
@@ -208,6 +208,7 @@ ActSimCore::~ActSimCore()
 void ActSimCore::_add_chp (act_chp *c)
 {
   ihash_bucket_t *b;
+
 #if 0  
   printf ("add-chp-inst: ");
   if (_curinst) {
@@ -238,6 +239,7 @@ void ActSimCore::_add_chp (act_chp *c)
 
 void ActSimCore::_add_dflow (act_dataflow *d)
 {
+
   printf ("add-dflow-inst: ");
   if (_curinst) {
     _curinst->Print (stdout);
@@ -246,6 +248,7 @@ void ActSimCore::_add_dflow (act_dataflow *d)
     printf ("-none-");
   }
   printf ("\n");
+
 }
 
 
@@ -282,6 +285,7 @@ void ActSimCore::_add_hse (act_chp *c)
 
 void ActSimCore::_add_prs (act_prs *p)
 {
+#if 0  
   printf ("add-prs-inst: ");
   if (_curinst) {
     _curinst->Print (stdout);
@@ -290,6 +294,14 @@ void ActSimCore::_add_prs (act_prs *p)
     printf ("-none-");
   }
   printf ("\n");
+#endif  
+
+  /* need prs simulation graph */
+
+  PrsSim *x = new PrsSim (NULL, p, this);
+  x->setName (_curinst);
+  x->setOffsets (&_curoffset);
+  x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
 }
 
 int ActSimCore::_getlevel ()
