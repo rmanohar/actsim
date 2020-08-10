@@ -199,6 +199,7 @@ void ChpSim::Step (int ev_type)
   int joined;
   expr_res v;
   int off;
+  int delay = 10;
 
   if (pc == MAX_LOCAL_PCS) {
     pc = _stalled_pc;
@@ -367,7 +368,7 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_FUNC:
-    printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
+    printf ("[%8lu t#:%d] <", CurTimeLo(), pc);
     name->Print (stdout);
     printf ("> ");
     for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
@@ -382,6 +383,7 @@ void ChpSim::Step (int ev_type)
     }
     printf ("\n");
     pc = _updatepc (pc);
+    delay = 0;
     break;
 
   case CHPSIM_COND:
@@ -392,6 +394,7 @@ void ChpSim::Step (int ev_type)
 
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
+        _add_waitcond (&stmt->u.c, pc, 1);
       }
 
 #ifdef DUMP_ALL
@@ -454,7 +457,7 @@ void ChpSim::Step (int ev_type)
     return;
   }
   else {
-    new Event (this, SIM_EV_MKTYPE (pc,0), 10);
+    new Event (this, SIM_EV_MKTYPE (pc,0), delay);
   }
 }
 
