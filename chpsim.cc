@@ -394,7 +394,7 @@ void ChpSim::Step (int ev_type)
 
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
-        _add_waitcond (&stmt->u.c, pc, 1);
+        //_add_waitcond (&stmt->u.c, pc, 1);
       }
 
 #ifdef DUMP_ALL

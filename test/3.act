@@ -1,0 +1,33 @@
+defproc src(chan!(bool) x)
+{
+  int w; 
+  chp {
+    w := 0;
+   *[ w < 100 -> x!false; w:=w+1 ]
+  }
+}
+
+defproc sink(chan?(bool) x)
+{
+  bool t;
+  chp {
+   *[ x?t ]
+  }
+}
+
+defproc buffer (chan?(bool) l; chan!(bool) r)
+{
+  bool x;
+  chp {
+   *[ l?x; log("got ", x); x:=~x; r!x ]
+  }
+}
+
+defproc test()
+{
+  buffer b;
+  src source(b.l);
+  sink bucket(b.r);
+}
+
+test t;

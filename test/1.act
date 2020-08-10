@@ -1,0 +1,40 @@
+defproc src(chan!(int) x)
+{
+  int a;
+  chp {
+    a:=0;
+   *[ a < 1000 -> x!a; a := a + 1 ]
+  }
+}
+
+defproc sink(chan?(int) x)
+{
+  int t;
+  chp {
+   *[ x?t; log ("got ", t) ]
+  }
+}
+
+defproc buffer (chan?(int) l; chan!(int) r)
+{
+  int x;
+  bool b;
+  chp {
+    b-;
+   *[ l?x; skip; [b -> x:= x + 1 [] ~b -> skip ]; b:=~b; r!x ]
+  }
+}
+
+defproc test()
+{
+  pint N = 100;
+  
+  buffer b[N];
+
+  src source(b[0].l);
+  sink bucket(b[N-1].r);
+
+  (i:N-1: b[i].r = b[i+1].l;)
+}
+
+test t;

@@ -1,0 +1,35 @@
+defchan e1of2 <: chan(bool) (bool t, f, e) { }
+
+defproc src(e1of2! x)
+{
+  int w; 
+  chp {
+    w := 0;
+   *[ w < 100 -> x!false; w:=w+1 ]
+  }
+}
+
+defproc sink(e1of2? x)
+{
+  bool t;
+  chp {
+   *[ x?t ]
+  }
+}
+
+defproc buffer (e1of2? l; e1of2! r)
+{
+  bool x;
+  chp {
+   *[ l?x; x:=~x; log("got a value ", x); r!x ]
+  }
+}
+
+defproc test()
+{
+  buffer b;
+  src source(b.l);
+  sink bucket(b.r);
+}
+
+test t;

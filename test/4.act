@@ -1,0 +1,17 @@
+defproc test (bool? i; bool! o)
+{
+    chp
+    {
+        o := ~i; log ("here")
+    }
+    
+/*
+    prs
+    {
+        i => o-
+    }
+*/
+}
+
+test t;
+

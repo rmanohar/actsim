@@ -1,0 +1,35 @@
+defproc src(chan!(int) x)
+{
+  int a;
+  chp {
+    a:=0;
+   *[ a < 1000 -> x!a; a := a + 1 ]
+  }
+}
+
+defproc sink(chan?(int) x)
+{
+  int t;
+  chp {
+   *[ x?t; log ("got ", t) ]
+  }
+}
+
+defproc add (chan?(int) a, b; chan!(int) r)
+{
+  int x, y;
+  chp {
+   *[ a?x,b?y;r!(x+y) ]
+  }
+}
+
+defproc test()
+{
+  add a;
+
+  src src1(a.a);
+  src src2(a.b);
+  sink bucket(a.r);
+}
+
+test t;
