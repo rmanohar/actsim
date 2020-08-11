@@ -395,7 +395,10 @@ void ChpSim::Step (int ev_type)
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
         if (_add_waitcond (&stmt->u.c, pc, 1)) {
-	  _sc->gRemove (this);
+	  if (_stalled_pc != -1) {
+	    _sc->gRemove (this);
+	    _stalled_pc = -1;
+	  }
 	}
       }
 
