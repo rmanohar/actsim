@@ -72,6 +72,7 @@ public:
   act_channel_state *getChan (int x);
 
   void gStall (SimDES *s) { gshared->AddObject (s); }
+  void gRemove (SimDES *s) { gshared->DelObject (s); }
   void gWakeup () { gshared->Notify (MAX_LOCAL_PCS); }
   
 private:
@@ -166,6 +167,7 @@ class ActSimCore {
       sets type to 0, 1, 2 for bool, int, chan
   */
   void gStall (SimDES *s) { state->gStall (s); }
+  void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
 
 protected:

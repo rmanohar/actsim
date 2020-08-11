@@ -394,7 +394,9 @@ void ChpSim::Step (int ev_type)
 
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
-        _add_waitcond (&stmt->u.c, pc, 1);
+        if (_add_waitcond (&stmt->u.c, pc, 1)) {
+	  _sc->gRemove (this);
+	}
       }
 
 #ifdef DUMP_ALL
@@ -475,6 +477,7 @@ void ChpSim::varSet (int id, int type, expr_res v)
     /* channel! */
   }
   if (id < 0) {
+    /*-- non-local variable --*/
     _sc->gWakeup ();
   }
 }
