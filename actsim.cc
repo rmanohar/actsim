@@ -409,6 +409,11 @@ void ActSimCore::_add_all_inst (Scope *sc)
   mysi = _cursi;
   myoffset = _curoffset;
 
+  /* -- increment cur offset after allocating all the items -- */
+  _curoffset.bools += _cursi->localbools + _cursi->chp_local.bools;
+  _curoffset.ints += _cursi->chp_local.ints;
+  _curoffset.chans += _cursi->chp_local.chans;
+
   ActInstiter it(sc);
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
@@ -631,10 +636,6 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	_add_language (lev, x->getlang());
 	_add_all_inst (x->CurScope());
 
-	_curoffset.bools += si->allbools + si->chp_all.bools;
-	_curoffset.ints += si->chp_all.ints;
-	_curoffset.chans += si->chp_all.chans;
-	
 	if (as) {
 	  Array *atmp = tmpid->arrayInfo();
 	  delete atmp;
@@ -725,17 +726,17 @@ void ActSimCore::_initSim ()
 
   int i;
   for (i=0; i < ports_exist + chpports_exist_bool; i++) {
-    _cur_abs_port_bool[i] = i;
+    _cur_abs_port_bool[i] = i + _curoffset.bools;
   }
-  _curoffset.bools = i;
+  _curoffset.bools += i;
   for (i=0; i < chpports_exist_int; i++) {
-    _cur_abs_port_int[i] = i;
+    _cur_abs_port_int[i] = i + _curoffset.ints;
   }
-  _curoffset.ints = i;
+  _curoffset.ints += i;
   for (i=0; i < chpports_exist_chan; i++) {
-    _cur_abs_port_chan[i] = i;
+    _cur_abs_port_chan[i] = i + _curoffset.chans;
   }
-  _curoffset.chans = i;
+  _curoffset.chans += i;
   
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
