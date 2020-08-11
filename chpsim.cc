@@ -141,10 +141,8 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    {
-      if (e->u.v < 0) {
-	ret = 1;
-      }
+    if (e->u.v < 0) {
+      ret = 1;
     }
     break;
 
@@ -154,8 +152,10 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       int off = getGlobalOffset (e->u.v, 2);
       act_channel_state *c = _sc->getChan (off);
       if (undo) {
-	c->w->DelObject (this);
-	c->recv_here = 0;
+	if (c->w->isWaiting (this)) {
+	  c->w->DelObject (this);
+	  c->recv_here = 0;
+	}
       }
       else {
 	/* XXX: FIXME */
@@ -394,7 +394,7 @@ void ChpSim::Step (int ev_type)
 
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
-        //_add_waitcond (&stmt->u.c, pc, 1);
+        _add_waitcond (&stmt->u.c, pc, 1);
       }
 
 #ifdef DUMP_ALL
@@ -429,7 +429,7 @@ void ChpSim::Step (int ev_type)
 	  forceret = 1;
 	  if (_add_waitcond (&stmt->u.c, pc)) {
 	    if (_stalled_pc == -1) {
-	      gshared->AddObject (this);
+	      _sc->gStall (this);
 	      _stalled_pc = pc;
 	    }
 	    else {
@@ -473,6 +473,9 @@ void ChpSim::varSet (int id, int type, expr_res v)
   else {
     fatal_error ("Use channel send/recv!");
     /* channel! */
+  }
+  if (id < 0) {
+    _sc->gWakeup ();
   }
 }
 

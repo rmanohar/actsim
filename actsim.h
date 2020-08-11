@@ -85,7 +85,6 @@ private:
   int nchans;			/* numchannels */
 
   /*--- what about other bits of state?! ---*/
-  
   WaitForOne *gshared;
 };
 
@@ -166,6 +165,8 @@ class ActSimCore {
 
       sets type to 0, 1, 2 for bool, int, chan
   */
+  void gStall (SimDES *s) { state->gStall (s); }
+  void gWakeup () { state->gWakeup(); }
 
 protected:
   Act *a;

@@ -53,10 +53,6 @@ class ChpSim : public ActSimObj {
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);
   int _collect_sharedvars (Expr *e, int pc, int undo);
-
-  WaitForOne *gshared;		// global wait condition for shared
-				// variables 
-  
 };
 
 
