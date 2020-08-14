@@ -1,0 +1,43 @@
+template<pint N>
+defproc src(chan!(int) x)
+{
+  int a;
+  chp {
+    a:=N;
+   *[ a < 1000 -> x!a; a := a + 2 ]
+  }
+}
+
+function ftest(int a) : int
+{
+  int y;
+  chp { 
+    self:=a+1
+  }
+}
+
+defproc sink(chan?(int) x)
+{
+  int t;
+  chp {
+   *[ x?t; t:=ftest(t); log("got ", t) ]
+  }
+}
+
+defproc merge (chan?(int) l1, l2; chan!(int) r)
+{
+  int x;
+  chp {
+   *[ [l1=0 -> l1?x; log("I am here") [] #l2 -> l2?x ]; r!x ]
+  }
+}
+
+defproc test()
+{
+  src<0> s1;
+  src<1> s2;
+  merge m(s1.x,s2.x);
+  sink bucket(m.r);
+}
+
+test t;
