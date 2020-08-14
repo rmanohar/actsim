@@ -1101,6 +1101,7 @@ Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 	  NEW (tmp->u.e.r, Expr);
 	  tmp = tmp->u.e.r;
 	}
+	tmp->u.e.r = NULL;
 	tmp->type = e->type;
 	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
 	e = e->u.e.r;
