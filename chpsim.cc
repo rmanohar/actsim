@@ -719,7 +719,22 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     }
     b->v = x;
   }
-  
+
+  if (nargs != f->getNumPorts()) {
+    fatal_error ("Function `%s': invalid number of arguments", f->getName());
+  }
+
+  for (int i=0; i < f->getNumPorts(); i++) {
+    b = hash_lookup (lstate, f->getPortName (i));
+    Assert (b, "What?");
+    x = (expr_res *) b->v;
+
+    x->v = args[i].v;
+    if (args[i].width > x->width) {
+      x->v &= ((1 << x->width) - 1);
+    }
+  }
+
   /* --- run body -- */
   if (!f->getlang() || !f->getlang()->getchp()) {
     fatal_error ("Function requires a chp body!");
