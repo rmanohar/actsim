@@ -36,6 +36,9 @@
 #define E_CHP_VARINT_DEREF   (E_NEWEND + 5)
 #define E_CHP_VARCHAN_DEREF  (E_NEWEND + 6)
 
+#define E_PROBEIN  (E_NEWEND + 7)
+#define E_PROBEOUT  (E_NEWEND + 8)
+
 /*
  *
  * Core simulation library

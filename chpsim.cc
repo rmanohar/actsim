@@ -142,12 +142,14 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    if (e->u.v < 0) {
-      ret = 1;
-    }
+    ret = 1;
     break;
 
   case E_CHP_VARCHAN:
+    break;
+    
+  case E_PROBEIN:
+  case E_PROBEOUT:
   case E_PROBE:
     {
       int off = getGlobalOffset (e->u.v, 2);
@@ -1009,6 +1011,8 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_PROBE:
+  case E_PROBEIN:
+  case E_PROBEOUT:
     l = varEval (e->u.v, 3);
     break;
 

@@ -877,7 +877,12 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
 
   if (type) {
     if (v->ischan) {
-      *type = 2;
+      if (v->input) {
+	*type = 2;
+      }
+      else {
+	*type = 3;
+      }
     }
     else if (v->isint) {
       *type = 1;
@@ -1076,14 +1081,29 @@ Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       else if (type == 1) {
 	ret->type = E_CHP_VARINT;
       }
-      else {
+      else if (type == 0) {
 	ret->type = E_CHP_VARBOOL;
+      }
+      else {
+	fatal_error ("Channel output variable used in expression?");
       }
     }
     break;
 
   case E_PROBE:
-    ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), NULL);
+    {
+      int type;
+      ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+      if (type == 2) {
+	ret->type = E_PROBEIN;
+      }
+      else if (type == 3) {
+	ret->type = E_PROBEOUT;
+      }
+      else {
+	Assert (0, "Probe on a non-channel?");
+      }
+    }
     break;
     
   case E_FUNCTION:
@@ -1310,6 +1330,9 @@ ChpSimGraph *ActSimCore::_build_chp_graph (act_chp_lang_t *c, ChpSimGraph **stop
 	ActId *id = (ActId *) list_value (li);
 	int type;
 	int x = getLocalOffset (id, cursi(), &type);
+	if (type == 3) {
+	  type = 2;
+	}
 	list_append (ret->stmt->u.recv.vl, (void *)(long)type);
 	list_append (ret->stmt->u.recv.vl, (void *)(long)x);
       }
