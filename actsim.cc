@@ -1108,9 +1108,7 @@ Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     }
     break;
 
-
   case E_SELF:
-    /* FIXME: E_SELF! */
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;

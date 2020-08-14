@@ -50,6 +50,7 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
   _pc[0] = g;
 
   _stalled_pc = -1;
+  _statestk = list_new ();
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
 }
@@ -582,6 +583,165 @@ expr_res ChpSim::varEval (int id, int type)
   }
   return r;
 }
+
+void ChpSim::_run_chp (act_chp_lang_t *c)
+{
+  listitem_t *li;
+  hash_bucket_t *b;
+  expr_res *x, res;
+  act_chp_gc_t *gc;
+  int rep;
+  struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+  
+  if (!c) return;
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
+      _run_chp ((act_chp_lang_t *) list_value (li));
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+    gc = c->u.gc;
+    if (gc->id) {
+      fatal_error ("No replication in functions!");
+    }
+    while (gc) {
+      if (!gc->g) {
+	_run_chp (gc->s);
+	return;
+      }
+      res = exprEval (gc->g);
+      if (res.v) {
+	_run_chp (gc->s);
+	return;
+      }
+      gc = gc->next;
+    }
+    fatal_error ("All guards false in function selection statement!");
+    break;
+    
+  case ACT_CHP_LOOP:
+    gc = c->u.gc;
+    if (gc->id) {
+      fatal_error ("No replication in functions!");
+    }
+    while (1) {
+      gc = c->u.gc;
+      while (gc) {
+	if (!gc->g) {
+	  _run_chp (gc->s);
+	  break;
+	}
+	res = exprEval (gc->g);
+	if (res.v) {
+	  _run_chp (gc->s);
+	  break;
+	}
+	gc = gc->next;
+      }
+      if (!gc) {
+	break;
+      }
+    }
+    break;
+    
+  case ACT_CHP_DOLOOP:
+    gc = c->u.gc;
+    if (gc->id) {
+      fatal_error ("No replication in functions!");
+    }
+    Assert (gc->next == NULL, "What?");
+    do {
+      _run_chp (gc->s);
+      res = exprEval (gc->g);
+    } while (res.v);
+    break;
+    
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+  case ACT_CHP_RECV:
+  case ACT_CHP_FUNC:
+    fatal_error ("Functions cannot use send/receive or log!");
+    break;
+    
+  case ACT_CHP_ASSIGN:
+    if (c->u.assign.id->Rest()) {
+      fatal_error ("Dots not permitted in functions!");
+    }
+    b = hash_lookup (state, c->u.assign.id->getName());
+    if (!b) {
+      fatal_error ("Variable `%s' not found?!", c->u.assign.id->getName());
+    }
+    x = (expr_res *) b->v;
+    res = exprEval (c->u.assign.e);
+    /* bit-width conversion */
+    if (res.width > x->width) {
+      x->v = res.v & ((1UL << x->width)-1);
+    }
+    else {
+      x->v = res.v;
+    }
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
+}
+
+expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
+{
+  struct Hashtable *lstate;
+  hash_bucket_t *b;
+  hash_iter_t iter;
+  expr_res *x;
+  expr_res ret;
+  ActInstiter it(f->CurScope());
+
+
+  /*-- allocate state and bindings --*/
+  lstate = hash_new (4);
+
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+
+    b = hash_add (lstate, vx->getName());
+    NEW (x, expr_res);
+    x->v = 0;
+    x->width = TypeFactory::bitWidth (vx->t);
+    if (vx->t->arrayInfo()) {
+      warning ("Ignoring arrays for now...");
+    }
+    b->v = x;
+  }
+  
+  /* --- run body -- */
+  if (!f->getlang() || !f->getlang()->getchp()) {
+    fatal_error ("Function requires a chp body!");
+  }
+  act_chp *c = f->getlang()->getchp();
+  stack_push (_statestk, lstate);
+  _run_chp (c->c);
+  stack_pop (_statestk);
+
+  /* -- return result -- */
+  b = hash_lookup (lstate, "self");
+  x = (expr_res *)b->v;
+  ret = *x;
+  
+  hash_iter_init (lstate, &iter);
+  while ((b = hash_iter_next (lstate, &iter))) {
+    FREE (b->v);
+  }
+  hash_free (lstate);
+
+  return ret;
+}
   
 expr_res ChpSim::exprEval (Expr *e)
 {
@@ -823,7 +983,14 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_VAR:
-    fatal_error ("VARS?!");
+    {
+      Assert (!list_isempty (_statestk), "What?");
+      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+      Assert (state,"what?");
+      hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
+      Assert (b, "what?");
+      l = *((expr_res *)b->v);
+    }
     break;
 
   case E_PROBE:
@@ -854,31 +1021,32 @@ expr_res ChpSim::exprEval (Expr *e)
     l.v = l.v & ((1 << r.v) - 1);
     break;
 
-#if 0
   case E_FUNCTION:
-    ret->u.fn.s = e->u.fn.s;
-    ret->u.fn.r = NULL;
+    /* function is e->u.fn.s */
     {
       Expr *tmp = NULL;
-      e = e->u.fn.r;
-      while (e) {
-	if (!tmp) {
-	  NEW (tmp, Expr);
-	  ret->u.fn.r = tmp;
-	}
-	else {
-	  NEW (tmp->u.e.r, Expr);
-	  tmp = tmp->u.e.r;
-	}
-	tmp->type = e->type;
-	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
-	e = e->u.e.r;
+      int nargs = 0;
+      int i;
+      expr_res *args;
+
+      /* first: evaluate arguments */
+      tmp = e->u.fn.r;
+      while (tmp) {
+	nargs++;
+	tmp = tmp->u.e.r;
       }
+      MALLOC (args, expr_res, nargs);
+      tmp = e->u.fn.r;
+      i = 0;
+      while (tmp) {
+	args[i] = exprEval (tmp->u.e.l);
+	i++;
+	tmp = tmp->u.e.r;
+      }
+      l = funcEval ((Function *)e->u.fn.s, nargs, args);
     }
     break;
-#endif
 
-  case E_FUNCTION:
   case E_SELF:
   default:
     l.v = 0;
