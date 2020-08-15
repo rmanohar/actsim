@@ -19,8 +19,11 @@
  *
  **************************************************************************
  */
+#include <stdio.h>
+#include "config.h"
 #include <simdes.h>
 #include "chpsim.h"
+#include <dlfcn.h>
 
 class ChpSim;
 
@@ -766,6 +769,10 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
   }
 }
 
+static void *dl_extern_files;
+
+typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
+
 expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
 {
   struct Hashtable *lstate;
@@ -809,8 +816,32 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
 
   /* --- run body -- */
   if (!f->getlang() || !f->getlang()->getchp()) {
-    fatal_error ("Function requires a chp body!");
+    char buf[10240];
+    EXTFUNC extcall = NULL;
+
+    if (!dl_extern_files) {
+      if (config_exists ("act.sim.extern")) {
+	dl_extern_files = dlopen (config_get_string ("act.sim.extern"),
+				  RTLD_LAZY);
+      }
+    }
+    extcall = NULL;
+    snprintf (buf, 10240, "act.sim.%s", f->getName());
+    buf[strlen(buf)-2] = '\0';
+
+    if (dl_extern_files && config_exists (buf)) {
+      extcall = (EXTFUNC) dlsym (dl_extern_files, config_get_string (buf));
+      if (!extcall) {
+	fatal_error ("Could not find external function `%s'",
+		     config_get_string (buf));
+      }
+    }
+    if (!extcall) {
+      fatal_error ("Function requires a chp body!");
+    }
+    return (*extcall) (nargs, args);
   }
+  
   act_chp *c = f->getlang()->getchp();
   stack_push (_statestk, lstate);
   _run_chp (c->c);
