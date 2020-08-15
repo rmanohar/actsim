@@ -39,6 +39,8 @@ class ChpSim : public ActSimObj {
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
   int _stalled_pc;
+
+  WaitForOne *_probe;
   
   int _max_program_counters (act_chp_lang_t *c);
 

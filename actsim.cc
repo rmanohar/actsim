@@ -788,10 +788,13 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
     for (int i=0; i < nchans; i++) {
       chans[i].send_here = 0;
       chans[i].recv_here = 0;
+      chans[i].sender_probe = 0;
+      chans[i].receiver_probe = 0;
       chans[i].len = 0;
       chans[i].data = 0;
       chans[i].data2 = 0;
       chans[i].w = new WaitForOne(0);
+      chans[i].probe = NULL;
     }
   }
   else {

@@ -30,6 +30,12 @@ class ChpSim;
 
 //#define DUMP_ALL
 
+#define WAITING_SENDER(c)  ((c)->send_here != 0 && (c)->sender_probe == 0)
+#define WAITING_SEND_PROBE(c)  ((c)->send_here != 0 && (c)->sender_probe == 1)
+
+#define WAITING_RECEIVER(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 0)
+#define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
+
 
 ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
 : ActSimObj (sim)
@@ -51,6 +57,7 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
 
   _stalled_pc = -1;
   _statestk = list_new ();
+  _probe = NULL;
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
 }
@@ -148,22 +155,58 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARCHAN:
     break;
     
+  case E_PROBE:
+    fatal_error ("What?");
+    break;
+    
   case E_PROBEIN:
   case E_PROBEOUT:
-  case E_PROBE:
     {
       int off = getGlobalOffset (e->u.v, 2);
       act_channel_state *c = _sc->getChan (off);
       if (undo) {
-	if (c->w->isWaiting (this)) {
-	  c->w->DelObject (this);
-	  c->recv_here = 0;
+	if (c->probe) {
+	  if (c->probe->isWaiting (this)) {
+	    c->probe->DelObject (this);
+	  }
+	  c->probe = NULL;
+	}
+	if (e->type == E_PROBEIN) {
+	  if (c->receiver_probe) {
+	    c->recv_here = 0;
+	    c->receiver_probe = 0;
+	  }
+	}
+	else {
+	  if (c->sender_probe) {
+	    c->send_here = 0;
+	    c->sender_probe = 0;
+	  }
 	}
       }
       else {
-	/* XXX: FIXME */
-	c->w->AddObject (this);
-	c->recv_here = (pc+1);
+	if (e->type == E_PROBEIN && !WAITING_SENDER(c)) {
+	  if (!_probe) {
+	    _probe = c->w;
+	  }
+	  c->probe = _probe;
+	  if (!c->probe->isWaiting (this)) {
+	    c->probe->AddObject (this);
+	  }
+	  c->recv_here = (pc+1);
+	  c->receiver_probe = 1;
+	}
+	else if (e->type == E_PROBEOUT && !WAITING_RECEIVER(c)) {
+	  if (!_probe) {
+	    _probe = c->w;
+	  }
+	  c->probe = _probe;
+	  if (!c->probe->isWaiting (this)) {
+	    c->probe->AddObject (this);
+	  }
+	  c->send_here = (pc+1);
+	  c->sender_probe = 1;
+	}
       }
     }
     break;
@@ -185,6 +228,8 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
 {
   int ret = 0;
+
+  _probe = NULL;
   while (gc) {
     if (gc->g) {
       ret = ret | _collect_sharedvars (gc->g, pc, undo);
@@ -266,12 +311,12 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_ASSIGN:
-#ifdef DUMP_ALL    
+#ifdef DUMP_ALL
     printf ("assign v[%d] := ", stmt->u.assign.var);
 #endif
     v = exprEval (stmt->u.assign.e);
 #ifdef DUMP_ALL    
-    printf ("  %d (w=%d)", v.v, v.width);
+    printf ("%d (w=%d)", v.v, v.width);
 #endif
     pc = _updatepc (pc);
     if (stmt->u.assign.isbool) {
@@ -500,14 +545,26 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     return 0;
   }
 
-  if (c->recv_here) {
+  if (WAITING_RECEIVER (c)) {
+#ifdef DUMP_ALL    
+    printf (" [waiting-recv]");
+#endif    
     // blocked receive, because there was no data
     c->data = v.v;
     c->w->Notify (c->recv_here-1);
+    c->recv_here = 0;
     c->send_here = 0;
     return 0;
   }
   else {
+    if (WAITING_RECV_PROBE (c)) {
+#ifdef DUMP_ALL      
+      printf (" [waiting-recvprobe]");
+#endif      
+      c->probe->Notify (c->recv_here-1);
+      c->recv_here = 0;
+      c->receiver_probe = 0;
+    }
     // we need to wait for the receive to show up
     c->data2 = v.v;
     c->send_here = (pc+1);
@@ -528,15 +585,28 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
     c->recv_here = 0;
     return 0;
   }
-  if (c->send_here) {
+  
+  if (WAITING_SENDER (c)) {
+#ifdef DUMP_ALL    
+    printf (" [waiting-send]");
+#endif    
     v->v = c->data2;
     c->w->Notify (c->send_here-1);
+    c->send_here = 0;
     c->recv_here = 0;
   }
   else {
 #if 0    
     printf (" [recv-blk %d]", pc);
 #endif    
+    if (WAITING_SEND_PROBE (c)) {
+#ifdef DUMP_ALL      
+      printf (" [waiting-sendprobe]");
+#endif      
+      c->probe->Notify (c->send_here-1);
+      c->send_here = 0;
+      c->sender_probe = 0;
+    }
     c->recv_here = (pc+1);
     c->w->AddObject (this);
     return 1;
@@ -561,7 +631,7 @@ expr_res ChpSim::varEval (int id, int type)
   }
   else if (type == 2) {
     act_channel_state *c = _sc->getChan (off);
-    if (c->send_here) {
+    if (WAITING_SENDER (c)) {
       r.width = 32;
       r.v = c->data2;
     }
@@ -574,7 +644,7 @@ expr_res ChpSim::varEval (int id, int type)
   else {
     /* probe */
     act_channel_state *c = _sc->getChan (off);
-    if (c->send_here || c->recv_here) {
+    if (WAITING_SENDER (c) || WAITING_RECEIVER (c)) {
       r.width = 1;
       r.v = 1;
     }
@@ -1011,6 +1081,7 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_PROBE:
+    fatal_error ("E_PROBE-2");
   case E_PROBEIN:
   case E_PROBEOUT:
     l = varEval (e->u.v, 3);

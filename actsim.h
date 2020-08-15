@@ -49,10 +49,17 @@ class ActSimCore;
 
 struct act_channel_state {
   unsigned int send_here:4;
+  unsigned int sender_probe:1;	// 1 if the send_here wait is actually
+				// due to a probe
+  
   unsigned int recv_here:4;
+  unsigned int receiver_probe:1; // receiver is probing and waiting as
+				 // a result
+  
   int len;
   int data, data2;
   WaitForOne *w;
+  WaitForOne *probe;		// probe wake-up
 };
 
 struct expr_res {
