@@ -60,9 +60,6 @@ int main (int argc, char **argv)
   //ActCellPass *cp = new ActCellPass (a);
   //cp->run();
  
-  /* read configuration file, if any */
-  config_read ("prs2net.conf");
-
   /* find the process specified on the command line */
   Process *p = a->findProcess (argv[2]);
 

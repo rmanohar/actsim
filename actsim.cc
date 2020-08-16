@@ -800,6 +800,10 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   else {
     chans = NULL;
   }
+
+  nfo = NULL;
+  fo = NULL;
+  
   gshared = new WaitForOne (10);
 }
 

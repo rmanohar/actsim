@@ -27,6 +27,7 @@
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
+#include "actsim_ext.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
 #define E_CHP_VARINT   (E_NEWEND + 2)
@@ -62,11 +63,6 @@ struct act_channel_state {
   WaitForOne *probe;		// probe wake-up
 };
 
-struct expr_res {
-  unsigned int v;		/* value */
-  int width;			/* bitwidth */
-};
-
 #define MAX_LOCAL_PCS 1024
 
   
@@ -91,6 +87,13 @@ private:
   
   int *ival;			/* integers */
   int nints;			/* number of integers */
+
+
+  int *nfo;			// nbools + nint length, contains
+				// fanout count for each variable
+  
+  SimDES **fo;			// fanout destinations
+  
 
   act_channel_state *chans;	/* channel state */
   int nchans;			/* numchannels */

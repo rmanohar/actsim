@@ -820,13 +820,13 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     EXTFUNC extcall = NULL;
 
     if (!dl_extern_files) {
-      if (config_exists ("act.sim.extern")) {
-	dl_extern_files = dlopen (config_get_string ("act.sim.extern"),
+      if (config_exists ("actsim.extern")) {
+	dl_extern_files = dlopen (config_get_string ("actsim.extern"),
 				  RTLD_LAZY);
       }
     }
     extcall = NULL;
-    snprintf (buf, 10240, "act.sim.%s", f->getName());
+    snprintf (buf, 10240, "actsim.%s", f->getName());
     buf[strlen(buf)-2] = '\0';
 
     if (dl_extern_files && config_exists (buf)) {
