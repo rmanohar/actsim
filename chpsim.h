@@ -27,10 +27,12 @@
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, act_chp_lang_t *, ActSimCore *sim);
+  ChpSim (ChpSimGraph *, stateinfo_t *si, act_chp_lang_t *, ActSimCore *sim);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
+
+  void computeFanout ();
   
  private:
   int _npc;			/* # of program counters */
@@ -39,10 +41,17 @@ class ChpSim : public ActSimObj {
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
   int _stalled_pc;
+  act_chp_lang_t *_savedc;
+
+  stateinfo_t *_si;
 
   WaitForOne *_probe;
   
   int _max_program_counters (act_chp_lang_t *c);
+  void _compute_used_variables (act_chp_lang_t *c);
+  void _compute_used_variables_helper (act_chp_lang_t *c);
+  void _compute_used_variables_helper (Expr *e);
+  struct iHashtable *_tmpused;
 
   list_t *_statestk;
   expr_res exprEval (Expr *e);

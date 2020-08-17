@@ -40,7 +40,8 @@ class ChpSim;
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
 
 
-ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
+ChpSim::ChpSim (ChpSimGraph *g, stateinfo_t *si,
+		act_chp_lang_t *c, ActSimCore *sim)
 : ActSimObj (sim)
 {
   /*
@@ -61,8 +62,16 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
   _stalled_pc = -1;
   _statestk = list_new ();
   _probe = NULL;
+  _si = si;
+  _savedc = c;
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
+}
+
+
+void ChpSim::computeFanout ()
+{
+  _compute_used_variables (_savedc);
 }
 
 int ChpSim::_updatepc (int pc)
@@ -1237,4 +1246,179 @@ int ChpSim::_max_program_counters (act_chp_lang_t *c)
     break;
   }
   return ret;
+}
+
+void ChpSim::_compute_used_variables (act_chp_lang_t *c)
+{
+  ihash_iter_t iter;
+  ihash_bucket_t *b;
+  _tmpused = ihash_new (4);
+  _compute_used_variables_helper (c);
+  ihash_iter_init (_tmpused, &iter);
+  //printf ("going through...\n");
+  while ((b = ihash_iter_next (_tmpused, &iter))) {
+    if (b->i == 0 || b->i == 1) {
+      int off;
+      /* int or bool */
+      //printf ("loff=%lu type=%d ", b->key, b->i);
+      off = getGlobalOffset (b->key, b->i);
+      //printf ("goff=%d\n", off);
+      _sc->incFanout (off, b->i);
+    }
+  }
+  ihash_free (_tmpused);
+  //printf ("done.\n");
+  _tmpused = NULL;
+}
+
+
+void ChpSim::_compute_used_variables_helper (Expr *e)
+{
+  int loff, type;
+  ihash_bucket_t *b;
+      
+  if (!e) return;
+
+
+  switch (e->type) {
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    _compute_used_variables_helper (e->u.e.l);
+    _compute_used_variables_helper (e->u.e.r);
+    break;
+    
+  case E_NOT:
+  case E_UMINUS:
+  case E_COMPLEMENT:
+    _compute_used_variables_helper (e->u.e.l);
+    break;
+
+  case E_QUERY:
+    _compute_used_variables_helper (e->u.e.l);
+    _compute_used_variables_helper (e->u.e.r->u.e.l);
+    _compute_used_variables_helper (e->u.e.r->u.e.r);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    _compute_used_variables_helper (e->u.e.l);
+    break;
+
+  case E_BITFIELD:
+    /* l is an Id */
+    loff = _sc->getLocalOffset ((ActId *)e->u.e.l, _si, &type);
+    if (!ihash_lookup (_tmpused, loff)) {
+      b = ihash_add (_tmpused, loff);
+      b->i = type;
+    }
+    break;
+
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+  case E_REAL:
+    break;
+
+  case E_VAR:
+    loff = _sc->getLocalOffset ((ActId *)e->u.e.l, _si, &type);
+    if (!ihash_lookup (_tmpused, loff)) {
+      b = ihash_add (_tmpused, loff);
+      b->i = type;
+    }
+    break;
+
+  case E_PROBE:
+    break;
+    
+  case E_FUNCTION:
+    {
+      Expr *tmp = NULL;
+      e = e->u.fn.r;
+      while (e) {
+	_compute_used_variables_helper (e->u.e.l);
+	e = e->u.e.r;
+      }
+    }
+    break;
+
+  case E_SELF:
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+}
+
+void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
+{
+  int loff, type;
+  ihash_bucket_t *b;
+
+  if (!c) return;
+  
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (listitem_t *li = list_first (c->u.semi_comma.cmd);
+	 li; li = list_next (li)) {
+      act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
+      _compute_used_variables_helper (t);
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_LOOP:
+  case ACT_CHP_DOLOOP:
+    for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      _compute_used_variables_helper (gc->g);
+      _compute_used_variables_helper (gc->s);
+    }
+    break;
+
+  case ACT_CHP_SKIP:
+  case ACT_CHP_FUNC:
+    break;
+
+  case ACT_CHP_ASSIGN:
+    loff = _sc->getLocalOffset (c->u.assign.id, _si, &type);
+    if (!ihash_lookup (_tmpused, loff)) {
+      b = ihash_add (_tmpused, loff);
+      b->i = type;
+    }
+    _compute_used_variables_helper (c->u.assign.e);
+    break;
+    
+  case ACT_CHP_SEND:
+    for (listitem_t *li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+      _compute_used_variables_helper ((Expr *)list_value (li));
+    }
+    break;
+    
+  case ACT_CHP_RECV:
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
 }

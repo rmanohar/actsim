@@ -163,8 +163,23 @@ ActSimCore::ActSimCore (Process *p)
 			   si->nportchp.chans + si->chp_all.chans
 			   + globals.chans);
 
-  _rootsi = si;
+  nfo_len = si->nportbools + si->allbools +
+    si->nportchp.bools + si->chp_all.bools + globals.bools +
+    si->nportchp.ints + si->chp_all.ints + globals.ints;
+  nint_start = si->nportbools + si->allbools +
+    si->nportchp.bools + si->chp_all.bools + globals.bools;
+  if (nfo_len > 0){
+    MALLOC (nfo, int, nfo_len);
+    for (int i=0; i < nfo_len; i++) {
+      nfo[i] = 0;
+    }
+  }
+  else {
+    nfo = NULL;
+  }
+  fo = NULL;
 
+  _rootsi = si;
   _initSim();
 }
       
@@ -231,10 +246,11 @@ void ActSimCore::_add_chp (act_chp *c)
     sg = _build_chp_graph (c->c,  &stop);
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, c->c, this);
+  ChpSim *x = new ChpSim (sg, _cursi, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+  x->computeFanout ();
 }
 
 void ActSimCore::_add_dflow (act_dataflow *d)
@@ -277,10 +293,11 @@ void ActSimCore::_add_hse (act_chp *c)
     sg = _build_chp_graph (c->c,  &stop);
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, c->c, this);
+  ChpSim *x = new ChpSim (sg, _cursi, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+  x->computeFanout ();
 }
 
 void ActSimCore::_add_prs (act_prs *p)
@@ -801,9 +818,6 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
     chans = NULL;
   }
 
-  nfo = NULL;
-  fo = NULL;
-  
   gshared = new WaitForOne (10);
 }
 
@@ -1461,5 +1475,19 @@ void ActSimState::setBool (int x, int v)
   }
   else {
     bitset_clr (bits, x);
+  }
+}
+
+void ActSimCore::incFanout (int off, int type)
+{
+  if (type == 0) {
+    /* bool */
+    Assert (off >=0 && off < nint_start, "What?");
+    nfo[off]++;
+  }
+  else {
+    Assert (type == 1, "What?");
+    Assert (off >= 0 && off < nfo_len - nint_start, "What?");
+    nfo[off + nint_start]++;
   }
 }

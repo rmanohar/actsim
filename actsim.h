@@ -89,12 +89,6 @@ private:
   int nints;			/* number of integers */
 
 
-  int *nfo;			// nbools + nint length, contains
-				// fanout count for each variable
-  
-  SimDES **fo;			// fanout destinations
-  
-
   act_channel_state *chans;	/* channel state */
   int nchans;			/* numchannels */
 
@@ -182,9 +176,17 @@ class ActSimCore {
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
+  void incFanout (int off, int type);
 
 protected:
   Act *a;
+
+  int nfo_len;
+  int nint_start;
+  int *nfo;			// nbools + nint length (=nfo_len), contains
+				// fanout count for each variable
+  
+  SimDES **fo;			// fanout destinations
 
   struct iHashtable *map;	/* map from process pointer to
 				   chpsimgraph */
