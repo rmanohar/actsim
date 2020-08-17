@@ -168,17 +168,20 @@ ActSimCore::ActSimCore (Process *p)
     si->nportchp.ints + si->chp_all.ints + globals.ints;
   nint_start = si->nportbools + si->allbools +
     si->nportchp.bools + si->chp_all.bools + globals.bools;
-  if (nfo_len > 0){
+  if (nfo_len > 0) {
     MALLOC (nfo, int, nfo_len);
+    MALLOC (fo, SimDES **, nfo_len);
     for (int i=0; i < nfo_len; i++) {
       nfo[i] = 0;
+      fo[i] = NULL;
     }
   }
   else {
     nfo = NULL;
+    fo = NULL;
   }
-  fo = NULL;
-
+  hfo = NULL;
+  
   _rootsi = si;
   _initSim();
 }
@@ -757,6 +760,35 @@ void ActSimCore::_initSim ()
   
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
+
+  /* at this point, all the fanout tables have been updated */
+#if 0
+  {
+    int i;
+    printf ("*-- bools --\n");
+    for (i=0; i < nint_start; i++) {
+      printf ("b[%d] : fo=%d", i, nfo[i]);
+      if (nfo[i] > 0) {
+	for (int j=0; j < nfo[i]; j++) {
+	  printf (" ");
+	  dynamic_cast<ActSimObj *>(fo[i][j])->getName()->Print (stdout);
+	}
+      }
+      printf ("\n");
+    }
+    printf ("*-- ints --\n");
+    for (; i < nfo_len; i++) {
+      printf ("i[%d] : fo=%d", i-nint_start, nfo[i]);
+      if (nfo[i] > 0) {
+	for (int j=0; j < nfo[i]; j++) {
+	  printf (" ");
+	  dynamic_cast<ActSimObj *>(fo[i][j])->getName()->Print (stdout);
+	}
+      }
+      printf ("\n");
+    }
+  }
+#endif
 }
 
 
@@ -1478,16 +1510,41 @@ void ActSimState::setBool (int x, int v)
   }
 }
 
-void ActSimCore::incFanout (int off, int type)
+void ActSimCore::incFanout (int off, int type, SimDES *who)
 {
   if (type == 0) {
     /* bool */
     Assert (off >=0 && off < nint_start, "What?");
-    nfo[off]++;
   }
   else {
     Assert (type == 1, "What?");
     Assert (off >= 0 && off < nfo_len - nint_start, "What?");
-    nfo[off + nint_start]++;
+    off = off + nint_start;
   }
+  
+  if (nfo[off] == 0) {
+    /* first entry! */
+    NEW (fo[off], SimDES *);
+  }
+  else if (nfo[off] >= 8) {
+    /* this is a tentative high fanout net */
+    ihash_bucket_t *b;
+    if (!hfo) {
+      hfo = ihash_new (4);
+    }
+    b = ihash_lookup (hfo, off);
+    if (!b) {
+      b = ihash_add (hfo, off);
+      b->i = nfo[off]; // the allocated slots
+    }
+    if (nfo[off] == b->i) {
+      b->i = b->i*2;
+      REALLOC (fo[off], SimDES *, b->i);
+    }
+  }
+  else {
+    REALLOC (fo[off], SimDES *, nfo[off]+1);
+  }
+  fo[off][nfo[off]] = who;
+  nfo[off]++;
 }

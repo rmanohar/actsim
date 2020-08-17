@@ -113,6 +113,7 @@ public:
   }
 
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
+  ActId *getName () { return name; }
 
 protected:
   chp_offsets _o;		/* my state offsets for all local
@@ -176,7 +177,7 @@ class ActSimCore {
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
-  void incFanout (int off, int type);
+  void incFanout (int off, int type, SimDES *who);
 
 protected:
   Act *a;
@@ -186,7 +187,8 @@ protected:
   int *nfo;			// nbools + nint length (=nfo_len), contains
 				// fanout count for each variable
   
-  SimDES **fo;			// fanout destinations
+  SimDES ***fo;			// fanout destinations
+  struct iHashtable *hfo;	// for high fanout nets
 
   struct iHashtable *map;	/* map from process pointer to
 				   chpsimgraph */

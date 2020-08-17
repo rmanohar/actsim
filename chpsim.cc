@@ -1258,12 +1258,8 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
   //printf ("going through...\n");
   while ((b = ihash_iter_next (_tmpused, &iter))) {
     if (b->i == 0 || b->i == 1) {
-      int off;
-      /* int or bool */
-      //printf ("loff=%lu type=%d ", b->key, b->i);
-      off = getGlobalOffset (b->key, b->i);
-      //printf ("goff=%d\n", off);
-      _sc->incFanout (off, b->i);
+      int off = getGlobalOffset (b->key, b->i);
+      _sc->incFanout (off, b->i, this);
     }
   }
   ihash_free (_tmpused);
