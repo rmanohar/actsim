@@ -161,7 +161,9 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    ret = 1;
+    if (e->u.v < 0) {
+      ret = 1;
+    }
     break;
 
   case E_CHP_VARCHAN:
@@ -178,6 +180,9 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       act_channel_state *c = _sc->getChan (off);
       if (undo) {
 	if (c->probe) {
+	  if (!_probe) {
+	    _probe = c->probe;
+	  }
 	  if (c->probe->isWaiting (this)) {
 	    c->probe->DelObject (this);
 	  }
@@ -199,7 +204,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       else {
 	if (e->type == E_PROBEIN && !WAITING_SENDER(c)) {
 	  if (!_probe) {
-	    _probe = c->w;
+	    _probe = new WaitForOne (0);
 	  }
 	  c->probe = _probe;
 	  if (!c->probe->isWaiting (this)) {
@@ -210,7 +215,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 	}
 	else if (e->type == E_PROBEOUT && !WAITING_RECEIVER(c)) {
 	  if (!_probe) {
-	    _probe = c->w;
+	    _probe = new WaitForOne (0);
 	  }
 	  c->probe = _probe;
 	  if (!c->probe->isWaiting (this)) {
@@ -248,6 +253,14 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
     }
     gc = gc->next;
   }
+  if (undo) {
+    if (_probe) {
+      delete _probe;
+    }
+  }
+#if 0
+  printf (" sh-var:%d", ret);
+#endif
   return ret;
 }
 
@@ -371,12 +384,12 @@ void ChpSim::Step (int ev_type)
       }
     }
     else {
-#ifdef DUMP_ALL      
-      printf ("send done");
-#endif      
       if (!varSend (pc, flag, stmt->u.send.chvar, v)) {
 	pc = _updatepc (pc);
       }
+#ifdef DUMP_ALL      
+      printf ("send done");
+#endif      
     }
     break;
 
@@ -552,26 +565,39 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
+#ifdef DUMP_ALL  
+  printf (" [s=%d]", off);
+#endif  
+
   if (wakeup) {
+#ifdef DUMP_ALL    
+    printf (" [send-wake %d]", pc);
+#endif    
     c->send_here = 0;
+    Assert (c->sender_probe == 0, "What?");
     return 0;
   }
 
   if (WAITING_RECEIVER (c)) {
 #ifdef DUMP_ALL    
-    printf (" [waiting-recv]");
+    printf (" [waiting-recv %d]", pc);
 #endif    
     // blocked receive, because there was no data
     c->data = v.v;
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
     c->send_here = 0;
+    c->sender_probe = 0;
+    c->receiver_probe = 0;
     return 0;
   }
   else {
+#ifdef DUMP_ALL
+    printf (" [send-blk %d]", pc);
+#endif    
     if (WAITING_RECV_PROBE (c)) {
 #ifdef DUMP_ALL      
-      printf (" [waiting-recvprobe]");
+      printf (" [waiting-recvprobe %d]", pc);
 #endif      
       c->probe->Notify (c->recv_here-1);
       c->recv_here = 0;
@@ -580,7 +606,9 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     // we need to wait for the receive to show up
     c->data2 = v.v;
     c->send_here = (pc+1);
-    c->w->AddObject (this);
+    if (!c->w->isWaiting (this)) {
+      c->w->AddObject (this);
+    }
     return 1;
   }
 }
@@ -592,7 +620,14 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
+#ifdef DUMP_ALL  
+  printf (" [r=%d]", off);
+#endif
+  
   if (wakeup) {
+#ifdef DUMP_ALL    
+    printf (" [recv-wakeup %d]", pc);
+#endif    
     v->v = c->data;
     c->recv_here = 0;
     return 0;
@@ -600,27 +635,32 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
   
   if (WAITING_SENDER (c)) {
 #ifdef DUMP_ALL    
-    printf (" [waiting-send]");
+    printf (" [waiting-send %d]", pc);
 #endif    
     v->v = c->data2;
     c->w->Notify (c->send_here-1);
     c->send_here = 0;
     c->recv_here = 0;
+    c->sender_probe = 0;
+    c->receiver_probe = 0;
+    return 0;
   }
   else {
-#if 0    
+#ifdef DUMP_ALL
     printf (" [recv-blk %d]", pc);
 #endif    
     if (WAITING_SEND_PROBE (c)) {
 #ifdef DUMP_ALL      
-      printf (" [waiting-sendprobe]");
+      printf (" [waiting-sendprobe %d]", pc);
 #endif      
       c->probe->Notify (c->send_here-1);
       c->send_here = 0;
       c->sender_probe = 0;
     }
     c->recv_here = (pc+1);
-    c->w->AddObject (this);
+    if (!c->w->isWaiting (this)) {
+      c->w->AddObject (this);
+    }
     return 1;
   }
   return 0;

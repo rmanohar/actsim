@@ -1,0 +1,21 @@
+[      20 t#:0] <dn> in dend
+[     110 t#:0] <dv> Send w v:2 0
+[     110 t#:0] <dn> Recv w v:2 0
+[     130 t#:0] <dn> got tick
+[     130 t#:0] <dn> Send S:0
+[     200 t#:0] <dv> Send w v:2 1
+[     200 t#:0] <dn> Recv w v:2 1
+[     220 t#:0] <dn> got tick
+[     220 t#:0] <dn> Send S:2
+[     290 t#:0] <dv> Send w v:2 2
+[     290 t#:0] <dn> Recv w v:2 2
+[     310 t#:0] <dn> got tick
+[     310 t#:0] <dn> Send S:4
+[     380 t#:0] <dv> Send w v:2 3
+[     380 t#:0] <dn> Recv w v:2 3
+[     400 t#:0] <dn> got tick
+[     400 t#:0] <dn> Send S:6
+[     470 t#:0] <dv> Send w v:2 4
+[     470 t#:0] <dn> Recv w v:2 4
+[     490 t#:0] <dn> got tick
+[     490 t#:0] <dn> Send S:8

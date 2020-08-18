@@ -1,0 +1,39 @@
+defproc dendrites (chan?(bool) tick; chan?(int) W, Vi; chan!(int) Vo)
+{
+    int wgt, in, sum;
+    bool tk;
+    chp
+    {
+        sum:=0;
+        log("in dend"); 
+       *[
+            [ #W|#Vi -> W?wgt, Vi?in; log("Recv w v:", wgt," ",in); sum:=sum+(wgt*in)
+            [] #tick -> tick?tk; log("got tick"); Vo!sum; log("Send S:",sum); sum:=0
+            ]
+         ]
+    }
+}
+
+
+defproc drive(chan!(int) w, v; chan!(bool) tick; chan?(int) s)
+{
+    bool tk;
+    int i, v_val, w_val, sum;
+    chp
+    {
+        tk:=0;
+        i:=0;
+        v_val:=15;
+        w_val:=2;
+     *[ [i < 5 -> tick!tk; s?sum; log("Send w v:",w_val," ",i); i:=i+1] ]
+    }
+}
+
+
+defproc test()
+{
+    dendrites dn;
+    drive dv(dn.W, dn.Vi, dn.tick, dn.Vo);
+}
+
+test t;
