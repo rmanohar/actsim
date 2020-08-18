@@ -1,2 +1,4 @@
 *.t.stdout
 *.t.stderr
+*.ts.stderr
+*.os.stderr

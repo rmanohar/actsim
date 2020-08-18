@@ -65,7 +65,9 @@ do
 		fail=`expr $fail + 1`
 		ok=0
 	fi
-	if ! cmp runs/$i.t.stderr runs/$i.stderr >/dev/null 2>/dev/null
+ 	sort runs/$i.t.stderr > runs/$i.ts.stderr
+ 	sort runs/$i.stderr > runs/$i.os.stderr
+	if ! cmp runs/$i.ts.stderr runs/$i.os.stderr >/dev/null 2>/dev/null
 	then
 		if [ $ok -eq 1 ]
 		then

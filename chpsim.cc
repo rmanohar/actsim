@@ -80,7 +80,7 @@ int ChpSim::_updatepc (int pc)
   
   _pc[pc] = _pc[pc]->completed(pc, &joined);
   if (joined) {
-#if 0    
+#ifdef DUMP_ALL
     printf (" [joined]");
 #endif    
     _pcused = _pcused - (_pc[pc]->wait - 1);
@@ -180,8 +180,16 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       act_channel_state *c = _sc->getChan (off);
       if (undo) {
 	if (c->probe) {
+#ifdef DUMP_ALL	  
+	  printf (" [clr %d]", off);
+#endif	  
 	  if (!_probe) {
 	    _probe = c->probe;
+	  }
+	  else {
+	    if (_probe != c->probe) {
+	      fatal_error ("Weird!");
+	    }
 	  }
 	  if (c->probe->isWaiting (this)) {
 	    c->probe->DelObject (this);
@@ -203,8 +211,14 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       }
       else {
 	if (e->type == E_PROBEIN && !WAITING_SENDER(c)) {
+#ifdef DUMP_ALL	  
+	  printf (" [add %d]", off);
+#endif	  
 	  if (!_probe) {
 	    _probe = new WaitForOne (0);
+	  }
+	  if (c->probe && c->probe != _probe) {
+	    fatal_error ("Channel is being probed by multiple processes!");
 	  }
 	  c->probe = _probe;
 	  if (!c->probe->isWaiting (this)) {
@@ -214,8 +228,14 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 	  c->receiver_probe = 1;
 	}
 	else if (e->type == E_PROBEOUT && !WAITING_RECEIVER(c)) {
+#ifdef DUMP_ALL	  
+	  printf (" [add %d]", off);
+#endif	  
 	  if (!_probe) {
 	    _probe = new WaitForOne (0);
+	  }
+	  if (c->probe && c->probe != _probe) {
+	    fatal_error ("Channel is being probed by multiple processes!");
 	  }
 	  c->probe = _probe;
 	  if (!c->probe->isWaiting (this)) {
@@ -246,6 +266,14 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
 {
   int ret = 0;
 
+#ifdef DUMP_ALL
+  if (undo) {
+    printf (" [del-waits]");
+  }
+  else {
+    printf (" [add-waits]");
+  }
+#endif
   _probe = NULL;
   while (gc) {
     if (gc->g) {
@@ -297,7 +325,9 @@ void ChpSim::Step (int ev_type)
   printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
   name->Print (stdout);
   printf ("> ");
-#endif  
+
+  printf (" [%p] ", stmt);
+#endif
 
   /*--- simulate statement until there's a blocking scenario ---*/
   switch (stmt->type) {
@@ -465,6 +495,15 @@ void ChpSim::Step (int ev_type)
       int cnt = 0;
       expr_res res;
 
+#ifdef DUMP_ALL
+      if (_pc[pc]->next == NULL) {
+	printf ("cond");
+      }
+      else {
+	printf ("loop");
+      }
+#endif
+      
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
         if (_add_waitcond (&stmt->u.c, pc, 1)) {
@@ -475,15 +514,6 @@ void ChpSim::Step (int ev_type)
 	}
       }
 
-#ifdef DUMP_ALL
-      if (_pc[pc]->next == NULL) {
-	printf ("cond");
-      }
-      else {
-	printf ("loop");
-      }
-#endif      
-      
       gc = &stmt->u.c;
       while (gc) {
 	if (gc->g) {
@@ -507,6 +537,9 @@ void ChpSim::Step (int ev_type)
 	  forceret = 1;
 	  if (_add_waitcond (&stmt->u.c, pc)) {
 	    if (_stalled_pc == -1) {
+#ifdef DUMP_ALL	      
+	      printf (" [stall-sh]");
+#endif	      
 	      _sc->gStall (this);
 	      _stalled_pc = pc;
 	    }
@@ -514,7 +547,6 @@ void ChpSim::Step (int ev_type)
 	      forceret = 0;
 	    }
 	  }
-	  break;
 	}
 	else {
 	  /* loop: we're done! */
@@ -528,13 +560,16 @@ void ChpSim::Step (int ev_type)
     fatal_error ("What?");
     break;
   }
+  if (forceret || !_pc[pc]) {
 #ifdef DUMP_ALL  
-  printf ("\n");
+  printf (" [f-ret %d]\n", forceret);
 #endif
-  if (forceret) {
     return;
   }
   else {
+#ifdef DUMP_ALL  
+    printf (" [NEXT!]\n");
+#endif
     new Event (this, SIM_EV_MKTYPE (pc,0), delay);
   }
 }
