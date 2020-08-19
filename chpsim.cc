@@ -156,6 +156,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     break;
 
   case E_BITFIELD:
+    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
   case E_CHP_VARBOOL:
@@ -325,8 +326,6 @@ void ChpSim::Step (int ev_type)
   printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
   name->Print (stdout);
   printf ("> ");
-
-  printf (" [%p] ", stmt);
 #endif
 
   /*--- simulate statement until there's a blocking scenario ---*/

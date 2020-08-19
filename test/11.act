@@ -1,0 +1,38 @@
+deftype tst <: int<32> (int<4> x; int<18> y; int<10> z)
+{
+
+}
+
+defproc src(chan!(bool) x)
+{
+  tst w; 
+  chp {
+    w := 0;
+   *[ w < 100 -> x!false; w:=w+1; log("w = ", w)  ]
+  }
+}
+
+defproc sink(chan?(bool) x)
+{
+  bool t;
+  chp {
+   *[ x?t ]
+  }
+}
+
+defproc buffer (chan?(bool) l; chan!(bool) r)
+{
+  bool x;
+  chp {
+   *[ l?x; x:=~x; log("got a value ", x); r!x ]
+  }
+}
+
+defproc test()
+{
+  buffer b;
+  src source(b.l);
+  sink bucket(b.r);
+}
+
+test t;

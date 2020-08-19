@@ -1,0 +1,200 @@
+[      50 t#:0] <source> w = 1
+[      50 t#:0] <b> got a value 1
+[      90 t#:0] <b> got a value 1
+[      90 t#:0] <source> w = 2
+[     130 t#:0] <b> got a value 1
+[     130 t#:0] <source> w = 3
+[     170 t#:0] <b> got a value 1
+[     170 t#:0] <source> w = 4
+[     210 t#:0] <b> got a value 1
+[     210 t#:0] <source> w = 5
+[     250 t#:0] <b> got a value 1
+[     250 t#:0] <source> w = 6
+[     290 t#:0] <b> got a value 1
+[     290 t#:0] <source> w = 7
+[     330 t#:0] <b> got a value 1
+[     330 t#:0] <source> w = 8
+[     370 t#:0] <b> got a value 1
+[     370 t#:0] <source> w = 9
+[     410 t#:0] <b> got a value 1
+[     410 t#:0] <source> w = 10
+[     450 t#:0] <b> got a value 1
+[     450 t#:0] <source> w = 11
+[     490 t#:0] <b> got a value 1
+[     490 t#:0] <source> w = 12
+[     530 t#:0] <b> got a value 1
+[     530 t#:0] <source> w = 13
+[     570 t#:0] <b> got a value 1
+[     570 t#:0] <source> w = 14
+[     610 t#:0] <b> got a value 1
+[     610 t#:0] <source> w = 15
+[     650 t#:0] <b> got a value 1
+[     650 t#:0] <source> w = 16
+[     690 t#:0] <b> got a value 1
+[     690 t#:0] <source> w = 17
+[     730 t#:0] <b> got a value 1
+[     730 t#:0] <source> w = 18
+[     770 t#:0] <b> got a value 1
+[     770 t#:0] <source> w = 19
+[     810 t#:0] <b> got a value 1
+[     810 t#:0] <source> w = 20
+[     850 t#:0] <b> got a value 1
+[     850 t#:0] <source> w = 21
+[     890 t#:0] <b> got a value 1
+[     890 t#:0] <source> w = 22
+[     930 t#:0] <b> got a value 1
+[     930 t#:0] <source> w = 23
+[     970 t#:0] <b> got a value 1
+[     970 t#:0] <source> w = 24
+[    1010 t#:0] <b> got a value 1
+[    1010 t#:0] <source> w = 25
+[    1050 t#:0] <b> got a value 1
+[    1050 t#:0] <source> w = 26
+[    1090 t#:0] <b> got a value 1
+[    1090 t#:0] <source> w = 27
+[    1130 t#:0] <b> got a value 1
+[    1130 t#:0] <source> w = 28
+[    1170 t#:0] <b> got a value 1
+[    1170 t#:0] <source> w = 29
+[    1210 t#:0] <b> got a value 1
+[    1210 t#:0] <source> w = 30
+[    1250 t#:0] <b> got a value 1
+[    1250 t#:0] <source> w = 31
+[    1290 t#:0] <b> got a value 1
+[    1290 t#:0] <source> w = 32
+[    1330 t#:0] <b> got a value 1
+[    1330 t#:0] <source> w = 33
+[    1370 t#:0] <b> got a value 1
+[    1370 t#:0] <source> w = 34
+[    1410 t#:0] <b> got a value 1
+[    1410 t#:0] <source> w = 35
+[    1450 t#:0] <b> got a value 1
+[    1450 t#:0] <source> w = 36
+[    1490 t#:0] <b> got a value 1
+[    1490 t#:0] <source> w = 37
+[    1530 t#:0] <b> got a value 1
+[    1530 t#:0] <source> w = 38
+[    1570 t#:0] <b> got a value 1
+[    1570 t#:0] <source> w = 39
+[    1610 t#:0] <b> got a value 1
+[    1610 t#:0] <source> w = 40
+[    1650 t#:0] <b> got a value 1
+[    1650 t#:0] <source> w = 41
+[    1690 t#:0] <b> got a value 1
+[    1690 t#:0] <source> w = 42
+[    1730 t#:0] <b> got a value 1
+[    1730 t#:0] <source> w = 43
+[    1770 t#:0] <b> got a value 1
+[    1770 t#:0] <source> w = 44
+[    1810 t#:0] <b> got a value 1
+[    1810 t#:0] <source> w = 45
+[    1850 t#:0] <b> got a value 1
+[    1850 t#:0] <source> w = 46
+[    1890 t#:0] <b> got a value 1
+[    1890 t#:0] <source> w = 47
+[    1930 t#:0] <b> got a value 1
+[    1930 t#:0] <source> w = 48
+[    1970 t#:0] <b> got a value 1
+[    1970 t#:0] <source> w = 49
+[    2010 t#:0] <b> got a value 1
+[    2010 t#:0] <source> w = 50
+[    2050 t#:0] <b> got a value 1
+[    2050 t#:0] <source> w = 51
+[    2090 t#:0] <b> got a value 1
+[    2090 t#:0] <source> w = 52
+[    2130 t#:0] <b> got a value 1
+[    2130 t#:0] <source> w = 53
+[    2170 t#:0] <b> got a value 1
+[    2170 t#:0] <source> w = 54
+[    2210 t#:0] <b> got a value 1
+[    2210 t#:0] <source> w = 55
+[    2250 t#:0] <b> got a value 1
+[    2250 t#:0] <source> w = 56
+[    2290 t#:0] <b> got a value 1
+[    2290 t#:0] <source> w = 57
+[    2330 t#:0] <b> got a value 1
+[    2330 t#:0] <source> w = 58
+[    2370 t#:0] <b> got a value 1
+[    2370 t#:0] <source> w = 59
+[    2410 t#:0] <b> got a value 1
+[    2410 t#:0] <source> w = 60
+[    2450 t#:0] <b> got a value 1
+[    2450 t#:0] <source> w = 61
+[    2490 t#:0] <b> got a value 1
+[    2490 t#:0] <source> w = 62
+[    2530 t#:0] <b> got a value 1
+[    2530 t#:0] <source> w = 63
+[    2570 t#:0] <b> got a value 1
+[    2570 t#:0] <source> w = 64
+[    2610 t#:0] <b> got a value 1
+[    2610 t#:0] <source> w = 65
+[    2650 t#:0] <b> got a value 1
+[    2650 t#:0] <source> w = 66
+[    2690 t#:0] <b> got a value 1
+[    2690 t#:0] <source> w = 67
+[    2730 t#:0] <b> got a value 1
+[    2730 t#:0] <source> w = 68
+[    2770 t#:0] <b> got a value 1
+[    2770 t#:0] <source> w = 69
+[    2810 t#:0] <b> got a value 1
+[    2810 t#:0] <source> w = 70
+[    2850 t#:0] <b> got a value 1
+[    2850 t#:0] <source> w = 71
+[    2890 t#:0] <b> got a value 1
+[    2890 t#:0] <source> w = 72
+[    2930 t#:0] <b> got a value 1
+[    2930 t#:0] <source> w = 73
+[    2970 t#:0] <b> got a value 1
+[    2970 t#:0] <source> w = 74
+[    3010 t#:0] <b> got a value 1
+[    3010 t#:0] <source> w = 75
+[    3050 t#:0] <b> got a value 1
+[    3050 t#:0] <source> w = 76
+[    3090 t#:0] <b> got a value 1
+[    3090 t#:0] <source> w = 77
+[    3130 t#:0] <b> got a value 1
+[    3130 t#:0] <source> w = 78
+[    3170 t#:0] <b> got a value 1
+[    3170 t#:0] <source> w = 79
+[    3210 t#:0] <b> got a value 1
+[    3210 t#:0] <source> w = 80
+[    3250 t#:0] <b> got a value 1
+[    3250 t#:0] <source> w = 81
+[    3290 t#:0] <b> got a value 1
+[    3290 t#:0] <source> w = 82
+[    3330 t#:0] <b> got a value 1
+[    3330 t#:0] <source> w = 83
+[    3370 t#:0] <b> got a value 1
+[    3370 t#:0] <source> w = 84
+[    3410 t#:0] <b> got a value 1
+[    3410 t#:0] <source> w = 85
+[    3450 t#:0] <b> got a value 1
+[    3450 t#:0] <source> w = 86
+[    3490 t#:0] <b> got a value 1
+[    3490 t#:0] <source> w = 87
+[    3530 t#:0] <b> got a value 1
+[    3530 t#:0] <source> w = 88
+[    3570 t#:0] <b> got a value 1
+[    3570 t#:0] <source> w = 89
+[    3610 t#:0] <b> got a value 1
+[    3610 t#:0] <source> w = 90
+[    3650 t#:0] <b> got a value 1
+[    3650 t#:0] <source> w = 91
+[    3690 t#:0] <b> got a value 1
+[    3690 t#:0] <source> w = 92
+[    3730 t#:0] <b> got a value 1
+[    3730 t#:0] <source> w = 93
+[    3770 t#:0] <b> got a value 1
+[    3770 t#:0] <source> w = 94
+[    3810 t#:0] <b> got a value 1
+[    3810 t#:0] <source> w = 95
+[    3850 t#:0] <b> got a value 1
+[    3850 t#:0] <source> w = 96
+[    3890 t#:0] <b> got a value 1
+[    3890 t#:0] <source> w = 97
+[    3930 t#:0] <b> got a value 1
+[    3930 t#:0] <source> w = 98
+[    3970 t#:0] <b> got a value 1
+[    3970 t#:0] <source> w = 99
+[    4010 t#:0] <b> got a value 1
+[    4010 t#:0] <source> w = 100
