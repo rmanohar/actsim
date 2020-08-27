@@ -32,3 +32,8 @@ void PrsSim::Step (int ev_type)
 {
 
 }
+
+void PrsSim::computeFanout ()
+{
+
+}

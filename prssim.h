@@ -25,7 +25,12 @@
 #include <simdes.h>
 #include "actsim.h"
 
-class PrsSimGraph;
+class PrsSimGraph {
+
+
+
+
+};
 
 class PrsSim : public ActSimObj {
  public:
@@ -33,6 +38,8 @@ class PrsSim : public ActSimObj {
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
+
+  void computeFanout ();
   
  private:
   void varSet (int id, int type, expr_res v);

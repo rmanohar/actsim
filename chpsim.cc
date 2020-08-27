@@ -1494,3 +1494,447 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
   }
 }
+
+
+
+
+ChpSimGraph::ChpSimGraph (ActSimCore *s)
+{
+  state = s;
+  stmt = NULL;
+  next = NULL;
+  all = NULL;
+  wait = 0;
+  tot = 0;
+}
+
+
+ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
+{
+  *done = 0;
+  if (!next) {
+    return NULL;
+  }
+  if (next->wait > 0) {
+    next->tot++;
+    if (next->wait == next->tot) {
+      *done = 1;
+      next->tot = 0;
+      return next;
+    }
+    else {
+      return NULL;
+    }
+  }
+  else {
+    return next;
+  }
+}
+
+
+
+
+/*------------------------------------------------------------------------
+ * The CHP simulation graph
+ *------------------------------------------------------------------------
+ */
+
+static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
+{
+  Expr *ret;
+  if (!e) return NULL;
+  NEW (ret, Expr);
+  ret->type = e->type;
+  switch (e->type) {
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s);
+    break;
+    
+  case E_NOT:
+  case E_UMINUS:
+  case E_COMPLEMENT:
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    ret->u.e.r = NULL;
+    break;
+
+  case E_QUERY:
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    NEW (ret->u.e.r, Expr);
+    ret->u.e.r->type = e->u.e.r->type;
+    ret->u.e.r->u.e.l = expr_to_chp_expr (e->u.e.r->u.e.l, s);
+    ret->u.e.r->u.e.r = expr_to_chp_expr (e->u.e.r->u.e.r, s);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    {
+      Expr *tmp;
+      tmp = ret;
+      do {
+	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+	if (e->u.e.r) {
+	  NEW (tmp->u.e.r, Expr);
+	  tmp->u.e.r->type = e->u.e.r->type;
+	}
+	else {
+	  tmp->u.e.r = NULL;
+	}
+	tmp = tmp->u.e.r;
+	e = e->u.e.r;
+      } while (e);
+    }
+    break;
+
+  case E_BITFIELD:
+    /* l is an Id */
+    ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), NULL);
+    NEW (ret->u.e.r, Expr);
+    ret->u.e.r->type = e->u.e.r->type;
+    ret->u.e.r->u.e.l = expr_dup_const (e->u.e.r->u.e.l);
+    ret->u.e.r->u.e.r = expr_dup_const (e->u.e.r->u.e.r);
+    break;
+
+
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+    FREE (ret);
+    ret = e;
+    break;
+
+  case E_REAL:
+    ret->u.f = e->u.f;
+    break;
+
+  case E_VAR:
+    {
+      int type;
+      ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+      if (type == 2) {
+	ret->type = E_CHP_VARCHAN;
+      }
+      else if (type == 1) {
+	ret->type = E_CHP_VARINT;
+      }
+      else if (type == 0) {
+	ret->type = E_CHP_VARBOOL;
+      }
+      else {
+	fatal_error ("Channel output variable used in expression?");
+      }
+    }
+    break;
+
+  case E_PROBE:
+    {
+      int type;
+      ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+      if (type == 2) {
+	ret->type = E_PROBEIN;
+      }
+      else if (type == 3) {
+	ret->type = E_PROBEOUT;
+      }
+      else {
+	Assert (0, "Probe on a non-channel?");
+      }
+    }
+    break;
+    
+  case E_FUNCTION:
+    ret->u.fn.s = e->u.fn.s;
+    ret->u.fn.r = NULL;
+    {
+      Expr *tmp = NULL;
+      e = e->u.fn.r;
+      while (e) {
+	if (!tmp) {
+	  NEW (tmp, Expr);
+	  ret->u.fn.r = tmp;
+	}
+	else {
+	  NEW (tmp->u.e.r, Expr);
+	  tmp = tmp->u.e.r;
+	}
+	tmp->u.e.r = NULL;
+	tmp->type = e->type;
+	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+	e = e->u.e.r;
+      }
+    }
+    break;
+
+  case E_SELF:
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+  return ret;
+}
+
+static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
+{
+  chpsimcond *tmp;
+  chpsimstmt *ret;
+  
+  ret = NULL;
+  if (!gc) return ret;
+
+  NEW (ret, chpsimstmt);
+  ret->type = CHPSIM_COND;
+  tmp = NULL;
+  
+  while (gc) {
+    if (!tmp) {
+      tmp = &ret->u.c;
+    }
+    else {
+      NEW (tmp->next, chpsimcond);
+      tmp = tmp->next;
+    }
+    tmp->next = NULL;
+    tmp->g = expr_to_chp_expr (gc->g, s);
+    gc = gc->next;
+  }
+  return ret;
+}
+
+
+ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
+					    act_chp_lang_t *c,
+					    ChpSimGraph **stop)
+{
+  ChpSimGraph *ret = NULL;
+  ChpSimGraph *tmp2;
+  int i, count;
+  
+  if (!c) return NULL;
+
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+    if (list_length (c->u.semi_comma.cmd)== 1) {
+      return buildChpSimGraph
+	(sc,
+	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+    }
+    for (listitem_t *li = list_first (c->u.semi_comma.cmd);
+	 li; li = list_next (li)) {
+      act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
+      ChpSimGraph *tmp = buildChpSimGraph (sc, t, &tmp2);
+      if (tmp) {
+	if (!ret) {
+	  ret = tmp;
+	  *stop = tmp2;
+	}
+	else {
+	  (*stop)->next = tmp;
+	  *stop = tmp2;
+	}
+      }
+    }
+    break;
+
+  case ACT_CHP_COMMA:
+    if (list_length (c->u.semi_comma.cmd)== 1) {
+      return buildChpSimGraph
+	(sc,
+	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+    }
+    ret = new ChpSimGraph (sc);
+    *stop = new ChpSimGraph (sc);
+    ret->next = *stop; // not sure we need this, but this is the fork/join
+		       // connection
+
+    count = 0;
+    MALLOC (ret->all, ChpSimGraph *, list_length (c->u.semi_comma.cmd));
+    i = 0;
+    for (listitem_t *li = list_first (c->u.semi_comma.cmd);
+	 li; li = list_next (li)) {
+      act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
+      ret->all[i] = buildChpSimGraph (sc,
+				      (act_chp_lang_t *)list_value (li), &tmp2);
+      if (ret->all[i]) {
+	tmp2->next = *stop;
+	count++;
+      }
+      i++;
+    }
+    if (count > 0) {
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->type = CHPSIM_FORK;
+      ret->stmt->u.fork = count;
+      (*stop)->wait = count;
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_LOOP:
+    ret = new ChpSimGraph (sc);
+    ret->stmt = gc_to_chpsim (c->u.gc, sc);
+    i = 0;
+    for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      i++;
+    }
+    Assert (i >= 1, "What?");
+    MALLOC (ret->all, ChpSimGraph *, i);
+      
+    (*stop) = new ChpSimGraph (sc);
+
+    if (c->type == ACT_CHP_LOOP) {
+      ret->next = (*stop);
+    }
+    i = 0;
+    for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      ret->all[i] = buildChpSimGraph (sc, gc->s, &tmp2);
+      if (ret->all[i]) {
+	if (c->type == ACT_CHP_LOOP) {
+	  /* loop back */
+	  tmp2->next = ret;
+	}
+	else {
+	  tmp2->next = *stop;
+	}
+      }
+      else {
+	if (c->type != ACT_CHP_LOOP) {
+	  ret->all[i] = (*stop);
+	}
+	else {
+	  ret->all[i] = ret;
+	}
+      }
+      i++;
+    }
+    break;
+    
+  case ACT_CHP_DOLOOP:
+    ret = new ChpSimGraph (sc);
+    ret->stmt = gc_to_chpsim (c->u.gc, sc);
+    (*stop) = new ChpSimGraph (sc);
+    ret->next = (*stop);
+    MALLOC (ret->all, ChpSimGraph *, 1);
+    ret->all[0] = buildChpSimGraph (sc, c->u.gc->s, &tmp2);
+    tmp2->next = ret;
+    break;
+    
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+    ret = new ChpSimGraph (sc);
+    NEW (ret->stmt, chpsimstmt);
+    ret->stmt->type = CHPSIM_SEND;
+    {
+      listitem_t *li;
+      ret->stmt->u.send.el = list_new ();
+      for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+	Expr *e = (Expr *) list_value (li);
+	list_append (ret->stmt->u.send.el, expr_to_chp_expr (e, sc));
+      }
+    }    
+    ret->stmt->u.send.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    (*stop) = ret;
+    break;
+    
+    
+  case ACT_CHP_RECV:
+    ret = new ChpSimGraph (sc);
+    NEW (ret->stmt, chpsimstmt);
+    ret->stmt->type = CHPSIM_RECV;
+    {
+      listitem_t *li;
+      ret->stmt->u.recv.vl = list_new ();
+      for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+	ActId *id = (ActId *) list_value (li);
+	int type;
+	int x = sc->getLocalOffset (id, sc->cursi(), &type);
+	if (type == 3) {
+	  type = 2;
+	}
+	list_append (ret->stmt->u.recv.vl, (void *)(long)type);
+	list_append (ret->stmt->u.recv.vl, (void *)(long)x);
+      }
+    }
+    ret->stmt->u.recv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    (*stop) = ret;
+    break;
+
+  case ACT_CHP_FUNC:
+    if (strcmp (string_char (c->u.func.name), "log") != 0) {
+      warning ("Built-in function `%s' is not known; valid values: log",
+	       c->u.func.name);
+    }
+    else {
+      listitem_t *li;
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->type = CHPSIM_FUNC;
+      ret->stmt->u.fn.name = string_char (c->u.func.name);
+      ret->stmt->u.fn.l = list_new();
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	act_func_arguments_t *x;
+	NEW (x, act_func_arguments_t);
+	x->isstring = tmp->isstring;
+	if (tmp->isstring) {
+	  x->u.s = tmp->u.s;
+	}
+	else {
+	  x->u.e = expr_to_chp_expr (tmp->u.e, sc);
+	}
+	list_append (ret->stmt->u.fn.l, x);
+      }
+      (*stop) = ret;
+    }
+    break;
+    
+  case ACT_CHP_ASSIGN:
+    ret = new ChpSimGraph (sc);
+    NEW (ret->stmt, chpsimstmt);
+    ret->stmt->type = CHPSIM_ASSIGN;
+    ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
+    {
+      int type;
+      ret->stmt->u.assign.var = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
+      if (type == 1) {
+	ret->stmt->u.assign.isbool = 0;
+      }
+      else {
+	Assert (type == 0, "Typechecking?!");
+	ret->stmt->u.assign.isbool = 1;
+      }
+    }
+    (*stop) = ret;
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
+  return ret;
+}
+
+

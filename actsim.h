@@ -201,6 +201,8 @@ protected:
 
   struct iHashtable *map;	/* map from process pointer to
 				   chpsimgraph */
+  struct iHashtable *pmap;	/* map from process pointer to
+				   prssimgraph */
 
   unsigned int root_is_ns:1;	/* root is the global namespace? */
   Process *simroot;		/* set if root is not the global ns */
@@ -277,59 +279,6 @@ public:
 private:
 
 };
-
-
-struct chpsimcond {
-  Expr *g;
-  struct chpsimcond *next;
-};
-
-#define CHPSIM_COND   0
-#define CHPSIM_ASSIGN 1
-#define CHPSIM_SEND   2
-#define CHPSIM_RECV   3
-#define CHPSIM_FUNC   4  /* built-in functions */
-#define CHPSIM_FORK   5
-
-struct chpsimstmt {
-  int type;
-  union {
-    int fork;			/* # of forks */
-    chpsimcond c;		/* conditional */
-    struct {
-      const char *name;		/* function name */
-      list_t *l;		/* arguments */
-    } fn;
-    struct {
-      int isbool;
-      int var;
-      Expr *e;
-    } assign;			/* var := e */
-    struct {
-      int chvar;
-      list_t *el;		/* list of expressions */
-    } send;
-    struct {
-      int chvar;
-      list_t *vl;		/* list of vars */
-    } recv;
-  } u;
-};
-
-class ChpSimGraph {
- public:
-  ChpSimGraph (ActSimCore *);
-  ActSimCore *state;
-  chpsimstmt *stmt;		/* object to simulate */
-  int wait;			/* for concurrency */
-  int tot;
-  ChpSimGraph *next;
-  ChpSimGraph **all;		/* successors, if multiple.
-				   used by comma and selections 
-				*/
-  ChpSimGraph *completed (int pc, int *done);
-};
-
 
 
 #endif /* __ACT_SIM_H__ */

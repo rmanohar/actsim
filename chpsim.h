@@ -25,6 +25,70 @@
 #include <simdes.h>
 #include "actsim.h"
 
+
+/*--- CHP simulation data structures ---*/
+
+struct chpsimcond {
+  Expr *g;
+  struct chpsimcond *next;
+};
+
+#define CHPSIM_COND   0
+#define CHPSIM_ASSIGN 1
+#define CHPSIM_SEND   2
+#define CHPSIM_RECV   3
+#define CHPSIM_FUNC   4  /* built-in functions */
+#define CHPSIM_FORK   5
+
+struct chpsimstmt {
+  int type;
+  union {
+    int fork;			/* # of forks */
+    chpsimcond c;		/* conditional */
+    struct {
+      const char *name;		/* function name */
+      list_t *l;		/* arguments */
+    } fn;
+    struct {
+      int isbool;
+      int var;
+      Expr *e;
+    } assign;			/* var := e */
+    struct {
+      int chvar;
+      list_t *el;		/* list of expressions */
+    } send;
+    struct {
+      int chvar;
+      list_t *vl;		/* list of vars */
+    } recv;
+  } u;
+};
+
+
+/* --- Each unique process has a CHP sim graph associated with it --- */
+
+class ChpSimGraph {
+ public:
+  ChpSimGraph (ActSimCore *);
+  ActSimCore *state;
+  chpsimstmt *stmt;		/* object to simulate */
+  int wait;			/* for concurrency */
+  int tot;
+  ChpSimGraph *next;
+  ChpSimGraph **all;		/* successors, if multiple.
+				   used by comma and selections 
+				*/
+  ChpSimGraph *completed (int pc, int *done);
+
+  static ChpSimGraph *buildChpSimGraph (ActSimCore *,
+					act_chp_lang_t *, ChpSimGraph **stop);
+  
+};
+
+
+/* --- each unique instance has a ChpSim object associated with it --- */
+
 class ChpSim : public ActSimObj {
  public:
   ChpSim (ChpSimGraph *, stateinfo_t *si, act_chp_lang_t *, ActSimCore *sim);
@@ -33,7 +97,7 @@ class ChpSim : public ActSimObj {
   void Step (int ev_type);	/* run a step of the simulation */
 
   void computeFanout ();
-  
+
  private:
   int _npc;			/* # of program counters */
   ChpSimGraph **_pc;		/* current PC state of simulation */
