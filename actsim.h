@@ -63,6 +63,11 @@ struct act_channel_state {
   WaitForOne *probe;		// probe wake-up
 };
 
+struct extra_state_alloc {
+  void *space;
+  int sz;
+};
+
 #define MAX_LOCAL_PCS 1024
 
   
@@ -80,6 +85,8 @@ public:
   void gStall (SimDES *s) { gshared->AddObject (s); }
   void gRemove (SimDES *s) { gshared->DelObject (s); }
   void gWakeup () { gshared->Notify (MAX_LOCAL_PCS); }
+
+  void *allocState (int sz);
   
 private:
   bitset_t *bits;		/* Booleans */
@@ -91,6 +98,8 @@ private:
 
   act_channel_state *chans;	/* channel state */
   int nchans;			/* numchannels */
+
+  list_t *extra_state;		/* any extra state needed */
 
   /*--- what about other bits of state?! ---*/
   WaitForOne *gshared;
@@ -147,7 +156,7 @@ class ActSimCore {
      /* Returns the list of pending events */
 
      /* get/set the current state */
-  ActSimState *getState ();
+  ActSimState *getState () { return state; }
   void setState (ActSimState *);
 
   int getInt (int x) { return state->getInt (x); }

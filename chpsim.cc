@@ -51,7 +51,9 @@ ChpSim::ChpSim (ChpSimGraph *g, stateinfo_t *si,
   _npc = _max_program_counters (c);
   _pcused = 1;
   Assert (_npc >= 1, "What?");
-  MALLOC (_pc, ChpSimGraph *, _npc);
+
+  _pc = (ChpSimGraph **)
+    sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
   for (int i=0; i < _npc; i++) {
     _pc[i] = NULL;
   }

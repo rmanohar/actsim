@@ -808,68 +808,6 @@ act_connection *ActSim::runSim (act_connection **cause)
 
 
 
-ActSimState::ActSimState (int bools, int ints, int chantot)
-{
-#if 0
-  printf ("# bools=%d, ints=%d, chans=%d\n",
-	  bools, ints, chantot);
-#endif
-  nbools = bools;
-  
-  if (bools > 0) {
-    bits = bitset_new (bools);
-  }
-  else {
-    bits = NULL;
-  }
-
-  nints = ints;
-  if (nints > 0) {
-    MALLOC (ival, int, nints);
-  }
-  else {
-    ival = NULL;
-  }
-
-  nchans = chantot;
-  if (nchans > 0) {
-    MALLOC (chans, act_channel_state, nchans);
-    for (int i=0; i < nchans; i++) {
-      chans[i].send_here = 0;
-      chans[i].recv_here = 0;
-      chans[i].sender_probe = 0;
-      chans[i].receiver_probe = 0;
-      chans[i].len = 0;
-      chans[i].data = 0;
-      chans[i].data2 = 0;
-      chans[i].w = new WaitForOne(0);
-      chans[i].probe = NULL;
-    }
-  }
-  else {
-    chans = NULL;
-  }
-
-  gshared = new WaitForOne (10);
-}
-
-ActSimState::~ActSimState()
-{
-  if (bits) {
-    bitset_free (bits);
-  }
-  if (ival) {
-    FREE (ival);
-  }
-  if (chans) {
-    for (int i=0; i < nchans; i++) {
-      delete chans[i].w;
-    }
-    FREE (chans);
-  }
-  delete gshared;
-}
-		 
 
 ActSim::ActSim (Process *root) : ActSimCore (root)
 {
@@ -1471,44 +1409,6 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
   }
 }
 
-
-int ActSimState::getInt (int x)
-{
-  Assert (0 <= x && x < nints, "What");
-  return ival[x];
-}
-
-void ActSimState::setInt (int x, int v)
-{
-  Assert (0 <= x && x < nints, "What");
-  ival[x] = v;
-}
-
-act_channel_state *ActSimState::getChan (int x)
-{
-  Assert (0 <= x && x < nchans, "What");
-  return &chans[x];
-}
-
-int ActSimState::getBool (int x)
-{
-  if (bitset_tst (bits, x)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
-}
-
-void ActSimState::setBool (int x, int v)
-{
-  if (v) {
-    bitset_set (bits, x);
-  }
-  else {
-    bitset_clr (bits, x);
-  }
-}
 
 void ActSimCore::incFanout (int off, int type, SimDES *who)
 {
