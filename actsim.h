@@ -236,7 +236,7 @@ protected:
   void _add_chp (act_chp *c);
   void _add_hse (act_chp *c);
   void _add_dflow (act_dataflow *c);
-  void _add_prs (act_prs *c);
+  void _add_prs (act_prs *c, act_spec *);
 
   /*-- returns the current level selected --*/
   int _getlevel ();

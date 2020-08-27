@@ -25,16 +25,70 @@
 #include <simdes.h>
 #include "actsim.h"
 
+/*
+ * up, down, wup, wdn
+ */
+#define PRSSIM_EXPR_AND 0
+#define PRSSIM_EXPR_OR 1
+#define PRSSIM_EXPR_NOT 2
+#define PRSSIM_EXPR_VAR 3
+#define PRSSIM_EXPR_TRUE 4
+#define PRSSIM_EXPR_FALSE 5
+
+struct prssim_expr {
+  unsigned int type:3;  /* AND, OR, NOT, VAR */
+  union {
+    struct {
+      prssim_expr *l, *r;
+    };
+    int vid;
+  };
+};
+
+#define PRSSIM_RULE  0
+#define PRSSIM_PASSP 1
+#define PRSSIM_PASSN 2
+#define PRSSIM_TGATE 3
+
+#define PRSSIM_NORM 0
+#define PRSSIM_WEAK 1
+
+struct prssim_stmt {
+  unsigned int type:2; /* RULE, P, N, TRANSGATE */
+  struct prssim_stmt *next;
+  union {
+    struct {
+      prssim_expr *up[2], *dn[2];
+      int vid;
+    };
+    struct {
+      int t1, t2, g, _g;
+    };
+  };
+};
+  
+
 class PrsSimGraph {
+private:
+  struct prssim_stmt *_rules, *_tail;
+  struct Hashtable *_labels;
+
+  void _add_one_rule (ActSimCore *, act_prs_lang_t *);
+  void _add_one_gate (ActSimCore *, act_prs_lang_t *);
+  
+public:
+  PrsSimGraph();
+  
+  void addPrs (ActSimCore *, act_prs_lang_t *);
 
 
-
-
+  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, act_spec *);
+  
 };
 
 class PrsSim : public ActSimObj {
  public:
-  PrsSim (PrsSimGraph *, act_prs *, ActSimCore *sim);
+  PrsSim (PrsSimGraph *, ActSimCore *sim);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
@@ -48,6 +102,14 @@ class PrsSim : public ActSimObj {
 
 };
 
+
+class OnePrsSim : public ActSimObj {
+private:
+  PrsSimGraph *_me;
+public:
+  OnePrsSim (PrsSim *p, PrsSimGraph *g);
+  void Step (int ev_type);
+};
 
 
 #endif /* __ACT_CHP_SIM_H__ */

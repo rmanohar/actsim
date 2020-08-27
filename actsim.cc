@@ -317,7 +317,7 @@ void ActSimCore::_add_hse (act_chp *c)
   x->computeFanout ();
 }
 
-void ActSimCore::_add_prs (act_prs *p)
+void ActSimCore::_add_prs (act_prs *p, act_spec *spec)
 {
 #if 0  
   printf ("add-prs-inst: ");
@@ -331,12 +331,19 @@ void ActSimCore::_add_prs (act_prs *p)
 #endif
 
   PrsSimGraph *pg;
-
-  
-
+  ihash_bucket_t *b;
+  b = ihash_lookup (pmap, (long)_curproc);
+  if (b) {
+    pg = (PrsSimGraph *)b->v;
+  }
+  else {
+    b = ihash_add (pmap, (long)_curproc);
+    pg = PrsSimGraph::buildPrsSimGraph (this, p, spec);
+    b->v = pg;
+  }
   /* need prs simulation graph */
 
-  PrsSim *x = new PrsSim (NULL, p, this);
+  PrsSim *x = new PrsSim (pg, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -382,7 +389,7 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   }
   else if (l->getprs() && lev == ACT_MODEL_PRS) {
     /* prs */
-    _add_prs (l->getprs());
+    _add_prs (l->getprs(), l->getspec());
   }
   else if (lev == ACT_MODEL_DEVICE) {
     fatal_error ("Xyce needs to be integrated");
