@@ -26,18 +26,77 @@
 PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim)
 : ActSimObj (sim)
 {
-  
+  _sc = sim;
+  _g = g;
 }
 
 void PrsSim::Step (int ev_type)
 {
-
+  fatal_error ("This should never be called!");
 }
+
+
+void PrsSim::_computeFanout (prssim_expr *e, SimDES *s)
+{
+  if (!e) return;
+  switch (e->type) {
+  case PRSSIM_EXPR_AND:
+  case PRSSIM_EXPR_OR:
+    _computeFanout (e->l, s);
+    _computeFanout (e->r, s);
+    break;
+
+  case PRSSIM_EXPR_NOT:
+    _computeFanout (e->l, s);
+    break;
+
+  case PRSSIM_EXPR_VAR:
+    {
+      int off = getGlobalOffset (e->vid, 0); // boolean
+      _sc->incFanout (off, 0, s);
+    }
+    break;
+
+  case PRSSIM_EXPR_TRUE:
+  case PRSSIM_EXPR_FALSE:
+    break;
+
+  default:
+    Assert (0, "What?");
+    break;
+  }
+}
+    
 
 void PrsSim::computeFanout ()
 {
-  
-  
+  prssim_stmt *x;
+
+  for (x = _g->getRules(); x; x = x->next) {
+    /* -- create rule -- */
+    OnePrsSim *t = new OnePrsSim (this, x);
+    if (x->type == PRSSIM_RULE) {
+      _computeFanout (x->up[0], t);
+      _computeFanout (x->up[1], t);
+      _computeFanout (x->dn[0], t);
+      _computeFanout (x->dn[1], t);
+    }
+    else {
+      int off;
+      if (x->type == PRSSIM_PASSP || x->type == PRSSIM_TGATE) {
+	off = getGlobalOffset (x->_g, 0);
+	_sc->incFanout (off, 0, t);
+      }
+      if (x->type == PRSSIM_PASSN || x->type == PRSSIM_TGATE) {
+	off = getGlobalOffset (x->g, 0);
+	_sc->incFanout (off, 0, t);
+      }
+      off = getGlobalOffset (x->t1, 0);
+      _sc->incFanout (off, 0, t);
+      off = getGlobalOffset (x->t2, 0);
+      _sc->incFanout (off, 0, t);
+    }
+  }
 }
 
 static int _attr_check_weak (act_attr_t *attr)
@@ -341,4 +400,10 @@ PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p, act_spec
     p = p->next;
   }
   return pg;
+}
+
+
+void OnePrsSim::Step (int ev_type)
+{
+  /* evaluate rule and fire! */
 }

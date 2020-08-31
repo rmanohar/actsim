@@ -81,6 +81,8 @@ public:
   
   void addPrs (ActSimCore *, act_prs_lang_t *);
 
+  prssim_stmt *getRules () { return _rules; }
+
 
   static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, act_spec *);
   
@@ -96,18 +98,24 @@ class PrsSim : public ActSimObj {
   void computeFanout ();
   
  private:
+  void _computeFanout (prssim_expr *, SimDES *);
+  
   void varSet (int id, int type, expr_res v);
   int varSend (int pc, int wakeup, int id, expr_res v);
   int varRecv (int pc, int wakeup, int id, expr_res *v);
 
+  ActSimCore *_sc;
+  PrsSimGraph *_g;
 };
 
 
-class OnePrsSim : public ActSimObj {
+/*-- not actsimobj so that it can be lightweight --*/
+class OnePrsSim : public SimDES {
 private:
-  PrsSimGraph *_me;
+  PrsSim *_proc;		// process core
+  struct prssim_stmt *_me;	// the rule
 public:
-  OnePrsSim (PrsSim *p, PrsSimGraph *g);
+  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
   void Step (int ev_type);
 };
 

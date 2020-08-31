@@ -1011,6 +1011,12 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
     NEW (fo[off], SimDES *);
   }
   else if (nfo[off] >= 8) {
+    for (int i=nfo[off]-1; i >= 0 && i >= nfo[off]-10; i--) {
+      if (fo[off][i] == who) {
+	return;
+      }
+    }
+    
     /* this is a tentative high fanout net */
     ihash_bucket_t *b;
     if (!hfo) {
@@ -1027,6 +1033,11 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
     }
   }
   else {
+    for (int i=nfo[off]-1; i >= 0 ; i--) {
+      if (fo[off][i] == who) {
+	return;
+      }
+    }
     REALLOC (fo[off], SimDES *, nfo[off]+1);
   }
   fo[off][nfo[off]] = who;

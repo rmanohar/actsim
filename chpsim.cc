@@ -712,6 +712,9 @@ expr_res ChpSim::varEval (int id, int type)
   if (type == 0) {
     r.width = 1;
     r.v = _sc->getBool (off);
+    if (r.v == 2) {
+      warning ("Boolean variable is X");
+    }
   }
   else if (type == 1) {
     r.width = 32; /* XXX: need bit-widths */

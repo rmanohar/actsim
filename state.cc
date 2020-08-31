@@ -32,7 +32,10 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   nbools = bools;
   
   if (bools > 0) {
-    bits = bitset_new (bools);
+    bits = bitset_new (bools*2);
+    for (int i=0; i < bools; i++) {
+      bitset_set (bits, 2*i+1);
+    }
   }
   else {
     bits = NULL;
@@ -107,7 +110,11 @@ act_channel_state *ActSimState::getChan (int x)
 
 int ActSimState::getBool (int x)
 {
-  if (bitset_tst (bits, x)) {
+  if (bitset_tst (bits, 2*x+1)) {
+    /* X */
+    return 2;
+  }
+  if (bitset_tst (bits, 2*x)) {
     return 1;
   }
   else {
@@ -117,11 +124,16 @@ int ActSimState::getBool (int x)
 
 void ActSimState::setBool (int x, int v)
 {
-  if (v) {
-    bitset_set (bits, x);
+  if (v == 1) {
+    bitset_set (bits, 2*x);
+    bitset_clr (bits, 2*x+1);
+  }
+  else if (v == 0) {
+    bitset_clr (bits, 2*x);
+    bitset_clr (bits, 2*x+1);
   }
   else {
-    bitset_clr (bits, x);
+    bitset_set (bits, 2*x+1);
   }
 }
 
@@ -135,4 +147,3 @@ void *ActSimState::allocState (int sz)
   list_append (extra_state, s);
   return s->space;
 }
-
