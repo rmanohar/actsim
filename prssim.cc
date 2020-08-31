@@ -403,7 +403,128 @@ PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p, act_spec
 }
 
 
+/* 2 = X */
+static const int _not_table[3] = { 1, 0, 2 };
+
+static const int _and_table[3][3] = { { 0, 0, 0 },
+				      { 0, 1, 2 },
+				      { 0, 2, 2 } };
+
+static const int _or_table[3][3] = { { 0, 1, 2 },
+				     { 1, 1, 1 },
+				     { 2, 1, 2 } };
+
+int OnePrsSim::eval (prssim_expr *x)
+{
+  int a, b;
+  if (!x) { return 0; }
+  switch (x->type) {
+  case PRSSIM_EXPR_AND:
+    a = eval (x->l);
+    b = eval (x->r);
+    return _and_table[a][b];
+    break;
+    
+  case PRSSIM_EXPR_OR:
+    a = eval (x->l);
+    b = eval (x->r);
+    return _or_table[a][b];
+    break;
+
+  case PRSSIM_EXPR_NOT:
+    a = eval (x->l);
+    return _not_table[a];
+    break;
+
+  case PRSSIM_EXPR_VAR:
+    return _proc->getBool (x->vid);
+    break;
+
+  case PRSSIM_EXPR_TRUE:
+    return 1;
+    break;
+    
+  case PRSSIM_EXPR_FALSE:
+    return 0;
+    break;
+
+  default:
+    fatal_error("What?");
+    break;
+  }
+  return 0;
+}
+
+
 void OnePrsSim::Step (int ev_type)
 {
-  /* evaluate rule and fire! */
+  int u_state, d_state;
+  /*-- fire rule --*/
+  switch (_me->type) {
+  case PRSSIM_PASSP:
+  case PRSSIM_PASSN:
+  case PRSSIM_TGATE:
+
+    break;
+
+  case PRSSIM_RULE:
+    /* evaluate up, up-weak and dn, dn-weak */
+    u_state = eval (_me->up[PRSSIM_NORM]);
+    if (u_state == 0) {
+      u_state = eval (_me->up[PRSSIM_WEAK]);
+    }
+    d_state = eval (_me->dn[PRSSIM_NORM]);
+    if (d_state == 0) {
+      d_state = eval (_me->dn[PRSSIM_WEAK]);
+    }
+    if (u_state != 0 && d_state != 0) {
+      /* interference, or override */
+      if (u_state == 2) {
+	if (d_state == 2) {
+	  _proc->setBool (_me->vid, 2);
+	  warning ("Weak interference!");
+	}
+	else {
+	  /* set to 0 */
+	  _proc->setBool (_me->vid, 0);
+	}
+      }
+      else {
+	if (d_state == 1) {
+	  _proc->setBool (_me->vid, 2);
+	  warning ("Interference!");
+	}
+	else {
+	  /* set to 1 */
+	  _proc->setBool (_me->vid, 1);
+	}
+      }
+    }
+    else if (u_state == 0) {
+      if (d_state != 0) {
+	/* set to 0 */
+	  _proc->setBool (_me->vid, 0);
+      }
+    }
+    else {
+      /* set to 1 */
+      _proc->setBool (_me->vid, 1);
+    }
+    break;
+
+  default:
+    fatal_error ("What?");
+    break;
+  }
+
+  /*-- walk through fanout, and call propagate! --*/
+  flags = 0;
+
+  
+}
+
+
+void OnePrsSim::propagate ()
+{
+
 }

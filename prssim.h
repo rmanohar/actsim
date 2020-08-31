@@ -96,6 +96,10 @@ class PrsSim : public ActSimObj {
   void Step (int ev_type);	/* run a step of the simulation */
 
   void computeFanout ();
+
+  int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
+    
+  void setBool (int lid, int v) { int off = getGlobalOffset (lid, 0); _sc->setBool (off, v); }
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
@@ -114,6 +118,8 @@ class OnePrsSim : public SimDES {
 private:
   PrsSim *_proc;		// process core
   struct prssim_stmt *_me;	// the rule
+  void propagate ();
+  int eval (prssim_expr *);
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
   void Step (int ev_type);
