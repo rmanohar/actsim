@@ -52,14 +52,17 @@ struct chpsimstmt {
     struct {
       int isbool;
       int var;
+      act_connection *vc;
       Expr *e;
     } assign;			/* var := e */
     struct {
       int chvar;
+      act_connection *vc;
       list_t *el;		/* list of expressions */
     } send;
     struct {
       int chvar;
+      act_connection *vc;
       list_t *vl;		/* list of vars */
     } recv;
   } u;

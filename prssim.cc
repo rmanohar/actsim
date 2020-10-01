@@ -175,6 +175,7 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
     }
     tmp->type = PRSSIM_EXPR_VAR;
     tmp->vid = sc->getLocalOffset (e->u.v.id, sc->cursi(), NULL);
+    tmp->c = e->u.v.id->Canonical (sc->cursi()->bnl->cur);
     break;
 
   case ACT_PRS_EXPR_TRUE:
@@ -248,6 +249,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
 {
   struct prssim_stmt *s;
   int rhs;
+  act_connection *rhsc;
 
   if (p->u.one.label) {
     hash_bucket_t *b = hash_add (at_table, (char *)p->u.one.id);
@@ -256,6 +258,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
   }
 
   rhs = sc->getLocalOffset (p->u.one.id, sc->cursi(), NULL);
+  rhsc = p->u.one.id->Canonical (sc->cursi()->bnl->cur);
   for (s = _rules; s; s = s->next) {
     if (s->type == PRSSIM_RULE) {
       if (s->vid == rhs) {
@@ -268,6 +271,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     s->next = NULL;
     s->type = PRSSIM_RULE;
     s->vid = rhs;
+    s->c = rhsc;
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -414,6 +418,11 @@ static const int _or_table[3][3] = { { 0, 1, 2 },
 				     { 1, 1, 1 },
 				     { 2, 1, 2 } };
 
+#define PENDING_NONE 0
+#define PENDING_0    (1+0)
+#define PENDING_1    (1+1)
+#define PENDING_X    (1+2)
+
 int OnePrsSim::eval (prssim_expr *x)
 {
   int a, b;
@@ -459,6 +468,8 @@ int OnePrsSim::eval (prssim_expr *x)
 void OnePrsSim::Step (int ev_type)
 {
   int u_state, d_state;
+  int t = SIM_EV_TYPE (ev_type);
+
   /*-- fire rule --*/
   switch (_me->type) {
   case PRSSIM_PASSP:
@@ -468,47 +479,9 @@ void OnePrsSim::Step (int ev_type)
     break;
 
   case PRSSIM_RULE:
-    /* evaluate up, up-weak and dn, dn-weak */
-    u_state = eval (_me->up[PRSSIM_NORM]);
-    if (u_state == 0) {
-      u_state = eval (_me->up[PRSSIM_WEAK]);
-    }
-    d_state = eval (_me->dn[PRSSIM_NORM]);
-    if (d_state == 0) {
-      d_state = eval (_me->dn[PRSSIM_WEAK]);
-    }
-    if (u_state != 0 && d_state != 0) {
-      /* interference, or override */
-      if (u_state == 2) {
-	if (d_state == 2) {
-	  _proc->setBool (_me->vid, 2);
-	  warning ("Weak interference!");
-	}
-	else {
-	  /* set to 0 */
-	  _proc->setBool (_me->vid, 0);
-	}
-      }
-      else {
-	if (d_state == 1) {
-	  _proc->setBool (_me->vid, 2);
-	  warning ("Interference!");
-	}
-	else {
-	  /* set to 1 */
-	  _proc->setBool (_me->vid, 1);
-	}
-      }
-    }
-    else if (u_state == 0) {
-      if (d_state != 0) {
-	/* set to 0 */
-	  _proc->setBool (_me->vid, 0);
-      }
-    }
-    else {
-      /* set to 1 */
-      _proc->setBool (_me->vid, 1);
+    _proc->setBool (_me->vid, t);
+    if (flags == (1 + t)) {
+      flags = PENDING_NONE;
     }
     break;
 
@@ -516,15 +489,130 @@ void OnePrsSim::Step (int ev_type)
     fatal_error ("What?");
     break;
   }
-
-  /*-- walk through fanout, and call propagate! --*/
-  flags = 0;
-
-  
 }
 
+#define DO_SET_VAL(x)						\
+   do {								\
+     if (flags != (1 + (x))) {					\
+       flags = (1 + (x));					\
+       _pending = new Event (this, SIM_EV_MKTYPE ((x), 0), 10);	\
+     }								\
+   } while (0)
 
 void OnePrsSim::propagate ()
 {
+  int u_state, d_state;
+  /*-- fire rule --*/
+  switch (_me->type) {
+  case PRSSIM_PASSP:
+  case PRSSIM_PASSN:
+  case PRSSIM_TGATE:
+    break;
 
+  case PRSSIM_RULE:
+    /* evaluate up, up-weak and dn, dn-weak */
+    u_state = eval (_me->up[PRSSIM_NORM]);
+    if (u_state == 0) {
+      u_state = eval (_me->up[PRSSIM_WEAK]);
+    }
+
+    d_state = eval (_me->dn[PRSSIM_NORM]);
+    if (d_state == 0) {
+      d_state = eval (_me->dn[PRSSIM_WEAK]);
+    }
+
+    /* -- check for unstable rules -- */
+    if (flags == PENDING_1 && u_state != 1) {
+      if (u_state == 2) {
+	warning ("Weak-unstable");
+      }
+      else {
+	warning ("Unstable");
+      }
+      _pending->Remove();
+      _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+      flags = PENDING_X;
+    }
+
+    if (flags == PENDING_0 && d_state != 1) {
+      if (d_state == 2) {
+	warning ("Weak-unstable");
+      }
+      else {
+	warning ("Unstable");
+      }
+      _pending->Remove();
+      _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+      flags = PENDING_X;
+    }
+
+    if (u_state == 0) {
+      switch (d_state) {
+      case 0:
+	/* nothing to do */
+	break;
+
+      case 1:
+      case 2:
+	/* set to 0 */
+	DO_SET_VAL (0);
+	break;
+      }
+    }
+    else if (u_state == 1) {
+      switch (d_state) {
+      case 0:
+      case 2:
+	/* set to 1 */
+	DO_SET_VAL (1);
+	break;
+
+      case 1:
+	/* interference */
+      
+	break;
+      }
+    }
+    else {
+      switch (d_state) {
+      case 0:
+	/* set to 1 */
+	DO_SET_VAL (1);
+	break;
+
+      case 1:
+	/* set to 0 */
+	DO_SET_VAL (0);
+	break;
+
+      case 2:
+	/* set to X */
+	warning ("Weak interference");
+	if (flags != PENDING_X) {
+	  flags = PENDING_X;
+	  _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	}
+	break;
+      }
+    }
+    break;
+
+  default:
+    fatal_error ("What?");
+    break;
+  }
+}
+
+void PrsSim::setBool (int lid, int v)
+{
+  int off = getGlobalOffset (lid, 0);
+  SimDES **arr;
+  _sc->setBool (off, v);
+
+  arr = _sc->getFO (off, 0);
+  for (int i=0; i < _sc->numFanout (off, 0); i++) {
+    OnePrsSim *p = dynamic_cast<OnePrsSim *>(arr[i]);
+    Assert (p, "What?");
+    p->propagate ();
+  }
 }

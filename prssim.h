@@ -41,7 +41,10 @@ struct prssim_expr {
     struct {
       prssim_expr *l, *r;
     };
-    int vid;
+    struct {
+      int vid;
+      act_connection *c;
+    };
   };
 };
 
@@ -60,6 +63,7 @@ struct prssim_stmt {
     struct {
       prssim_expr *up[2], *dn[2];
       int vid;
+      act_connection *c;
     };
     struct {
       int t1, t2, g, _g;
@@ -99,7 +103,7 @@ class PrsSim : public ActSimObj {
 
   int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
     
-  void setBool (int lid, int v) { int off = getGlobalOffset (lid, 0); _sc->setBool (off, v); }
+  void setBool (int lid, int v);
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
@@ -116,13 +120,16 @@ class PrsSim : public ActSimObj {
 /*-- not actsimobj so that it can be lightweight --*/
 class OnePrsSim : public SimDES {
 private:
-  PrsSim *_proc;		// process core
+  PrsSim *_proc;		// process core [maps, etc]
   struct prssim_stmt *_me;	// the rule
-  void propagate ();
+  Event *_pending;
+  
   int eval (prssim_expr *);
+
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
   void Step (int ev_type);
+  void propagate ();
 };
 
 

@@ -35,7 +35,7 @@
 
 #define E_CHP_VARBOOL_DEREF  (E_NEWEND + 4)
 #define E_CHP_VARINT_DEREF   (E_NEWEND + 5)
-#define E_CHP_VARCHAN_DEREF  (E_NEWEND + 6)
+//#define E_CHP_VARCHAN_DEREF  (E_NEWEND + 6)
 
 #define E_PROBEIN  (E_NEWEND + 7)
 #define E_PROBEOUT  (E_NEWEND + 8)
@@ -187,6 +187,10 @@ class ActSimCore {
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
   void incFanout (int off, int type, SimDES *who);
+  int numFanout (int off, int type) { if (type == 0) return nfo[off]; else return nfo[off+nint_start];
+}
+  SimDES **getFO (int off, int type) { if (type == 0) { return fo[off]; } else { return fo[off+nint_start]; } }
+    
 
 protected:
   Act *a;

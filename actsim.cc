@@ -886,6 +886,24 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
   ihash_bucket_t *b;
   int x;
 
+  if ((b = ihash_lookup (si->bnl->cdH, (long)c))) {
+    act_dynamic_var_t *dv = (act_dynamic_var_t *)b->v;
+    if (dv->isint) {
+      b = ihash_lookup (si->chpmap, (long)c);
+      Assert (b, "What?");
+      if (type) {
+	*type = 1;
+      }
+    }
+    else {
+      b = ihash_lookup (si->map, (long)c);
+      if (type) {
+	*type = 0;
+      }
+    }
+    return b->i;
+  }
+
   b = ihash_lookup (si->bnl->cH, (long)c);
   Assert (b, "What?");
 
@@ -928,6 +946,8 @@ int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type)
 {
   act_connection *c;
   Scope *sc = si->bnl->cur;
+
+  
 
   c = id->Canonical (sc);
   return getLocalOffset (c, si, type);

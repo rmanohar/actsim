@@ -164,7 +164,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    if (e->u.v < 0) {
+    if (e->u.x.val < 0) {
       ret = 1;
     }
     break;
@@ -179,7 +179,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_PROBEIN:
   case E_PROBEOUT:
     {
-      int off = getGlobalOffset (e->u.v, 2);
+      int off = getGlobalOffset (e->u.x.val, 2);
       act_channel_state *c = _sc->getChan (off);
       if (undo) {
 	if (c->probe) {
@@ -1157,7 +1157,7 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_BITFIELD:
-    l = varEval (e->u.v, 1); 
+    l = varEval (e->u.x.val, 1); 
     r = exprEval (e->u.e.r->u.e.r);
     if (r.v > l.width) {
       warning ("Bit-width is less than the width specifier");
@@ -1179,13 +1179,13 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_CHP_VARBOOL:
-    l = varEval (e->u.v, 0);
+    l = varEval (e->u.x.val, 0);
     break;
   case E_CHP_VARINT:
-    l = varEval (e->u.v, 1);
+    l = varEval (e->u.x.val, 1);
     break;
   case E_CHP_VARCHAN:
-    l = varEval (e->u.v, 2);
+    l = varEval (e->u.x.val, 2);
     break;
 
   case E_VAR:
@@ -1203,7 +1203,7 @@ expr_res ChpSim::exprEval (Expr *e)
     fatal_error ("E_PROBE-2");
   case E_PROBEIN:
   case E_PROBEOUT:
-    l = varEval (e->u.v, 3);
+    l = varEval (e->u.x.val, 3);
     break;
 
   case E_BUILTIN_BOOL:
@@ -1544,7 +1544,7 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
 
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 {
-  Expr *ret;
+  Expr *ret, *tmp;
   if (!e) return NULL;
   NEW (ret, Expr);
   ret->type = e->type;
@@ -1612,7 +1612,12 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 
   case E_BITFIELD:
     /* l is an Id */
-    ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), NULL);
+    /* XXX: THIS IS WRONG */
+    fatal_error ("FIX bitfields");
+    ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), NULL);
+    ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical
+    (s->cursi()->bnl->cur);
+    
     NEW (ret->u.e.r, Expr);
     ret->u.e.r->type = e->u.e.r->type;
     ret->u.e.r->u.e.l = expr_dup_const (e->u.e.r->u.e.l);
@@ -1634,18 +1639,38 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
   case E_VAR:
     {
       int type;
-      ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
-      if (type == 2) {
-	ret->type = E_CHP_VARCHAN;
-      }
-      else if (type == 1) {
-	ret->type = E_CHP_VARINT;
-      }
-      else if (type == 0) {
-	ret->type = E_CHP_VARBOOL;
+
+      if (((ActId *)e->u.e.l)->isDynamicDeref()) {
+	/* find root */
+	ValueIdx *vx = ((ActId *)e->u.e.l)->rootVx (s->cursi()->bnl->cur);
+	Assert (vx->connection(), "What?");
+	ret->u.x.val = s->getLocalOffset (vx->connection()->primary(),
+					  s->cursi(),
+					  &type);
+	if (type == 0) {
+	  ret->type = E_CHP_VARBOOL_DEREF;
+	}
+	else {
+	  ret->type = E_CHP_VARINT_DEREF;
+	}
+	/* now convert array deref into a chp array deref! */
+	fatal_error ("Here!");
       }
       else {
-	fatal_error ("Channel output variable used in expression?");
+	ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+	ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	if (type == 2) {
+	  ret->type = E_CHP_VARCHAN;
+	}
+	else if (type == 1) {
+	  ret->type = E_CHP_VARINT;
+	}
+	else if (type == 0) {
+	  ret->type = E_CHP_VARBOOL;
+	}
+	else {
+	  fatal_error ("Channel output variable used in expression?");
+	}
       }
     }
     break;
@@ -1653,7 +1678,9 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
   case E_PROBE:
     {
       int type;
-      ret->u.v = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+      ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+      ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical
+	(s->cursi()->bnl->cur);
       if (type == 2) {
 	ret->type = E_PROBEIN;
       }
@@ -1859,6 +1886,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       }
     }    
     ret->stmt->u.send.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    ret->stmt->u.send.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
     (*stop) = ret;
     break;
     
@@ -1882,6 +1910,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       }
     }
     ret->stmt->u.recv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    ret->stmt->u.recv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
     (*stop) = ret;
     break;
 
@@ -1922,6 +1951,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     {
       int type;
       ret->stmt->u.assign.var = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
+      ret->stmt->u.assign.vc = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
       if (type == 1) {
 	ret->stmt->u.assign.isbool = 0;
       }
