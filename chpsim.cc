@@ -295,6 +295,22 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
   return ret;
 }
 
+int ChpSim::computeOffset (struct chpsimderef *d)
+{
+  if (!d->range) {
+    return d->offset;
+  }
+  for (int i=0; i < d->range->nDims(); i++) {
+    expr_res res = exprEval (d->chp_idx[i]);
+    d->idx[i] = res.v;
+  }
+  int x = d->range->Offset (d->idx);
+  if (x == -1) {
+    fatal_error ("Array out of bounds!");
+  }
+  return d->offset + x;
+}
+
 void ChpSim::Step (int ev_type)
 {
   int pc = SIM_EV_TYPE (ev_type);
@@ -375,15 +391,16 @@ void ChpSim::Step (int ev_type)
     printf ("%d (w=%d)", v.v, v.width);
 #endif
     pc = _updatepc (pc);
+    off = computeOffset (&stmt->u.assign.d);
     if (stmt->u.assign.isbool) {
-      off = getGlobalOffset (stmt->u.assign.var, 0);
+      off = getGlobalOffset (off, 0);
 #if 0      
       printf (" [glob=%d]", off);
 #endif      
       _sc->setBool (off, v.v);
     }
     else {
-      off = getGlobalOffset (stmt->u.assign.var, 1);
+      off = getGlobalOffset (off, 1);
 #if 0      
       printf (" [glob=%d]", off);
 #endif
@@ -427,6 +444,7 @@ void ChpSim::Step (int ev_type)
   case CHPSIM_RECV:
     {
       listitem_t *li;
+      struct chpsimderef *d;
       int id;
       int type;
       li = list_first (stmt->u.recv.vl);
@@ -434,7 +452,8 @@ void ChpSim::Step (int ev_type)
 	type = (long)list_value (li);
 	li = list_next (li);
 	Assert (li, "What?");
-	id = (long)list_value (li);
+	d = (struct chpsimderef *)list_value (li);
+	id = computeOffset (d);
       }
       else {
 	type = -1;
@@ -1181,11 +1200,27 @@ expr_res ChpSim::exprEval (Expr *e)
   case E_CHP_VARBOOL:
     l = varEval (e->u.x.val, 0);
     break;
+
   case E_CHP_VARINT:
     l = varEval (e->u.x.val, 1);
     break;
+
   case E_CHP_VARCHAN:
     l = varEval (e->u.x.val, 2);
+    break;
+    
+  case E_CHP_VARBOOL_DEREF:
+    {
+      int off = computeOffset ((struct chpsimderef *)e->u.e.l);
+      l = varEval (off, 0);
+    }
+    break;
+
+  case E_CHP_VARINT_DEREF:
+    {
+      int off = computeOffset ((struct chpsimderef *)e->u.e.l);
+      l = varEval (off, 1);
+    }
     break;
 
   case E_VAR:
@@ -1347,6 +1382,38 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
 }
 
 
+static void _mark_vars_used (ActSimCore *_sc,
+			     ActId *id, stateinfo_t *si,
+			     struct iHashtable *H)
+{
+  int sz, loff;
+  int type;
+  ihash_bucket_t *b;
+
+  if (id->isDynamicDeref()) {
+    /* mark the entire array as used */
+    ValueIdx *vx = id->rootVx (si->bnl->cur);
+    int sz;
+    Assert (vx->connection(), "Hmm");
+    loff = _sc->getLocalOffset (vx->connection()->primary(), si, &type);
+    sz = vx->t->arrayInfo()->size();
+    while (sz > 0) {
+      sz--;
+      if (!ihash_lookup (H, loff+sz)) {
+	b = ihash_add (H, loff+sz);
+	b->i = type;
+      }
+    }
+  }
+  else {
+    loff = _sc->getLocalOffset (id, si, &type);
+    if (!ihash_lookup (H, loff)) {
+      b = ihash_add (H, loff);
+      b->i = type;
+    }
+  }
+}
+
 void ChpSim::_compute_used_variables_helper (Expr *e)
 {
   int loff, type;
@@ -1396,16 +1463,15 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_CONCAT:
-    _compute_used_variables_helper (e->u.e.l);
+    while (e) {
+      _compute_used_variables_helper (e->u.e.l);
+      e = e->u.e.r;
+    }
     break;
 
   case E_BITFIELD:
     /* l is an Id */
-    loff = _sc->getLocalOffset ((ActId *)e->u.e.l, _si, &type);
-    if (!ihash_lookup (_tmpused, loff)) {
-      b = ihash_add (_tmpused, loff);
-      b->i = type;
-    }
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _si, _tmpused);
     break;
 
   case E_TRUE:
@@ -1415,11 +1481,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_VAR:
-    loff = _sc->getLocalOffset ((ActId *)e->u.e.l, _si, &type);
-    if (!ihash_lookup (_tmpused, loff)) {
-      b = ihash_add (_tmpused, loff);
-      b->i = type;
-    }
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _si, _tmpused);
     break;
 
   case E_PROBE:
@@ -1475,11 +1537,7 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
 
   case ACT_CHP_ASSIGN:
-    loff = _sc->getLocalOffset (c->u.assign.id, _si, &type);
-    if (!ihash_lookup (_tmpused, loff)) {
-      b = ihash_add (_tmpused, loff);
-      b->i = type;
-    }
+    _mark_vars_used (_sc, c->u.assign.id, _si, _tmpused);
     _compute_used_variables_helper (c->u.assign.e);
     break;
     
@@ -1534,6 +1592,35 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
   }
 }
 
+static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s);
+
+static struct chpsimderef *_mk_deref (ActId *id, Scope *sc, ActSimCore *s, int *type)
+{
+  struct chpsimderef *d;
+
+  ValueIdx *vx = id->rootVx (sc);
+  Assert (vx->connection(), "What?");
+
+  NEW (d, struct chpsimderef);
+
+  d->cx = vx->connection();
+  d->offset = s->getLocalOffset (vx->connection()->primary(),
+				 s->cursi(), type);
+
+  d->range = vx->t->arrayInfo();
+  Assert (d->range, "What?");
+  Assert (d->range->nDims() > 0, "What?");
+  MALLOC (d->idx, int, d->range->nDims());
+  MALLOC (d->chp_idx, Expr *, d->range->nDims());
+  
+  /* now convert array deref into a chp array deref! */
+  for (int i = 0; i < d->range->nDims(); i++) {
+    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s);
+    d->idx[i] = -1;
+  }
+
+  return d;
+}
 
 
 
@@ -1641,20 +1728,18 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       int type;
 
       if (((ActId *)e->u.e.l)->isDynamicDeref()) {
-	/* find root */
-	ValueIdx *vx = ((ActId *)e->u.e.l)->rootVx (s->cursi()->bnl->cur);
-	Assert (vx->connection(), "What?");
-	ret->u.x.val = s->getLocalOffset (vx->connection()->primary(),
-					  s->cursi(),
-					  &type);
+	struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l,
+					   s->cursi()->bnl->cur, s, &type);
+	
+	ret->u.e.l = (Expr *) d;
+        ret->u.e.r = (Expr *) d->cx;
+	  
 	if (type == 0) {
 	  ret->type = E_CHP_VARBOOL_DEREF;
 	}
 	else {
 	  ret->type = E_CHP_VARINT_DEREF;
 	}
-	/* now convert array deref into a chp array deref! */
-	fatal_error ("Here!");
       }
       else {
 	ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
@@ -1901,12 +1986,22 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
 	ActId *id = (ActId *) list_value (li);
 	int type;
-	int x = sc->getLocalOffset (id, sc->cursi(), &type);
+	struct chpsimderef *d;
+
+	if (id->isDynamicDeref()) {
+	  d = _mk_deref (id, sc->cursi()->bnl->cur, sc, &type);
+	}
+	else {
+	  NEW (d, struct chpsimderef);
+	  d->range = NULL;
+	  d->offset = sc->getLocalOffset (id, sc->cursi(), &type);
+	}
 	if (type == 3) {
 	  type = 2;
 	}
 	list_append (ret->stmt->u.recv.vl, (void *)(long)type);
-	list_append (ret->stmt->u.recv.vl, (void *)(long)x);
+	//list_append (ret->stmt->u.recv.vl, (void *)(long)x);
+	list_append (ret->stmt->u.recv.vl, (void *)d);
       }
     }
     ret->stmt->u.recv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
@@ -1950,8 +2045,20 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
     {
       int type;
-      ret->stmt->u.assign.var = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
-      ret->stmt->u.assign.vc = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+
+      if (c->u.assign.id->isDynamicDeref()) {
+	struct chpsimderef *d = _mk_deref (c->u.assign.id,
+					   sc->cursi()->bnl->cur, sc,
+					   &type);
+	ret->stmt->u.assign.d = *d;
+	FREE (d);
+	ret->stmt->u.assign.vc = d->cx;
+      }
+      else {
+	ret->stmt->u.assign.d.range = NULL;
+	ret->stmt->u.assign.d.offset = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
+	ret->stmt->u.assign.vc = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+      }
       if (type == 1) {
 	ret->stmt->u.assign.isbool = 0;
       }
@@ -1969,5 +2076,3 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   }
   return ret;
 }
-
-
