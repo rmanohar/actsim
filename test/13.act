@@ -1,0 +1,14 @@
+defproc test()
+{
+  int x;
+
+  chp {
+     log("test bitfield");
+     x := 100;
+     log ("x was ", x);
+     x := x{4..0};
+     log ("x is now ", x)
+   }
+}
+   
+test t;
