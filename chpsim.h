@@ -60,7 +60,6 @@ struct chpsimstmt {
     struct {
       int isbool;
       struct chpsimderef d;	/* variable deref */
-      act_connection *vc;
       Expr *e;
     } assign;			/* var := e */
     struct {

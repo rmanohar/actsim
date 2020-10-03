@@ -1176,27 +1176,25 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_BITFIELD:
-    l = varEval (e->u.x.val, 1); 
-    r = exprEval (e->u.e.r->u.e.r);
-    if (r.v > l.width) {
-      warning ("Bit-width is less than the width specifier");
-    }
-    l.width = r.v;
-    r = exprEval (e->u.e.r->u.e.l);
-    if (r.v > l.width) {
-      warning ("Bit-width extraction results in no bits; setting to 0?");
-    }
-    l.v = l.v >> r.v;
-    l.width = l.width - r.v + 1;
-    if (l.width <= 0) {
-      l.width = 1;
-      l.v = 0;
-    }
-    else {
-      l.v = l.v >> r.v;
+    {
+      int lo, hi;
+      int off = computeOffset ((struct chpsimderef *)e->u.e.l);
+      
+      hi = (long)e->u.e.r->u.e.l;
+      lo = (long)e->u.e.r->u.e.r;
+
+      /* is an int */
+      l = varEval (off, 1);
+
+      if (hi >= l.width) {
+	warning ("Bit-width is less than the width specifier");
+      }
+      l.width = hi - lo + 1;
+      l.v = l.v >> lo;
+      l.v = l.v & ((1 << l.width)-1);
     }
     break;
-
+    
   case E_CHP_VARBOOL:
     l = varEval (e->u.x.val, 0);
     break;
@@ -1594,9 +1592,10 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
 
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s);
 
-static struct chpsimderef *_mk_deref (ActId *id, Scope *sc, ActSimCore *s, int *type)
+static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type)
 {
   struct chpsimderef *d;
+  Scope *sc = s->cursi()->bnl->cur;
 
   ValueIdx *vx = id->rootVx (sc);
   Assert (vx->connection(), "What?");
@@ -1698,19 +1697,25 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     break;
 
   case E_BITFIELD:
-    /* l is an Id */
-    /* XXX: THIS IS WRONG */
-    fatal_error ("FIX bitfields");
-    ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), NULL);
-    ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical
-    (s->cursi()->bnl->cur);
-    
-    NEW (ret->u.e.r, Expr);
-    ret->u.e.r->type = e->u.e.r->type;
-    ret->u.e.r->u.e.l = expr_dup_const (e->u.e.r->u.e.l);
-    ret->u.e.r->u.e.r = expr_dup_const (e->u.e.r->u.e.r);
-    break;
+    {
+      int type;
+      struct chpsimderef *d;
 
+      if (((ActId *)e->u.e.l)->isDynamicDeref()) {
+	d = _mk_deref ((ActId *)e->u.e.l, s, &type);
+      }
+      else {
+	NEW (d, struct chpsimderef);
+	d->range = NULL;
+	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+      }
+      ret->u.e.l = (Expr *) d;
+      NEW (ret->u.e.r, Expr);
+      ret->u.e.r->u.e.l = e->u.e.r->u.e.l;
+      ret->u.e.r->u.e.r = e->u.e.r->u.e.r;
+    }
+    break;
 
   case E_TRUE:
   case E_FALSE:
@@ -1728,9 +1733,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       int type;
 
       if (((ActId *)e->u.e.l)->isDynamicDeref()) {
-	struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l,
-					   s->cursi()->bnl->cur, s, &type);
-	
+	struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
+
 	ret->u.e.l = (Expr *) d;
         ret->u.e.r = (Expr *) d->cx;
 	  
@@ -1989,12 +1993,13 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
 	struct chpsimderef *d;
 
 	if (id->isDynamicDeref()) {
-	  d = _mk_deref (id, sc->cursi()->bnl->cur, sc, &type);
+	  d = _mk_deref (id, sc, &type);
 	}
 	else {
 	  NEW (d, struct chpsimderef);
 	  d->range = NULL;
 	  d->offset = sc->getLocalOffset (id, sc->cursi(), &type);
+	  d->cx = id->Canonical (sc->cursi()->bnl->cur);
 	}
 	if (type == 3) {
 	  type = 2;
@@ -2047,17 +2052,14 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       int type;
 
       if (c->u.assign.id->isDynamicDeref()) {
-	struct chpsimderef *d = _mk_deref (c->u.assign.id,
-					   sc->cursi()->bnl->cur, sc,
-					   &type);
+	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type);
 	ret->stmt->u.assign.d = *d;
 	FREE (d);
-	ret->stmt->u.assign.vc = d->cx;
       }
       else {
 	ret->stmt->u.assign.d.range = NULL;
 	ret->stmt->u.assign.d.offset = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
-	ret->stmt->u.assign.vc = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+	ret->stmt->u.assign.d.cx = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
       }
       if (type == 1) {
 	ret->stmt->u.assign.isbool = 0;
