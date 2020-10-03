@@ -1,0 +1,13 @@
+defproc test()
+{
+  int x;
+
+  chp {
+     log("test bitfield");
+     x := 100;
+     log ("x was ", x);
+     log ("x{4} is now ", x{4}, " x{2} is ", x{2}, " x{5} is ", x{5})
+   }
+}
+   
+test t;
