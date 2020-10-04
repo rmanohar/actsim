@@ -1,0 +1,8 @@
+[      10 t#:0] <> test mem
+[      20 t#:0] <m> hi
+[      40 t#:0] <m> there
+[      70 t#:0] <m> hi
+[      90 t#:0] <m> here
+[     110 t#:0] <> got 5
+[     120 t#:0] <m> hi
+[     140 t#:0] <m> there
