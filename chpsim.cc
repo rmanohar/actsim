@@ -922,7 +922,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
   }
 
   /* --- run body -- */
-  if (!f->getlang() || !f->getlang()->getchp()) {
+  if (f->isExternal()) {
     char buf[10240];
     EXTFUNC extcall = NULL;
 
@@ -944,7 +944,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
       }
     }
     if (!extcall) {
-      fatal_error ("Function requires a chp body!");
+      fatal_error ("Function `%s' missing chp body as well as external definition.", f->getName());
     }
     return (*extcall) (nargs, args);
   }

@@ -1,3 +1,4 @@
+In expanding test<>
 WARNING: Process `test<>': local variable `dv.w': no driver
 WARNING: Process `test<>': local variable `dv.v': no driver
 WARNING: drive<>: substituting chp model (requested prs, not found)
