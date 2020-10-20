@@ -70,7 +70,7 @@ struct extra_state_alloc {
 
 #define MAX_LOCAL_PCS 1024
 
-  
+
 class ActSimState {
 public:
   ActSimState (int bools, int ints, int chans);
@@ -106,7 +106,13 @@ private:
 };
 
 
-class ActSimObj : public SimDES {
+class ActSimDES : public SimDES {
+public:
+  virtual void propagate () { };
+};
+
+
+class ActSimObj : public ActSimDES {
 public:
   ActSimObj (ActSimCore *sim);
 
@@ -123,6 +129,8 @@ public:
 
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
   ActId *getName () { return name; }
+
+  virtual void propagate ();
 
 protected:
   chp_offsets _o;		/* my state offsets for all local

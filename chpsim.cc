@@ -40,8 +40,7 @@ class ChpSim;
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
 
 
-ChpSim::ChpSim (ChpSimGraph *g, stateinfo_t *si,
-		act_chp_lang_t *c, ActSimCore *sim)
+ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
 : ActSimObj (sim)
 {
   /*
@@ -64,7 +63,6 @@ ChpSim::ChpSim (ChpSimGraph *g, stateinfo_t *si,
   _stalled_pc = -1;
   _statestk = list_new ();
   _probe = NULL;
-  _si = si;
   _savedc = c;
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
@@ -265,6 +263,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   return ret;
 }
 
+/*-- returns 1 if there's a shared variable in the guard --*/
 int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
 {
   int ret = 0;
@@ -1380,9 +1379,7 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
 }
 
 
-static void _mark_vars_used (ActSimCore *_sc,
-			     ActId *id, stateinfo_t *si,
-			     struct iHashtable *H)
+static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 {
   int sz, loff;
   int type;
@@ -1390,10 +1387,11 @@ static void _mark_vars_used (ActSimCore *_sc,
 
   if (id->isDynamicDeref()) {
     /* mark the entire array as used */
-    ValueIdx *vx = id->rootVx (si->bnl->cur);
+    ValueIdx *vx = id->rootVx (_sc->cursi()->bnl->cur);
     int sz;
     Assert (vx->connection(), "Hmm");
-    loff = _sc->getLocalOffset (vx->connection()->primary(), si, &type);
+    loff = _sc->getLocalOffset (vx->connection()->primary(),
+				_sc->cursi(), &type);
     sz = vx->t->arrayInfo()->size();
     while (sz > 0) {
       sz--;
@@ -1404,7 +1402,7 @@ static void _mark_vars_used (ActSimCore *_sc,
     }
   }
   else {
-    loff = _sc->getLocalOffset (id, si, &type);
+    loff = _sc->getLocalOffset (id, _sc->cursi(), &type);
     if (!ihash_lookup (H, loff)) {
       b = ihash_add (H, loff);
       b->i = type;
@@ -1469,7 +1467,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
 
   case E_BITFIELD:
     /* l is an Id */
-    _mark_vars_used (_sc, (ActId *)e->u.e.l, _si, _tmpused);
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _tmpused);
     break;
 
   case E_TRUE:
@@ -1479,7 +1477,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_VAR:
-    _mark_vars_used (_sc, (ActId *)e->u.e.l, _si, _tmpused);
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _tmpused);
     break;
 
   case E_PROBE:
@@ -1535,7 +1533,7 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
 
   case ACT_CHP_ASSIGN:
-    _mark_vars_used (_sc, c->u.assign.id, _si, _tmpused);
+    _mark_vars_used (_sc, c->u.assign.id, _tmpused);
     _compute_used_variables_helper (c->u.assign.e);
     break;
     
@@ -2078,3 +2076,4 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   }
   return ret;
 }
+

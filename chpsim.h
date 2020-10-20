@@ -101,7 +101,7 @@ class ChpSimGraph {
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, stateinfo_t *si, act_chp_lang_t *, ActSimCore *sim);
+  ChpSim (ChpSimGraph *, act_chp_lang_t *, ActSimCore *sim);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
@@ -118,8 +118,6 @@ class ChpSim : public ActSimObj {
 				   used */
   int _stalled_pc;
   act_chp_lang_t *_savedc;
-
-  stateinfo_t *_si;
 
   WaitForOne *_probe;
   

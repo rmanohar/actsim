@@ -263,7 +263,7 @@ void ActSimCore::_add_chp (act_chp *c)
     sg = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, _cursi, c->c, this);
+  ChpSim *x = new ChpSim (sg, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -310,7 +310,7 @@ void ActSimCore::_add_hse (act_chp *c)
     sg = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, _cursi, c->c, this);
+  ChpSim *x = new ChpSim (sg, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -1062,4 +1062,10 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
   }
   fo[off][nfo[off]] = who;
   nfo[off]++;
+}
+
+void ActSimObj::propagate ()
+{
+  /* by default, just wake up all globally stalled processs */
+  _sc->gWakeup ();
 }

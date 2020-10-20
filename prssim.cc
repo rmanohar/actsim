@@ -611,7 +611,7 @@ void PrsSim::setBool (int lid, int v)
 
   arr = _sc->getFO (off, 0);
   for (int i=0; i < _sc->numFanout (off, 0); i++) {
-    OnePrsSim *p = dynamic_cast<OnePrsSim *>(arr[i]);
+    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
     Assert (p, "What?");
     p->propagate ();
   }

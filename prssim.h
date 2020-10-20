@@ -118,7 +118,7 @@ class PrsSim : public ActSimObj {
 
 
 /*-- not actsimobj so that it can be lightweight --*/
-class OnePrsSim : public SimDES {
+class OnePrsSim : public ActSimDES {
 private:
   PrsSim *_proc;		// process core [maps, etc]
   struct prssim_stmt *_me;	// the rule
