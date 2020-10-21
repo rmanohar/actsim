@@ -1,0 +1,5 @@
+In expanding mem<32>
+In expanding test
+In expanding ::<Global>
+In CHP, identifier: `i.rd.d0'
+FATAL: Cannot access channel/integer fragments in CHP!

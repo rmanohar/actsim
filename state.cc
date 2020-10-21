@@ -62,6 +62,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].data2 = 0;
       chans[i].w = new WaitForOne(0);
       chans[i].probe = NULL;
+      chans[i].fractured = 0;
     }
   }
   else {

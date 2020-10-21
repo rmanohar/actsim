@@ -1,0 +1,12 @@
+defproc test(){
+
+	int<32> mem[32];
+	int<8> i;
+
+	chp {
+		i := 1;
+		i := mem[i]{7..0}
+	}
+}
+
+test test;

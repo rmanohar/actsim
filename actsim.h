@@ -56,6 +56,10 @@ struct act_channel_state {
   unsigned int recv_here:4;
   unsigned int receiver_probe:1; // receiver is probing and waiting as
 				 // a result
+
+  unsigned int fractured:1;	// have to simulate this at a lower
+				// level of abstraction since pieces
+				// of the channel are accessed
   
   int len;
   int data, data2;
