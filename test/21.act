@@ -1,15 +1,5 @@
 deftype tst <: int<32> (int<4> x; int<18> y; int<10> z)
 {
-  methods {
-     set {
-       x := (self & 0xf);
-       y := (self >> 4) & 0x3ffff;
-       z := (self >> 22) & 0x7ff
-     }
-     get {
-      self := (z << 22) | (y << 4) | x
-     }
-  }
 }
 
 defproc src(chan!(bool) x)

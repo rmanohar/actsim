@@ -619,6 +619,10 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
+  if (c->fragmented) {
+    warning ("Need to implement the fragmented channel protocol");
+  }
+
 #ifdef DUMP_ALL  
   printf (" [s=%d]", off);
 #endif  
@@ -674,6 +678,10 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
+  if (c->fragmented) {
+    warning ("Need to implement the fragmented channel protocol");
+  }
+  
 #ifdef DUMP_ALL  
   printf (" [r=%d]", off);
 #endif
@@ -2056,8 +2064,10 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       }
       else {
 	ret->stmt->u.assign.d.range = NULL;
-	ret->stmt->u.assign.d.offset = sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
-	ret->stmt->u.assign.d.cx = c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+	ret->stmt->u.assign.d.offset =
+	  sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
+	ret->stmt->u.assign.d.cx =
+	  c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
       }
       if (type == 1) {
 	ret->stmt->u.assign.isbool = 0;
@@ -2077,3 +2087,167 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   return ret;
 }
 
+void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
+{
+  if (id->isFragmented (sc->cursi()->bnl->cur)) {
+    ActId *tmp = id->unFragment (sc->cursi()->bnl->cur);
+    /*--  tmp is the unfragmented identifier --*/
+
+    int type;
+    int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
+
+    if (type == 2) {
+      /* fragmented channel */
+      /* need the global offset here */
+
+      loff = c->getGlobalOffset (loff, type);
+      act_channel_state *ch = sc->getChan (loff);
+      ch->fragmented = 1;
+    }
+    delete tmp;
+  }
+}
+
+void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
+{
+  if (!e) return;
+  switch (e->type) {
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+  case E_REAL:
+    break;
+
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    checkFragmentation (sc, c, e->u.e.l);
+    checkFragmentation (sc, c, e->u.e.r);
+    break;
+    
+  case E_UMINUS:
+  case E_COMPLEMENT:
+  case E_NOT:
+    checkFragmentation (sc, c, e->u.e.l);
+    break;
+
+  case E_QUERY:
+    checkFragmentation (sc, c, e->u.e.l);
+    checkFragmentation (sc, c, e->u.e.r->u.e.l);
+    checkFragmentation (sc, c, e->u.e.l->u.e.l);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    do {
+      checkFragmentation (sc, c, e->u.e.l);
+      e = e->u.e.r;
+    } while (e);
+    break;
+
+  case E_BITFIELD:
+    checkFragmentation (sc, c, (ActId *)e->u.e.l);
+    break;
+
+  case E_VAR:
+    checkFragmentation (sc, c, (ActId *)e->u.e.l);
+    break;
+
+  case E_PROBE:
+    break;
+
+  case E_BUILTIN_BOOL:
+  case E_BUILTIN_INT:
+    checkFragmentation (sc, c, e->u.e.l);
+    break;
+
+  case E_FUNCTION:
+    e = e->u.fn.r;
+    while (e) {
+      checkFragmentation (sc, c, e->u.e.l);
+      e = e->u.e.r;
+    }
+    break;
+    
+  case E_SELF:
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+}
+
+  
+void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
+				      act_chp_lang_t *c)
+{
+  listitem_t *li;
+  
+  if (!c) return;
+  
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
+      checkFragmentation (sc, cc, (act_chp_lang_t *) list_value (li));
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_LOOP:
+  case ACT_CHP_DOLOOP:
+    for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      checkFragmentation (sc, cc, gc->g);
+      checkFragmentation (sc, cc, gc->s);
+    }
+    break;
+
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+    for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+      Expr *e = (Expr *) list_value (li);
+      checkFragmentation (sc, cc, e);
+    }    
+    break;
+    
+  case ACT_CHP_RECV:
+    for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+      ActId *id = (ActId *) list_value (li);
+      checkFragmentation (sc, cc, id);
+    }
+    break;
+
+  case ACT_CHP_FUNC:
+    break;
+    
+  case ACT_CHP_ASSIGN:
+    checkFragmentation (sc, cc, c->u.assign.id);
+    checkFragmentation (sc, cc, c->u.assign.e);
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
+}

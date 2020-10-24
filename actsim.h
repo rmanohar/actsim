@@ -57,7 +57,7 @@ struct act_channel_state {
   unsigned int receiver_probe:1; // receiver is probing and waiting as
 				 // a result
 
-  unsigned int fractured:1;	// have to simulate this at a lower
+  unsigned int fragmented:1;	// have to simulate this at a lower
 				// level of abstraction since pieces
 				// of the channel are accessed
   
@@ -149,6 +149,8 @@ protected:
 };
 
 class ChpSimGraph;
+class ChpSim;
+class PrsSim;
 
 /*
  * Core simulation engine. 
@@ -250,9 +252,11 @@ protected:
 
   /*- add specific language -*/
   void _add_chp (act_chp *c);
-  void _add_hse (act_chp *c);
+  ChpSim *_add_hse (act_chp *c);
   void _add_dflow (act_dataflow *c);
-  void _add_prs (act_prs *c, act_spec *);
+  PrsSim *_add_prs (act_prs *c, act_spec *);
+  void _check_fragmentation (ChpSim *);
+  void _check_fragmentation (PrsSim *);
 
   /*-- returns the current level selected --*/
   int _getlevel ();

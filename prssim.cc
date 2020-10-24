@@ -616,3 +616,91 @@ void PrsSim::setBool (int lid, int v)
     p->propagate ();
   }
 }
+
+void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
+				      ActId *id)
+{
+  if (id->isFragmented (sc->cursi()->bnl->cur)) {
+    ActId *tmp = id->unFragment (sc->cursi()->bnl->cur);
+    int type;
+    int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
+
+    if (type == 2) {
+      loff = ps->getGlobalOffset (loff, type);
+      act_channel_state *ch = sc->getChan (loff);
+      ch->fragmented = 1;
+    }
+    delete tmp;
+  }
+
+}
+
+void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
+				      act_prs_expr_t *e)
+{
+  if (!e) return;
+  switch (e->type) {
+  case ACT_PRS_EXPR_AND:
+  case ACT_PRS_EXPR_OR:
+    checkFragmentation (sc, ps, e->u.e.l);
+    checkFragmentation (sc, ps, e->u.e.r);
+    break;
+
+  case ACT_PRS_EXPR_NOT:
+    checkFragmentation (sc, ps, e->u.e.l);
+    break;
+
+  case ACT_PRS_EXPR_VAR:
+    checkFragmentation (sc, ps, e->u.v.id);
+    break;
+
+  case ACT_PRS_EXPR_LABEL:
+  case ACT_PRS_EXPR_TRUE:
+  case ACT_PRS_EXPR_FALSE:
+    break;
+
+  default:
+    Assert (0, "Should not be here");
+    break;
+  }
+}
+
+  void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
+				      act_prs_lang_t *p)
+{
+  while (p) {
+    switch (p->type) {
+    case ACT_PRS_RULE:
+      checkFragmentation (sc, ps, p->u.one.e);
+      if (!p->u.one.label) {
+	checkFragmentation (sc, ps, p->u.one.id);
+      }
+      break;
+
+    case ACT_PRS_GATE:
+      checkFragmentation (sc, ps, p->u.p.g);
+      checkFragmentation (sc, ps, p->u.p._g);
+      checkFragmentation (sc, ps, p->u.p.s);
+      checkFragmentation (sc, ps, p->u.p.d);
+      break;
+
+    case ACT_PRS_TREE:
+    case ACT_PRS_SUBCKT:
+      checkFragmentation (sc, ps, p->u.l.p);
+      break;
+
+    default:
+      fatal_error ("loops?!");
+      break;
+    }
+    p = p->next;
+  }
+}
+
+void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps, act_prs *p)
+{
+  while (p) {
+    checkFragmentation (sc, ps, p->p);
+    p = p->next;
+  }
+}

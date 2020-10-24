@@ -285,7 +285,7 @@ void ActSimCore::_add_dflow (act_dataflow *d)
 }
 
 
-void ActSimCore::_add_hse (act_chp *c)
+ChpSim *ActSimCore::_add_hse (act_chp *c)
 {
   ihash_bucket_t *b;
 #if 0 
@@ -315,9 +315,11 @@ void ActSimCore::_add_hse (act_chp *c)
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
   x->computeFanout ();
+  
+  return x;
 }
 
-void ActSimCore::_add_prs (act_prs *p, act_spec *spec)
+PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
 {
 #if 0  
   printf ("add-prs-inst: ");
@@ -348,6 +350,19 @@ void ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
   x->computeFanout ();
+
+  return x;
+}
+
+
+void ActSimCore::_check_fragmentation (ChpSim *c)
+{
+  ChpSimGraph::checkFragmentation (this, c, _curproc->getlang()->gethse()->c);
+}
+
+void ActSimCore::_check_fragmentation (PrsSim *p)
+{
+  PrsSimGraph::checkFragmentation (this, p, _curproc->getlang()->getprs());
 }
 
 int ActSimCore::_getlevel ()
@@ -385,11 +400,11 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   }
   else if (l->gethse() && lev == ACT_MODEL_HSE) {
     /* hse */
-    _add_chp (l->gethse());
+    _check_fragmentation (_add_hse (l->gethse()));
   }
   else if (l->getprs() && lev == ACT_MODEL_PRS) {
     /* prs */
-    _add_prs (l->getprs(), l->getspec());
+    _check_fragmentation (_add_prs (l->getprs(), l->getspec()));
   }
   else if (lev == ACT_MODEL_DEVICE) {
     fatal_error ("Xyce needs to be integrated");
@@ -398,7 +413,7 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     /* substitute a less detailed model, if possible */
     if (l->gethse() && lev == ACT_MODEL_PRS) {
       warning ("%s: substituting hse model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
-      _add_chp (l->gethse());
+      _check_fragmentation (_add_hse (l->gethse()));
     }
     else if ((l->getdflow() || l->getchp()) &&
 	     (lev == ACT_MODEL_PRS || lev == ACT_MODEL_HSE)) {

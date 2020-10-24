@@ -93,6 +93,10 @@ class ChpSimGraph {
 
   static ChpSimGraph *buildChpSimGraph (ActSimCore *,
 					act_chp_lang_t *, ChpSimGraph **stop);
+
+  static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
+  static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
+  static void checkFragmentation (ActSimCore *, ChpSim *, ActId *);
   
 };
 
