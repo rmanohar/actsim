@@ -2096,11 +2096,8 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
     int type;
     int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
 
-    if (type == 2) {
-      /* fragmented channel */
-      /* need the global offset here */
-
-      loff = c->getGlobalOffset (loff, type);
+    if (type == 2 || type == 3) {
+      loff = c->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
       ch->fragmented = 1;
     }
