@@ -614,7 +614,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
 	    int type;
 	    int off = getLocalOffset (c, mysi, &type);
-	      
+
 	    if (off < 0) {
 	      /* port or global */
 	      off = -off;
@@ -624,7 +624,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	      }
 	      else {
 		off = (off + 1)/2 - 1;
-		if (type == 2) {
+		if (type == 2 || type == 3) {
 		  off = _my_port_chan[off];
 		}
 		else if (type == 1) {
@@ -637,7 +637,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    }
 	    else {
 	      /* local state */
-	      if (type == 2) {
+	      if (type == 2 || type == 3) {
 		off += myoffset.chans;
 	      }
 	      else if (type == 1) {
@@ -675,7 +675,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  _cur_abs_port_chan[ichan-1-i] = x;
 	}
 
-#if 0	
+#if 1
 	printf ("inst: "); _curinst->Print (stdout); printf ("\n");
 	printf ("  [bool %d] ", ibool);
 	for (int i=0; i < ibool; i++) {
