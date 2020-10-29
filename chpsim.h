@@ -45,6 +45,7 @@ struct chpsimderef {
   Expr **chp_idx;
   int *idx;
   int offset;
+  int width;			// for all vars
   act_connection *cx;
 };
 
@@ -97,6 +98,8 @@ class ChpSimGraph {
   static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
   static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
   static void checkFragmentation (ActSimCore *, ChpSim *, ActId *);
+  static void recordChannel (ActSimCore *, ChpSim *, ActId *);
+  static void recordChannel (ActSimCore *, ChpSim *, act_chp_lang_t *);
   
 };
 

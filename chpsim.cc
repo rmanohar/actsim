@@ -1192,6 +1192,7 @@ expr_res ChpSim::exprEval (Expr *e)
 
       /* is an int */
       l = varEval (off, 1);
+      l.width = ((struct chpsimderef *)e->u.e.l)->width;
 
       if (hi >= l.width) {
 	warning ("Bit-width is less than the width specifier");
@@ -1204,20 +1205,24 @@ expr_res ChpSim::exprEval (Expr *e)
     
   case E_CHP_VARBOOL:
     l = varEval (e->u.x.val, 0);
+    l.width = 1;
     break;
 
   case E_CHP_VARINT:
     l = varEval (e->u.x.val, 1);
+    l.width = e->u.x.extra;
     break;
 
   case E_CHP_VARCHAN:
     l = varEval (e->u.x.val, 2);
+    l.width = e->u.x.extra;
     break;
     
   case E_CHP_VARBOOL_DEREF:
     {
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
       l = varEval (off, 0);
+      l.width = ((struct chpsimderef *)e->u.e.l)->width;
     }
     break;
 
@@ -1225,6 +1230,7 @@ expr_res ChpSim::exprEval (Expr *e)
     {
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
       l = varEval (off, 1);
+      l.width = ((struct chpsimderef *)e->u.e.l)->width;
     }
     break;
 
@@ -1610,7 +1616,7 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type)
 
   d->cx = vx->connection();
   d->offset = s->getLocalOffset (vx->connection()->primary(),
-				 s->cursi(), type);
+				 s->cursi(), type, &d->width);
 
   d->range = vx->t->arrayInfo();
   Assert (d->range, "What?");
@@ -1713,8 +1719,10 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       else {
 	NEW (d, struct chpsimderef);
 	d->range = NULL;
-	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
+	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
+				       &d->width);
 	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	
       }
       ret->u.e.l = (Expr *) d;
       NEW (ret->u.e.r, Expr);
@@ -1752,8 +1760,10 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 	}
       }
       else {
-	ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type);
-	ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	int w;
+	ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
+	ret->u.x.extra = w;
+	//ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
 	if (type == 2) {
 	  ret->type = E_CHP_VARCHAN;
 	}
@@ -2023,7 +2033,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_FUNC:
     if (strcmp (string_char (c->u.func.name), "log") != 0) {
       warning ("Built-in function `%s' is not known; valid values: log",
-	       c->u.func.name);
+	       string_char (c->u.func.name));
     }
     else {
       listitem_t *li;
@@ -2105,6 +2115,170 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
   }
 }
 
+static void _hse_record_ids (struct iHashtable *fH,
+			     ActSimCore *sc, ChpSim *c, ActId *id)
+{
+  act_connection *ac = id->Canonical (sc->cursi()->bnl->cur);
+  ihash_bucket_t *b;
+
+  b = ihash_lookup (fH, (long)ac);
+  if (!b) {
+    int off;
+    int type;
+    
+    b = ihash_add (fH, (long)ac);
+
+    off = sc->getLocalOffset (id, sc->cursi(), &type);
+    Assert (type == 0, "HSE in channel has non-boolean ops?");
+    off = c->getGlobalOffset (off, 0);
+    b->i = off;
+  }
+}
+
+static void _hse_record_ids (struct iHashtable *fH,
+			     ActSimCore *sc, ChpSim *c, Expr *e)
+{
+  if (!e) return;
+  switch (e->type) {
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+  case E_REAL:
+    break;
+
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    _hse_record_ids (fH, sc, c, e->u.e.l);
+    _hse_record_ids (fH, sc, c, e->u.e.r);
+    break;
+    
+  case E_UMINUS:
+  case E_COMPLEMENT:
+  case E_NOT:
+    _hse_record_ids (fH, sc, c, e->u.e.l);
+    break;
+
+  case E_QUERY:
+    _hse_record_ids (fH, sc, c, e->u.e.l);
+    _hse_record_ids (fH, sc, c, e->u.e.r->u.e.l);
+    _hse_record_ids (fH, sc, c, e->u.e.r->u.e.r);
+    break;
+
+  case E_VAR:
+    _hse_record_ids (fH, sc, c, (ActId *)e->u.e.l);
+    break;
+
+  case E_BUILTIN_BOOL:
+  case E_BUILTIN_INT:
+    _hse_record_ids (fH, sc, c, e->u.e.l);
+    break;
+    
+  case E_SELF:
+    break;
+
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+}
+
+static void _hse_record_ids (struct iHashtable *fH,
+			     ActSimCore *sc, ChpSim *c,
+			     act_chp_lang_t *ch)
+{
+  listitem_t *li;
+  
+  if (!ch) return;
+  
+  switch (ch->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (li = list_first (ch->u.semi_comma.cmd); li; li = list_next (li)) {
+      _hse_record_ids (fH, sc, c, (act_chp_lang_t *) list_value (li));
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_DOLOOP:
+  case ACT_CHP_LOOP:
+    for (act_chp_gc_t *gc = ch->u.gc; gc; gc = gc->next) {
+      _hse_record_ids (fH, sc, c, gc->s);
+      _hse_record_ids (fH, sc, c, gc->g);
+    }
+    break;
+    
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+  case ACT_CHP_RECV:
+    fatal_error ("HSE cannot use send/receive or log!");
+    break;
+    
+  case ACT_CHP_FUNC:
+    break;
+    
+  case ACT_CHP_ASSIGN:
+    _hse_record_ids (fH, sc, c, ch->u.assign.id);
+    _hse_record_ids (fH, sc, c, ch->u.assign.e);
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", ch->type);
+    break;
+  }
+}
+			     
+
+void ChpSimGraph::recordChannel (ActSimCore *sc, ChpSim *c, ActId *id)
+{
+  int loff;
+
+  /* find the channel state pointer */
+  loff = sc->getLocalOffset (id, sc->cursi(), NULL);
+  loff = c->getGlobalOffset (loff, 2);
+  act_channel_state *ch = sc->getChan (loff);
+
+  InstType *it = sc->cursi()->bnl->cur->FullLookup (id, NULL);
+  Channel *ct = dynamic_cast <Channel *> (it->BaseType());
+
+  if (ct) {
+    /* now find each boolean, and record it in the channel state! */
+    if (!ch->fH) {
+      ch->fH = ihash_new (4);
+    }
+    for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
+      act_chp_lang_t *x = ct->getMethod (i);
+      if (x) {
+	_hse_record_ids (ch->fH, sc, c, x);
+      }
+    }
+    for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
+      Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
+      if (e) {
+	_hse_record_ids (ch->fH, sc, c, e);
+      }
+    }
+  }
+}
+
 void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
 {
   if (!e) return;
@@ -2170,6 +2344,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
     break;
 
   case E_PROBE:
+    recordChannel (sc, c, (ActId *)e->u.e.l);
     break;
 
   case E_BUILTIN_BOOL:
@@ -2197,7 +2372,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
 				      act_chp_lang_t *c)
 {
   listitem_t *li;
-  
+
   if (!c) return;
   
   switch (c->type) {
@@ -2222,6 +2397,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
     break;
     
   case ACT_CHP_SEND:
+    recordChannel (sc, cc, c->u.comm.chan);
     for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
       Expr *e = (Expr *) list_value (li);
       checkFragmentation (sc, cc, e);
@@ -2229,6 +2405,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
     break;
     
   case ACT_CHP_RECV:
+    recordChannel (sc, cc, c->u.comm.chan);
     for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
       ActId *id = (ActId *) list_value (li);
       checkFragmentation (sc, cc, id);
@@ -2241,6 +2418,53 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
   case ACT_CHP_ASSIGN:
     checkFragmentation (sc, cc, c->u.assign.id);
     checkFragmentation (sc, cc, c->u.assign.e);
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
+}
+
+void ChpSimGraph::recordChannel (ActSimCore *sc, ChpSim *cc,
+				 act_chp_lang_t *c)
+{
+  listitem_t *li;
+
+  if (!c) return;
+  
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
+      recordChannel (sc, cc, (act_chp_lang_t *) list_value (li));
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_LOOP:
+  case ACT_CHP_DOLOOP:
+    for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      recordChannel (sc, cc, gc->s);
+    }
+    break;
+
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+    recordChannel (sc, cc, c->u.comm.chan);
+    break;
+    
+  case ACT_CHP_RECV:
+    recordChannel (sc, cc, c->u.comm.chan);
+    break;
+
+  case ACT_CHP_FUNC:
+    break;
+    
+  case ACT_CHP_ASSIGN:
     break;
 
   default:

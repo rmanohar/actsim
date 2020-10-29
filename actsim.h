@@ -60,6 +60,8 @@ struct act_channel_state {
   unsigned int fragmented:1;	// have to simulate this at a lower
 				// level of abstraction since pieces
 				// of the channel are accessed
+
+  struct iHashtable *fH;	// fragment hash table
   
   int len;
   int data, data2;
@@ -185,8 +187,8 @@ class ActSimCore {
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
 
-  int getLocalOffset (ActId *id, stateinfo_t *si, int *type);
-  int getLocalOffset (act_connection *c, stateinfo_t *si, int *type);
+  int getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width = NULL);
+  int getLocalOffset (act_connection *c, stateinfo_t *si, int *type, int *width = NULL);
   /* encoding: >= 0 = local state. Add to process offset to get global
      offset.
 

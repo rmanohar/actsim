@@ -895,7 +895,8 @@ int ActSimCore::mapIdToLocalOffset (act_connection *c, stateinfo_t *si)
   }
 }
 
-int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
+int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
+				int *width)
 {
   act_booleanized_var_t *v;
   ihash_bucket_t *b;
@@ -909,11 +910,17 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
       if (type) {
 	*type = 1;
       }
+      if (width) {
+	*width = dv->width;
+      }
     }
     else {
       b = ihash_lookup (si->map, (long)c);
       if (type) {
 	*type = 0;
+      }
+      if (width) {
+	*width = 1;
       }
     }
     return b->i;
@@ -933,12 +940,21 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
       else {
 	*type = 3;
       }
+      if (width) {
+	*width = v->width;
+      }
     }
     else if (v->isint) {
       *type = 1;
+      if (width) {
+	*width = v->width;
+      }
     }
     else {
       *type = 0;
+      if (width) {
+	*width = 1;
+      }
     }
   }
 
@@ -957,15 +973,13 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type)
 }  
 
 
-int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type)
+int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width)
 {
   act_connection *c;
   Scope *sc = si->bnl->cur;
 
-  
-
   c = id->Canonical (sc);
-  return getLocalOffset (c, si, type);
+  return getLocalOffset (c, si, type, width);
 }
 
 ActSimObj::ActSimObj (ActSimCore *sim)
