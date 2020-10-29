@@ -51,6 +51,10 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
   _pcused = 1;
   Assert (_npc >= 1, "What?");
 
+  if (_npc > 32) {
+    fatal_error ("Currently there is a hard limit of 32 concurrent modules within a single CHP block. Your program requires %d.", _npc);
+  }
+
   _pc = (ChpSimGraph **)
     sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
   for (int i=0; i < _npc; i++) {
@@ -383,7 +387,7 @@ void ChpSim::Step (int ev_type)
 
   case CHPSIM_ASSIGN:
 #ifdef DUMP_ALL
-    printf ("assign v[%d] := ", stmt->u.assign.var);
+    printf ("assign v[%d] := ", stmt->u.assign.d.offset);
 #endif
     v = exprEval (stmt->u.assign.e);
 #ifdef DUMP_ALL    
