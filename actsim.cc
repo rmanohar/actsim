@@ -675,7 +675,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  _cur_abs_port_chan[ichan-1-i] = x;
 	}
 
-#if 1
+#if 0
 	printf ("inst: "); _curinst->Print (stdout); printf ("\n");
 	printf ("  [bool %d] ", ibool);
 	for (int i=0; i < ibool; i++) {
