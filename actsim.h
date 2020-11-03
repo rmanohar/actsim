@@ -62,6 +62,7 @@ struct act_channel_state {
 				// of the channel are accessed
 
   struct iHashtable *fH;	// fragment hash table
+  Channel *ct;			// channel type
   
   int len;
   int data, data2;
@@ -302,5 +303,6 @@ private:
 
 };
 
+void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id);
 
 #endif /* __ACT_SIM_H__ */

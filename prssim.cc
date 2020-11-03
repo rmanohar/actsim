@@ -617,148 +617,6 @@ void PrsSim::setBool (int lid, int v)
   }
 }
 
-static void _hse_record_ids (struct iHashtable *fH,
-			     ActSimCore *sc, PrsSim *c,
-			     ActId *cname, ActId *id)
-{
-  ihash_bucket_t *b;
-  ActId *tl = cname;
-  while (tl->Rest()) {
-    tl = tl->Rest();
-  }
-  tl->Append (id);
-  act_connection *ac = cname->Canonical (sc->cursi()->bnl->cur);
-  
-
-  b = ihash_lookup (fH, (long)ac);
-  if (!b) {
-    int off;
-    int type;
-    
-    b = ihash_add (fH, (long)ac);
-
-    off = sc->getLocalOffset (cname, sc->cursi(), &type);
-    Assert (type == 0, "HSE in channel has non-boolean ops?");
-    off = c->getGlobalOffset (off, 0);
-    b->i = off;
-  }
-  tl->prune ();
-}
-
-static void _hse_record_ids (struct iHashtable *fH,
-			     ActSimCore *sc, PrsSim *c,
-			     ActId *cname, Expr *e)
-{
-  if (!e) return;
-  switch (e->type) {
-  case E_TRUE:
-  case E_FALSE:
-  case E_INT:
-  case E_REAL:
-    break;
-
-    /* binary */
-  case E_AND:
-  case E_OR:
-  case E_PLUS:
-  case E_MINUS:
-  case E_MULT:
-  case E_DIV:
-  case E_MOD:
-  case E_LSL:
-  case E_LSR:
-  case E_ASR:
-  case E_XOR:
-  case E_LT:
-  case E_GT:
-  case E_LE:
-  case E_GE:
-  case E_EQ:
-  case E_NE:
-    _hse_record_ids (fH, sc, c, cname, e->u.e.l);
-    _hse_record_ids (fH, sc, c, cname, e->u.e.r);
-    break;
-    
-  case E_UMINUS:
-  case E_COMPLEMENT:
-  case E_NOT:
-    _hse_record_ids (fH, sc, c, cname, e->u.e.l);
-    break;
-
-  case E_QUERY:
-    _hse_record_ids (fH, sc, c, cname, e->u.e.l);
-    _hse_record_ids (fH, sc, c, cname, e->u.e.r->u.e.l);
-    _hse_record_ids (fH, sc, c, cname, e->u.e.r->u.e.r);
-    break;
-
-  case E_VAR:
-    _hse_record_ids (fH, sc, c, cname, (ActId *)e->u.e.l);
-    break;
-
-  case E_BUILTIN_BOOL:
-  case E_BUILTIN_INT:
-    _hse_record_ids (fH, sc, c, cname, e->u.e.l);
-    break;
-    
-  case E_SELF:
-    break;
-
-  default:
-    fatal_error ("Unknown expression type %d\n", e->type);
-    break;
-  }
-}
-
-static void _hse_record_ids (struct iHashtable *fH,
-			     ActSimCore *sc, PrsSim *c,
-			     ActId *cname,
-			     act_chp_lang_t *ch)
-{
-  listitem_t *li;
-  
-  if (!ch) return;
-  
-  switch (ch->type) {
-  case ACT_CHP_SEMI:
-  case ACT_CHP_COMMA:
-    for (li = list_first (ch->u.semi_comma.cmd); li; li = list_next (li)) {
-      _hse_record_ids (fH, sc, c, cname, (act_chp_lang_t *) list_value (li));
-    }
-    break;
-
-  case ACT_CHP_SELECT:
-  case ACT_CHP_SELECT_NONDET:
-  case ACT_CHP_DOLOOP:
-  case ACT_CHP_LOOP:
-    for (act_chp_gc_t *gc = ch->u.gc; gc; gc = gc->next) {
-      _hse_record_ids (fH, sc, c, cname, gc->s);
-      _hse_record_ids (fH, sc, c, cname, gc->g);
-    }
-    break;
-    
-  case ACT_CHP_SKIP:
-    break;
-    
-  case ACT_CHP_SEND:
-  case ACT_CHP_RECV:
-    fatal_error ("HSE cannot use send/receive or log!");
-    break;
-    
-  case ACT_CHP_FUNC:
-    break;
-    
-  case ACT_CHP_ASSIGN:
-    _hse_record_ids (fH, sc, c, cname, ch->u.assign.id);
-    _hse_record_ids (fH, sc, c, cname, ch->u.assign.e);
-    break;
-
-  default:
-    fatal_error ("Unknown chp type %d\n", ch->type);
-    break;
-  }
-}
-			     
-
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 				      ActId *id)
 {
@@ -771,28 +629,7 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
       loff = ps->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
       ch->fragmented = 1;
-
-      InstType *it = sc->cursi()->bnl->cur->FullLookup (tmp, NULL);
-      Channel *ct = dynamic_cast <Channel *> (it->BaseType());
-
-      if (ct) {
-	/* now find each boolean, and record it in the channel state! */
-	if (!ch->fH) {
-	  ch->fH = ihash_new (4);
-	}
-	for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
-	  act_chp_lang_t *x = ct->getMethod (i);
-	  if (x) {
-	    _hse_record_ids (ch->fH, sc, ps, tmp, x);
-	  }
-	}
-	for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
-	  Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
-	  if (e) {
-	    _hse_record_ids (ch->fH, sc, ps, tmp, e);
-	  }
-	}
-      }
+      sim_recordChannel (sc, ps, tmp);
     }
     delete tmp;
   }
@@ -828,7 +665,7 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
   }
 }
 
-  void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
+void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 				      act_prs_lang_t *p)
 {
   while (p) {
