@@ -413,6 +413,9 @@ void ChpSim::Step (int ev_type)
 
   case CHPSIM_SEND:
     if (!flag) {
+      /*-- this is the first time we are at the send, so evaluate the
+           expression being sent over the channel --*/
+      
       listitem_t *li;
       li = list_first (stmt->u.send.el);
       if (li) {
@@ -425,19 +428,20 @@ void ChpSim::Step (int ev_type)
       }
 #ifdef DUMP_ALL      
       printf ("send val=%d", v.v);
+#endif
+    }
+    /*-- attempt to send; suceeds if there is a receiver waiting,
+      otherwise we have to wait for the receiver --*/
+    if (varSend (pc, flag, stmt->u.send.chvar, v)) {
+      /* blocked */
+      forceret = 1;
+#ifdef DUMP_ALL      
+      printf ("send blocked");
 #endif      
-      if (varSend (pc, flag, stmt->u.send.chvar, v)) {
-	/* blocked */
-	forceret = 1;
-      }
-      else {
-	pc = _updatepc (pc);
-      }
     }
     else {
-      if (!varSend (pc, flag, stmt->u.send.chvar, v)) {
-	pc = _updatepc (pc);
-      }
+      /* no blocking, so we move forward */
+      pc = _updatepc (pc);
 #ifdef DUMP_ALL      
       printf ("send done");
 #endif      
@@ -462,13 +466,16 @@ void ChpSim::Step (int ev_type)
 	type = -1;
       }
 
+      /*-- attempt to receive value --*/
       if (varRecv (pc, flag, stmt->u.recv.chvar, &v)) {
+	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
 #endif	
 	forceret = 1;
       }
       else {
+	/*-- success! --*/
 #ifdef DUMP_ALL	
 	printf ("recv got %d!", v.v);
 #endif	
