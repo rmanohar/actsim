@@ -1,0 +1,36 @@
+defproc test1 (bool a, b)
+{
+  bool q;
+  chp {
+     b-;
+     q+;q+;q+;
+     log("wait-a");
+     [a]; 
+     log("set-b");
+     q+;q+;q+;
+     log ("pre-done");
+     b+;
+     log ("done-1")
+  }
+}
+
+defproc test2 (bool p, q)
+{
+   chp {
+     log("set p");
+     p+;
+     log ("wait q");
+     [q];
+     log ("done-2")
+   }
+}
+
+defproc test ()
+{
+   test1 x;
+   test2 y;
+   x.a = y.p;
+   x.b = y.q;
+}
+
+test t;

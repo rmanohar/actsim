@@ -49,20 +49,33 @@
 class ActSimCore;
 
 struct act_channel_state {
-  unsigned int send_here:4;
+  unsigned int send_here:7;	// if non-zero, this is the "pc" for
+				// the sender to be used to wake-up
+				// the sending process
+
   unsigned int sender_probe:1;	// 1 if the send_here wait is actually
-				// due to a probe
+				// due to a probe, and not a waiting
+				// sender but a waiting probe
   
-  unsigned int recv_here:4;
+  unsigned int recv_here:7;	 // if non-zero, this is the "pc" for
+				 // the receiver to be used to wake up
+				 // the receiving process
+  
   unsigned int receiver_probe:1; // receiver is probing and waiting as
-				 // a result
+				 // a result, but not blocked on a
+				 // receive
 
   unsigned int fragmented:1;	// have to simulate this at a lower
 				// level of abstraction since pieces
 				// of the channel are accessed
 
+  unsigned int frag_st:2;	// send/recv, send_up/recv_up, or
+				// send_rest/recv_rest
+  unsigned int ufrag_st:8;	// micro-state within frag state
+
   struct iHashtable *fH;	// fragment hash table
   Channel *ct;			// channel type
+
   
   int len;
   int data, data2;

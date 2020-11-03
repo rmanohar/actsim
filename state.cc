@@ -63,6 +63,8 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].w = new WaitForOne(0);
       chans[i].probe = NULL;
       chans[i].fragmented = 0;
+      chans[i].frag_st = 0;
+      chans[i].ufrag_st = 0;
       chans[i].ct = NULL;
       chans[i].fH = NULL;
     }

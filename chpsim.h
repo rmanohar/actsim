@@ -141,7 +141,6 @@ class ChpSim : public ActSimObj {
   void _run_chp (act_chp_lang_t *);
   /* type == 3 : probe */
 
-  void varSet (int id, int type, expr_res v);
   int varSend (int pc, int wakeup, int id, expr_res v);
   int varRecv (int pc, int wakeup, int id, expr_res *v);
 

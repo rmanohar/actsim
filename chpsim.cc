@@ -166,7 +166,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    if (e->u.x.val < 0) {
+    if ((signed)e->u.x.val < 0) {
       ret = 1;
     }
     break;
@@ -233,9 +233,9 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 	  c->receiver_probe = 1;
 	}
 	else if (e->type == E_PROBEOUT && !WAITING_RECEIVER(c)) {
-#ifdef DUMP_ALL	  
+#ifdef DUMP_ALL
 	  printf (" [add %d]", off);
-#endif	  
+#endif
 	  if (!_probe) {
 	    _probe = new WaitForOne (0);
 	  }
@@ -292,7 +292,7 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
       delete _probe;
     }
   }
-#if 0
+#ifdef DUMP_ALL
   printf (" sh-var:%d", ret);
 #endif
   return ret;
@@ -401,6 +401,14 @@ void ChpSim::Step (int ev_type)
       printf (" [glob=%d]", off);
 #endif      
       _sc->setBool (off, v.v);
+
+      SimDES **arr;
+      arr = _sc->getFO (off, 0);
+      for (int i=0; i < _sc->numFanout (off, 0); i++) {
+	ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+	Assert (p, "What?");
+	p->propagate ();
+      }
     }
     else {
       off = getGlobalOffset (off, 1);
@@ -604,24 +612,6 @@ void ChpSim::Step (int ev_type)
   }
 }
 
-void ChpSim::varSet (int id, int type, expr_res v)
-{
-  int off = getGlobalOffset (id, type);
-  if (type == 0) {
-    _sc->setBool (off, v.v);
-  }
-  else if (type == 1) {
-    _sc->setInt (off, v.v);
-  }
-  else {
-    fatal_error ("Use channel send/recv!");
-    /* channel! */
-  }
-  if (id < 0) {
-    /*-- non-local variable --*/
-    _sc->gWakeup ();
-  }
-}
 
 /* returns 1 if blocked */
 int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
@@ -631,7 +621,28 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
   c = _sc->getChan (off);
 
   if (c->fragmented) {
-    warning ("Need to implement the fragmented channel protocol");
+    switch (c->frag_st) {
+    case 0:
+      c->frag_st = 1;
+      c->ufrag_st = 0;
+    case 1:
+      
+      /* in send, advance through */
+
+      break;
+    case 2:
+      /* in send_up, advance through */
+
+      break;
+    case 3:
+      /* in send_rest, advance through */
+      break;
+
+    default:
+      fatal_error ("What is this?");
+      break;
+    }
+    warning ("Need to implement the fragmented channel protocol");    
   }
 
 #ifdef DUMP_ALL  
@@ -655,9 +666,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     c->data = v.v;
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
-    c->send_here = 0;
-    c->sender_probe = 0;
-    c->receiver_probe = 0;
+    Assert (c->send_here == 0 && c->sender_probe == 0 &&
+	    c->receiver_probe == 0,"What?");
     return 0;
   }
   else {
@@ -702,7 +712,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
     printf (" [recv-wakeup %d]", pc);
 #endif    
     v->v = c->data;
-    c->recv_here = 0;
+    Assert (c->recv_here == 0, "What?");
     return 0;
   }
   
@@ -713,9 +723,8 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
     v->v = c->data2;
     c->w->Notify (c->send_here-1);
     c->send_here = 0;
-    c->recv_here = 0;
-    c->sender_probe = 0;
-    c->receiver_probe = 0;
+    Assert (c->recv_here == 0 && c->receiver_probe == 0 &&
+	    c->sender_probe == 0, "What?");
     return 0;
   }
   else {
@@ -750,6 +759,11 @@ expr_res ChpSim::varEval (int id, int type)
     r.width = 1;
     r.v = _sc->getBool (off);
     if (r.v == 2) {
+#if 0      
+      fprintf (stderr, "[%8lu] <", CurTimeLo());
+      name->Print (stderr);
+      fprintf (stderr, "> ");
+#endif      
       warning ("Boolean variable is X");
     }
   }
