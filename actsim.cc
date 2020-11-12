@@ -802,6 +802,17 @@ void ActSimCore::_initSim ()
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
 
+  /* 
+     Add the initialization environment, if needed:
+
+     1. For any top-level dangling channels, add the channel environment
+     process.
+
+     2. Add any top-level initialize block from the global namespace
+  */
+
+  
+
   /* at this point, all the fanout tables have been updated */
 #if 0
   {
