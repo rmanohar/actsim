@@ -520,6 +520,8 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
       do {
 	_curproc = x;
+	_cursi = si;
+	
 	if (as) {
 	  tmpid->setArray (as->toArray());
 	}
