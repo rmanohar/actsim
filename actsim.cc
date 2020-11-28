@@ -42,6 +42,10 @@
 
 */
 
+struct chpsimgraph_info {
+  ChpSimGraph *g;
+  int max_count;
+};
 
 ActSimCore::ActSimCore (Process *p)
 {
@@ -252,18 +256,20 @@ void ActSimCore::_add_chp (act_chp *c)
   printf ("\n");
 #endif  
 
-  ChpSimGraph *sg;
+  chpsimgraph_info *sg;
   b = ihash_lookup (map, (long)_curproc);
   if (b) {
-    sg = (ChpSimGraph *)b->v;
+    sg = (chpsimgraph_info *)b->v;
   }
   else {
     ChpSimGraph *stop;
     b = ihash_add (map, (long)_curproc);
-    sg = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    NEW (sg, chpsimgraph_info);
+    sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    sg->max_count = ChpSimGraph::max_pending_count;
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, c->c, this);
+  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -299,18 +305,20 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   printf ("\n");
 #endif  
 
-  ChpSimGraph *sg;
+  chpsimgraph_info *sg;
   b = ihash_lookup (map, (long)_curproc);
   if (b) {
-    sg = (ChpSimGraph *)b->v;
+    sg = (chpsimgraph_info *)b->v;
   }
   else {
     ChpSimGraph *stop;
     b = ihash_add (map, (long)_curproc);
-    sg = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    NEW (sg, chpsimgraph_info);
+    sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    sg->max_count = ChpSimGraph::max_pending_count;
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg, c->c, this);
+  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);

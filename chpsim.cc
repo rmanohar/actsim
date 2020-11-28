@@ -31,6 +31,9 @@ class ChpSim;
 #define MAX(a,b) ((a) < (b) ? (b) : (a))
 #endif
 
+int ChpSimGraph::cur_pending_count = 0;
+int ChpSimGraph::max_pending_count = 0;
+
 //#define DUMP_ALL
 
 #define WAITING_SENDER(c)  ((c)->send_here != 0 && (c)->sender_probe == 0)
@@ -40,7 +43,7 @@ class ChpSim;
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
 
 
-ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
+ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim)
 : ActSimObj (sim)
 {
   /*
@@ -59,6 +62,16 @@ ChpSim::ChpSim (ChpSimGraph *g, act_chp_lang_t *c, ActSimCore *sim)
     sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
   for (int i=0; i < _npc; i++) {
     _pc[i] = NULL;
+  }
+
+  if (max_cnt > 0) {
+    _tot = (int *)sim->getState()->allocState (sizeof (int)*max_cnt);
+    for (int i=0; i < max_cnt; i++) {
+      _tot[i] = 0;
+    }
+  }
+  else {
+    _tot = NULL;
   }
 
   Assert (_npc >= 1, "What?");
@@ -82,10 +95,10 @@ int ChpSim::_updatepc (int pc)
 {
   int joined;
   
-  _pc[pc] = _pc[pc]->completed(pc, &joined);
+  _pc[pc] = _pc[pc]->completed(pc, _tot, &joined);
   if (joined) {
 #ifdef DUMP_ALL
-    printf (" [joined]");
+    printf (" [joined #%d / %d %d]", pc, _pcused, _pc[pc]->wait);
 #endif    
     _pcused = _pcused - (_pc[pc]->wait - 1);
   }
@@ -94,8 +107,8 @@ int ChpSim::_updatepc (int pc)
     _pc[pc] = NULL;
     pc = _pcused - 1;
     _pc[pc] = tmp;
-#if 0    
-    printf (" [pc-adjust]");
+#ifdef DUMP_ALL
+    printf (" [pc-adjust %d]", pc);
 #endif    
   }
   return pc;
@@ -323,6 +336,8 @@ void ChpSim::Step (int ev_type)
   expr_res v;
   int off;
   int delay = 10;
+
+  Assert (0 <= pc && pc < _pcused, "What?");
 
   if (pc == MAX_LOCAL_PCS) {
     pc = _stalled_pc;
@@ -1601,21 +1616,21 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
   next = NULL;
   all = NULL;
   wait = 0;
-  tot = 0;
+  totidx = 0;
 }
 
 
-ChpSimGraph *ChpSimGraph::completed (int pc, int *done)
+ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
 {
   *done = 0;
   if (!next) {
     return NULL;
   }
   if (next->wait > 0) {
-    next->tot++;
-    if (next->wait == next->tot) {
+    tot[next->totidx]++;
+    if (next->wait == tot[next->totidx]) {
       *done = 1;
-      next->tot = 0;
+      tot[next->totidx] = 0;
       return next;
     }
     else {
@@ -1881,28 +1896,37 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   return ret;
 }
 
-
 ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
+					    act_chp_lang_t *c,
+					    ChpSimGraph **stop)
+{
+  cur_pending_count = 0;
+  max_pending_count = 0;
+  return _buildChpSimGraph (sc, c, stop);
+}
+
+ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 					    act_chp_lang_t *c,
 					    ChpSimGraph **stop)
 {
   ChpSimGraph *ret = NULL;
   ChpSimGraph *tmp2;
   int i, count;
+  int tmp;
   
   if (!c) return NULL;
 
   switch (c->type) {
   case ACT_CHP_SEMI:
     if (list_length (c->u.semi_comma.cmd)== 1) {
-      return buildChpSimGraph
+      return _buildChpSimGraph
 	(sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
     }
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
       act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
-      ChpSimGraph *tmp = buildChpSimGraph (sc, t, &tmp2);
+      ChpSimGraph *tmp = _buildChpSimGraph (sc, t, &tmp2);
       if (tmp) {
 	if (!ret) {
 	  ret = tmp;
@@ -1918,12 +1942,16 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
 
   case ACT_CHP_COMMA:
     if (list_length (c->u.semi_comma.cmd)== 1) {
-      return buildChpSimGraph
+      return _buildChpSimGraph
 	(sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
     }
     ret = new ChpSimGraph (sc);
     *stop = new ChpSimGraph (sc);
+    tmp = cur_pending_count++;
+    if (cur_pending_count > max_pending_count) {
+      max_pending_count = cur_pending_count;
+    }
     ret->next = *stop; // not sure we need this, but this is the fork/join
 		       // connection
 
@@ -1933,7 +1961,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
       act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
-      ret->all[i] = buildChpSimGraph (sc,
+      ret->all[i] = _buildChpSimGraph (sc,
 				      (act_chp_lang_t *)list_value (li), &tmp2);
       if (ret->all[i]) {
 	tmp2->next = *stop;
@@ -1946,7 +1974,9 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
       ret->stmt->type = CHPSIM_FORK;
       ret->stmt->u.fork = count;
       (*stop)->wait = count;
+      (*stop)->totidx = tmp;
     }
+    cur_pending_count--;
     break;
 
   case ACT_CHP_SELECT:
@@ -1968,7 +1998,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     }
     i = 0;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
-      ret->all[i] = buildChpSimGraph (sc, gc->s, &tmp2);
+      ret->all[i] = _buildChpSimGraph (sc, gc->s, &tmp2);
       if (ret->all[i]) {
 	if (c->type == ACT_CHP_LOOP) {
 	  /* loop back */
@@ -1996,7 +2026,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     (*stop) = new ChpSimGraph (sc);
     ret->next = (*stop);
     MALLOC (ret->all, ChpSimGraph *, 1);
-    ret->all[0] = buildChpSimGraph (sc, c->u.gc->s, &tmp2);
+    ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
     tmp2->next = ret;
     break;
     

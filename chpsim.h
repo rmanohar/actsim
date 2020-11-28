@@ -85,22 +85,27 @@ class ChpSimGraph {
   ActSimCore *state;
   chpsimstmt *stmt;		/* object to simulate */
   int wait;			/* for concurrency */
-  int tot;
+  int totidx;			/* index into pending count */
   ChpSimGraph *next;
   ChpSimGraph **all;		/* successors, if multiple.
 				   used by comma and selections 
 				*/
-  ChpSimGraph *completed (int pc, int *done);
+  ChpSimGraph *completed (int pc, int *tot, int *done);
 
   static ChpSimGraph *buildChpSimGraph (ActSimCore *,
 					act_chp_lang_t *, ChpSimGraph **stop);
+  static int max_pending_count;
 
   static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
   static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
   static void checkFragmentation (ActSimCore *, ChpSim *, ActId *);
   static void recordChannel (ActSimCore *, ChpSim *, ActId *);
   static void recordChannel (ActSimCore *, ChpSim *, act_chp_lang_t *);
-  
+private:
+  static ChpSimGraph *_buildChpSimGraph (ActSimCore *,
+					 act_chp_lang_t *, ChpSimGraph **stop);
+  static int cur_pending_count;
+
 };
 
 
@@ -108,7 +113,7 @@ class ChpSimGraph {
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, act_chp_lang_t *, ActSimCore *sim);
+  ChpSim (ChpSimGraph *, int maxcnt, act_chp_lang_t *, ActSimCore *sim);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
@@ -120,6 +125,7 @@ class ChpSim : public ActSimObj {
  private:
   int _npc;			/* # of program counters */
   ChpSimGraph **_pc;		/* current PC state of simulation */
+  int *_tot;			/* current pending concurrent count */
 
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
