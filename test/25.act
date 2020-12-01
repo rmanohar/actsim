@@ -1,0 +1,16 @@
+defproc test ()
+{
+
+	int<32> a;
+	int<32> b;
+
+	int<64> c;
+
+	chp {
+		a := 0x7fffffff, b := 0x15, c:= 0;
+		c := a * b;
+		log("A = ",a);log("B = ",b);log("C = ",c);log("C_up = ", c{63..32});log("C_dn = ", c{31..0})
+	}
+}
+
+test t;

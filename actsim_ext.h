@@ -23,9 +23,11 @@
 #define __ACTSIM__EXT_H__
 
 struct expr_res {
-  unsigned int v;		/* value */
+  unsigned long v;		/* value */
   int width;			/* bitwidth */
 };
+
+#define ACT_EXPR_RES_PRINTF "%lu"
 
 
 #endif /* __ACTSIM__EXT_H__ */

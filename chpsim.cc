@@ -534,7 +534,7 @@ void ChpSim::Step (int ev_type)
       }
       else {
 	v = exprEval (arg->u.e);
-	printf ("%d", v.v);
+	printf (ACT_EXPR_RES_PRINTF, v.v);
       }
     }
     printf ("\n");
