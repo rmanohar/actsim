@@ -868,8 +868,31 @@ act_connection *ActSim::runSim (act_connection **cause)
   return NULL;
 }
 
+act_connection *ActSim::Step (int nsteps)
+{
+  Event *ret;
+  if (SimDES::isEmpty()) {
+    warning ("Empty simulation!");
+    return NULL;
+  }
 
+  ret = SimDES::Advance (nsteps);
 
+  return NULL;
+}
+
+act_connection *ActSim::Advance (int delay)
+{
+  Event *ret;
+  if (SimDES::isEmpty()) {
+    warning ("Empty simulation!");
+    return NULL;
+  }
+
+  ret = SimDES::AdvanceTime (delay);
+
+  return NULL;
+}
 
 ActSim::ActSim (Process *root) : ActSimCore (root)
 {

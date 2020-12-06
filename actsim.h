@@ -306,8 +306,8 @@ public:
   void getFanin (act_connection *c, act_connection **n);
 
   act_connection *runSim (act_connection **cause);
-
-  act_connection *runStep (act_connection **cause);
+  act_connection *Step (int nsteps);
+  act_connection *Advance (int delay);
 
   void saveSim (FILE *);
   void restoreSim (FILE *);

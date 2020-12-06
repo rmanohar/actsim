@@ -24,11 +24,23 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <act/act.h>
 #include <act/passes.h>
 #include "config.h"
 #include "actsim.h"
+#include <lisp.h>
+#include <lispCli.h>
 
+static void signal_handler (int sig)
+{
+  LispInterruptExecution = 1;
+}
+
+static void clr_interrupt (void)
+{
+  LispInterruptExecution = 0;
+}
 
 static void usage (char *name)
 {
@@ -36,6 +48,62 @@ static void usage (char *name)
   exit (1);
 }
 
+static ActSim *glob_sim;
+
+int process_cycle (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return 0;
+  }
+  glob_sim->runSim (NULL);
+  return 1;
+}
+
+int process_step (int argc, char **argv)
+{
+  int nsteps;
+  if (argc != 1 && argc != 2) {
+    fprintf (stderr, "Usage: %s [num]\n", argv[0]);
+    return 0;
+  }
+  if (argc == 1) {
+    nsteps = 1;
+  }
+  else {
+    nsteps = atoi (argv[1]);
+    if (nsteps <= 0) {
+      fprintf (stderr, "%s: zero/negative steps?\n", argv[0]);
+      return 0;
+    }
+  }
+  glob_sim->Step (nsteps);
+  return 1;
+}
+
+int process_advance (int argc, char **argv)
+{
+  int nsteps;
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s [num]\n", argv[0]);
+    return 0;
+  }
+  nsteps = atoi (argv[1]);
+  if (nsteps <= 0) {
+    fprintf (stderr, "%s: zero/negative delay?\n", argv[0]);
+    return 0;
+  }
+  glob_sim->Advance (nsteps);
+  return 1;
+}
+		    
+
+struct LispCliCommand Cmds[] = {
+  { NULL, "Running a simulation", NULL },
+  { "cycle", "cycle - run until simulation stops", process_cycle },
+  { "step", "step [n] - run the next [n] events", process_step },
+  { "advance", "advance <delay> - run for <delay> time", process_advance }
+};
 
 int main (int argc, char **argv)
 {
@@ -75,9 +143,19 @@ int main (int argc, char **argv)
   ActStatePass *sp = new ActStatePass (a);
   sp->run (p);
   
-  ActSim *sim = new ActSim (p);
+  ActSim *glob_sim = new ActSim (p);
 
-  sim->runSim (NULL);
+  signal (SIGINT, signal_handler);
+
+  LispInit ();
+  LispCliInit (NULL, ".actsim_history", "actsim> ", Cmds,
+	       sizeof (Cmds)/sizeof (Cmds[0]));
+
+  while (!LispCliRun (stdin)) {
+
+  }
+
+  LispCliEnd ();
 
   return 0;
 }
