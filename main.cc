@@ -48,7 +48,9 @@ static void usage (char *name)
   exit (1);
 }
 
+static ActStatePass *glob_sp;
 static ActSim *glob_sim;
+static Act *glob_act;
 
 int process_cycle (int argc, char **argv)
 {
@@ -96,10 +98,33 @@ int process_advance (int argc, char **argv)
   glob_sim->Advance (nsteps);
   return 1;
 }
-		    
+
+int process_initialize (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <process>\n", argv[0]);
+    return 0;
+  }
+  Process *p = glob_act->findProcess (argv[1]);
+  if (!p) {
+    fprintf (stderr, "%s: could not find process %s\n", argv[0], argv[1]);
+    return 0;
+  }
+  if (glob_sim) {
+    delete glob_sim;
+    delete glob_sp;
+  }
+  SimDES::Init ();
+  glob_sp = new ActStatePass (glob_act);
+  glob_sp->run (p);
+  glob_sim = new ActSim (p);
+  return 1;
+}
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Running a simulation", NULL },
+  { "initialize", "initialize <proc> - initialize simulation for <proc>",
+    process_initialize },
   { "cycle", "cycle - run until simulation stops", process_cycle },
   { "step", "step [n] - run the next [n] events", process_step },
   { "advance", "advance <delay> - run for <delay> time", process_advance }
@@ -107,7 +132,6 @@ struct LispCliCommand Cmds[] = {
 
 int main (int argc, char **argv)
 {
-  Act *a;
   char *proc;
 
   /* initialize ACT library */
@@ -119,17 +143,17 @@ int main (int argc, char **argv)
   }
 
   /* read in the ACT file */
-  a = new Act (argv[1]);
+  glob_act = new Act (argv[1]);
 
   /* expand it */
-  a->Expand ();
+  glob_act->Expand ();
 
   /* map to cells: these get characterized */
   //ActCellPass *cp = new ActCellPass (a);
   //cp->run();
  
   /* find the process specified on the command line */
-  Process *p = a->findProcess (argv[2]);
+  Process *p = glob_act->findProcess (argv[2]);
 
   if (!p) {
     fatal_error ("Could not find process `%s' in file `%s'", argv[2], argv[1]);
@@ -140,10 +164,10 @@ int main (int argc, char **argv)
   }
 
   /* do stuff here */
-  ActStatePass *sp = new ActStatePass (a);
-  sp->run (p);
+  glob_sp = new ActStatePass (glob_act);
+  glob_sp->run (p);
   
-  ActSim *glob_sim = new ActSim (p);
+  glob_sim = new ActSim (p);
 
   signal (SIGINT, signal_handler);
 
@@ -152,7 +176,7 @@ int main (int argc, char **argv)
 	       sizeof (Cmds)/sizeof (Cmds[0]));
 
   while (!LispCliRun (stdin)) {
-
+    
   }
 
   LispCliEnd ();
