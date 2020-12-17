@@ -195,9 +195,6 @@ class ActSimCore {
   void setBool (int x, int v) { state->setBool (x, v); }
   act_channel_state *getChan (int x) { return state->getChan (x); }
 
-  /* local state map; does not include ports; ports are allocated in parent */
-  int mapIdToLocalOffset (act_connection *c, stateinfo_t *si);
-
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
 
@@ -211,7 +208,7 @@ class ActSimCore {
    (-2x + 1): port offset. add "x" to total ports to get port
               offset
 
-      sets type to 0, 1, 2 for bool, int, chan
+      sets type to 0, 1, 2, 3 for bool, int, chan(in), chan(out)
   */
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
@@ -258,7 +255,6 @@ protected:
   
   
   stateinfo_t *_rootsi;		/* root stateinfo; needed for globals */
-  chp_offsets globals;		/* globals */
   
   /*-- add parts to the simulator --*/
   void _add_language (int lev, act_languages *l);

@@ -91,75 +91,14 @@ ActSimCore::ActSimCore (Process *p)
 		 p ? p->getName() : "-global-");
   }
 
-
-  act_boolean_netlist_t *bnl = si->bnl;
-  Assert (bnl, "What are we doing here");
-
-  globals.bools = 0;
-  globals.ints = 0;
-  globals.chans = 0;
-
-  for (int i=0; i < A_LEN (bnl->used_globals); i++) {
-    act_booleanized_var_t *v;
-    ihash_bucket_t *b;
-    b = ihash_lookup (bnl->cH, (long)bnl->used_globals[i]);
-    Assert (b, "WHat?");
-    v = (act_booleanized_var_t *) b->v;
-    Assert (v, "What?");
-    Assert (v->isglobal, "What?");
-    if (v->isint) {
-      globals.ints++;
-    }
-    else if (v->ischan) {
-      globals.chans++;
-    }
-    else {
-      globals.bools++;
-    }
-  }
-
-  /* now put in negative indices so that you have the right mapping! */
-  chp_offsets idx;
-  idx.bools = 0;
-  idx.ints = 0;
-  idx.chans = 0;
-  for (int i=0; i < A_LEN (bnl->used_globals); i++) {
-    act_booleanized_var_t *v;
-    ihash_bucket_t *b;
-    b = ihash_lookup (bnl->cH, (long)bnl->used_globals[i]);
-    Assert (b, "WHat?");
-    v = (act_booleanized_var_t *) b->v;
-    Assert (v, "What?");
-    Assert (v->isglobal, "What?");
-
-    if (v->used) {
-      b = ihash_add (si->map, (long)bnl->used_globals[i]);
-      b->i = idx.bools - globals.bools;
-      idx.bools++;
-    }
-    else if (v->usedchp) {
-      b = ihash_add (si->chpmap, (long)bnl->used_globals[i]);
-      if (v->isint) {
-	b->i = idx.ints - globals.ints;
-	idx.ints++;
-      }
-      else if (v->ischan) {
-	b->i = idx.chans - globals.chans;
-	idx.chans++;
-      }
-      else {
-	b->i = idx.bools - globals.bools;
-	idx.bools++;
-      }
-    }
-  }
-
   /* 
      Allocate state.
      We need:
      - all ports (all port bools, and chp ports)
      - all local vars including sub-instance local vars
   */
+  chp_offsets globals = sp->getGlobals();
+
   state = new ActSimState (si->nportbools + si->allbools
 			   + si->nportchp.bools +  si->chp_all.bools
 			   + globals.bools,
@@ -741,8 +680,8 @@ void ActSimCore::_initSim ()
   */
   _curproc = simroot;
   _curinst = NULL;
-  _curoffset = globals;
   _cursi = sp->getStateInfo (_curproc);
+  _curoffset = sp->getGlobals();
 
   /*
     Allocate top-level ports
@@ -904,116 +843,20 @@ ActSim::~ActSim()
   /* stuff here */
 }
 
-
-int ActSimCore::mapIdToLocalOffset (act_connection *c, stateinfo_t *si)
-{
-  ihash_bucket_t *b;
-  int glob;
-
-  if (c->isglobal())  {
-    glob = 1;
-    si = _rootsi;
-  }
-  else {
-    glob = 0;
-  }
-
-  b = ihash_lookup (si->map, (long)c);
-  if (!b) {
-    b = ihash_lookup (si->chpmap, (long)c);
-  }
-  if (!b) {
-    fatal_error ("Could not map ID to local offset?");
-  }
-  if (glob) {
-    Assert (b->i < 0, "What?");
-    return 2*b->i;
-  }
-  else {
-    if (b->i < 0) {
-      return 2*b->i + 1;
-    }
-    else {
-      return b->i;
-    }
-  }
-}
-
 int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
 				int *width)
 {
-  act_booleanized_var_t *v;
-  ihash_bucket_t *b;
-  int x;
+  int res;
+  int offset;
 
-  if ((b = ihash_lookup (si->bnl->cdH, (long)c))) {
-    act_dynamic_var_t *dv = (act_dynamic_var_t *)b->v;
-    if (dv->isint) {
-      b = ihash_lookup (si->chpmap, (long)c);
-      Assert (b, "What?");
-      if (type) {
-	*type = 1;
-      }
-      if (width) {
-	*width = dv->width;
-      }
-    }
-    else {
-      b = ihash_lookup (si->map, (long)c);
-      if (type) {
-	*type = 0;
-      }
-      if (width) {
-	*width = 1;
-      }
-    }
-    return b->i;
+  res = sp->getTypeOffset (si, c, &offset, type, width);
+  if (res) {
+    return offset;
   }
-
-  b = ihash_lookup (si->bnl->cH, (long)c);
-  Assert (b, "What?");
-
-  v = (act_booleanized_var_t *)b->v;
-  x = mapIdToLocalOffset (c, si);
-
-  if (type) {
-    if (v->ischan) {
-      if (v->input) {
-	*type = 2;
-      }
-      else {
-	*type = 3;
-      }
-      if (width) {
-	*width = v->width;
-      }
-    }
-    else if (v->isint) {
-      *type = 1;
-      if (width) {
-	*width = v->width;
-      }
-    }
-    else {
-      *type = 0;
-      if (width) {
-	*width = 1;
-      }
-    }
+  else {
+    fatal_error ("getLocalOffset() failed!");
   }
-
-  if (v->isport || v->ischpport) {
-    /* this is a port... */
-#if 0    
-    printf ("port-'");
-#endif    
-  }
-#if 0  
-  printf ("Id: ");
-  c->toid()->Print (stdout);
-  printf ("; loc-offset: %d\n", x);
-#endif  
-  return x;
+  return 0;
 }  
 
 
