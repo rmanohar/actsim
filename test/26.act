@@ -1,0 +1,17 @@
+defproc test () {
+
+	int i;
+
+	int ar[2];
+
+	chp {
+		i := 0;
+		*[ i < 2 -> ar[i] := 0; i := i + 1]
+		;log(ar[0]), log(ar[1])
+	//	;i := 0;
+	//	 log(ar[i]), log(ar[i+1])
+	}
+
+}
+
+test t;

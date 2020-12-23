@@ -1439,7 +1439,7 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
   int type;
   ihash_bucket_t *b;
 
-  if (id->isDynamicDeref()) {
+  if (ActBooleanizePass::isDynamicRef (_sc->cursi()->bnl, id)) {
     /* mark the entire array as used */
     ValueIdx *vx = id->rootVx (_sc->cursi()->bnl->cur);
     int sz;
@@ -1753,7 +1753,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       int type;
       struct chpsimderef *d;
 
-      if (((ActId *)e->u.e.l)->isDynamicDeref()) {
+      if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
+					   ((ActId *)e->u.e.l))) {
 	d = _mk_deref ((ActId *)e->u.e.l, s, &type);
       }
       else {
@@ -1786,7 +1787,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     {
       int type;
 
-      if (((ActId *)e->u.e.l)->isDynamicDeref()) {
+      if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
+					   ((ActId *)e->u.e.l))) {
 	struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
 
 	ret->u.e.l = (Expr *) d;
@@ -2063,7 +2065,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	int type;
 	struct chpsimderef *d;
 
-	if (id->isDynamicDeref()) {
+	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	  d = _mk_deref (id, sc, &type);
 	}
 	else {
@@ -2122,7 +2124,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     {
       int type;
 
-      if (c->u.assign.id->isDynamicDeref()) {
+      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
 	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type);
 	ret->stmt->u.assign.d = *d;
 	FREE (d);
