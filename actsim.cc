@@ -523,18 +523,13 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
 	    act_connection *c = mynl->instports[iportbool];
 	    int off = getLocalOffset (c, mysi, NULL);
-	      
-	    if (off < 0) {
-	      /* port or global */
-	      off = -off;
-	      if ((off & 1) == 0) {
-		/* global */
-		off = off/2 - 1;
-	      }
-	      else {
-		off = (off + 1)/2 - 1;
-		off = _my_port_bool[off];
-	      }
+
+	    if (sp->isGlobalOffset (off)) {
+	      off = sp->globalIdx (off);
+	    }
+	    else if (sp->isPortOffset (off)) {
+	      off = sp->portIdx (off);
+	      off = _my_port_bool[off];
 	    }
 	    else {
 	      /* local state */
@@ -564,24 +559,19 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    int type;
 	    int off = getLocalOffset (c, mysi, &type);
 
-	    if (off < 0) {
-	      /* port or global */
-	      off = -off;
-	      if ((off & 1) == 0) {
-		/* global */
-		off = off/2 - 1;
+	    if (sp->isGlobalOffset (off)) {
+	      off = sp->globalIdx (off);
+	    }
+	    else if (sp->isPortOffset (off)) {
+	      off = sp->portIdx (off);
+	      if (type == 2 || type == 3) {
+		off = _my_port_chan[off];
+	      }
+	      else if (type == 1) {
+		off = _my_port_int[off];
 	      }
 	      else {
-		off = (off + 1)/2 - 1;
-		if (type == 2 || type == 3) {
-		  off = _my_port_chan[off];
-		}
-		else if (type == 1) {
-		  off = _my_port_int[off];
-		}
-		else {
-		  off = _my_port_bool[off];
-		}
+		off = _my_port_bool[off];
 	      }
 	    }
 	    else {
