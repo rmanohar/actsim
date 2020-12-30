@@ -43,7 +43,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
 
   nints = ints;
   if (nints > 0) {
-    MALLOC (ival, int, nints);
+    MALLOC (ival, long, nints);
   }
   else {
     ival = NULL;
@@ -95,13 +95,13 @@ ActSimState::~ActSimState()
   delete gshared;
 }
 		 
-int ActSimState::getInt (int x)
+long ActSimState::getInt (int x)
 {
   Assert (0 <= x && x < nints, "What");
   return ival[x];
 }
 
-void ActSimState::setInt (int x, int v)
+void ActSimState::setInt (int x, long v)
 {
   Assert (0 <= x && x < nints, "What");
   ival[x] = v;

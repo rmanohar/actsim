@@ -78,7 +78,7 @@ struct act_channel_state {
 
   
   int len;
-  int data, data2;
+  long data, data2;
   WaitForOne *w;
   WaitForOne *probe;		// probe wake-up
 };
@@ -96,8 +96,8 @@ public:
   ActSimState (int bools, int ints, int chans);
   ~ActSimState ();
 
-  int getInt (int x);
-  void setInt (int x, int v);
+  long getInt (int x);
+  void setInt (int x, long v);
   int getBool (int x);
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
@@ -112,7 +112,7 @@ private:
   bitset_t *bits;		/* Booleans */
   int nbools;			/* # of Booleans */
   
-  int *ival;			/* integers */
+  long *ival;			/* integers */
   int nints;			/* number of integers */
 
 
@@ -189,8 +189,8 @@ class ActSimCore {
   ActSimState *getState () { return state; }
   void setState (ActSimState *);
 
-  int getInt (int x) { return state->getInt (x); }
-  void setInt (int x, int v) { state->setInt (x, v); }
+  long getInt (int x) { return state->getInt (x); }
+  void setInt (int x, long v) { state->setInt (x, v); }
   int getBool (int x) { return state->getBool (x); }
   void setBool (int x, int v) { state->setBool (x, v); }
   act_channel_state *getChan (int x) { return state->getChan (x); }
@@ -288,11 +288,11 @@ public:
   /* set and get state */
 
   void setBool (act_connection *c, bool b, int delay = 0); 
-  void setInt (act_connection *c, int ival, int delay = 0);
+  void setInt (act_connection *c, long ival, int delay = 0);
   void setChan (act_connection *c, act_channel_state *s, int delay = 0);
   
   bool getBool (act_connection *);
-  int getInt (act_connection *);
+  long getInt (act_connection *);
   act_channel_state *getChan (act_connection *);
 
   int numFanout (act_connection *);
