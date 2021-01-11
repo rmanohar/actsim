@@ -412,9 +412,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myoffset = _curoffset;
 
   /* -- increment cur offset after allocating all the items -- */
-  _curoffset.addBool (_cursi->local.numAllBools());
-  _curoffset.addInt (_cursi->local.numInts());
-  _curoffset.addChan (_cursi->local.numChans());
+  _curoffset.addVar (_cursi->local);
 
   ActInstiter it(sc);
   for (it = it.begin(); it != it.end(); it++) {
@@ -527,7 +525,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    }
 	    else {
 	      /* local state */
-	      off += myoffset.numBools();
+	      off += myoffset.numAllBools();
 	    }
 	    _cur_abs_port_bool[ibool++] = off;
 	    iportbool++;
@@ -577,7 +575,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 		off += myoffset.numInts();
 	      }
 	      else {
-		off += myoffset.numBools();
+		off += myoffset.numAllBools();
 	      }
 	    }
 	    if (v->ischan) {
@@ -720,7 +718,7 @@ void ActSimCore::_initSim ()
 
   int i;
   for (i=0; i < ports_exist + chpports_exist_bool; i++) {
-    _cur_abs_port_bool[i] = i + _curoffset.numBools();
+    _cur_abs_port_bool[i] = i + _curoffset.numAllBools();
   }
   _curoffset.addBool (i);
   for (i=0; i < chpports_exist_int; i++) {
@@ -870,7 +868,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
   
   switch (type) {
   case 0:
-    locoff = _o.numBools();
+    locoff = _o.numAllBools();
     portoff = _abs_port_bool;
     break;
   case 1:
