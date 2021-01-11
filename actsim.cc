@@ -97,21 +97,22 @@ ActSimCore::ActSimCore (Process *p)
      - all ports (all port bools, and chp ports)
      - all local vars including sub-instance local vars
   */
-  chp_offsets globals = sp->getGlobals();
+  state_counts globals = sp->getGlobals();
 
-  state = new ActSimState (si->nportbools + si->allbools
-			   + si->nportchp.bools +  si->chp_all.bools
-			   + globals.bools,
-			   si->nportchp.ints + si->chp_all.ints
-			   + globals.ints,
-			   si->nportchp.chans + si->chp_all.chans
-			   + globals.chans);
+  state = new ActSimState (si->ports.numAllBools() + si->all.numAllBools()
+			   + globals.numAllBools(),
+			   si->ports.numInts() + si->all.numInts() +
+			   globals.numInts(),
+			   si->ports.numChans() +  si->all.numChans() +
+			   globals.numChans());
 
-  nfo_len = si->nportbools + si->allbools +
-    si->nportchp.bools + si->chp_all.bools + globals.bools +
-    si->nportchp.ints + si->chp_all.ints + globals.ints;
-  nint_start = si->nportbools + si->allbools +
-    si->nportchp.bools + si->chp_all.bools + globals.bools;
+  nfo_len = si->ports.numAllBools() + si->all.numAllBools()
+    + globals.numAllBools() +  si->ports.numInts() + si->all.numInts()
+    + globals.numInts();
+
+  nint_start = si->ports.numAllBools() + si->all.numAllBools()
+    + globals.numAllBools();
+
   if (nfo_len > 0) {
     MALLOC (nfo, int, nfo_len);
     MALLOC (fo, SimDES **, nfo_len);
@@ -142,13 +143,6 @@ ActSimCore::~ActSimCore()
     v = (act_booleanized_var_t *) b->v;
     Assert (v, "What?");
     Assert (v->isglobal, "What?");
-
-    if (v->used) {
-      ihash_delete (_rootsi->map, (long)_rootsi->bnl->used_globals[i]);
-    }
-    else if (v->usedchp) {
-      ihash_delete (_rootsi->chpmap, (long)_rootsi->bnl->used_globals[i]);
-    }
   }
 
   /* free chp */
@@ -404,7 +398,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
   act_boolean_netlist_t *mynl;
   int *_my_port_int, *_my_port_chan, *_my_port_bool;
   stateinfo_t *mysi;
-  chp_offsets myoffset;
+  state_counts myoffset;
 
   Assert (sc->isExpanded(), "What?");
 
@@ -418,9 +412,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myoffset = _curoffset;
 
   /* -- increment cur offset after allocating all the items -- */
-  _curoffset.bools += _cursi->localbools + _cursi->chp_local.bools;
-  _curoffset.ints += _cursi->chp_local.ints;
-  _curoffset.chans += _cursi->chp_local.chans;
+  _curoffset.addBool (_cursi->local.numAllBools());
+  _curoffset.addInt (_cursi->local.numInts());
+  _curoffset.addChan (_cursi->local.numChans());
 
   ActInstiter it(sc);
   for (it = it.begin(); it != it.end(); it++) {
@@ -533,7 +527,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    }
 	    else {
 	      /* local state */
-	      off += myoffset.bools;
+	      off += myoffset.numBools();
 	    }
 	    _cur_abs_port_bool[ibool++] = off;
 	    iportbool++;
@@ -577,13 +571,13 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    else {
 	      /* local state */
 	      if (type == 2 || type == 3) {
-		off += myoffset.chans;
+		off += myoffset.numChans();
 	      }
 	      else if (type == 1) {
-		off += myoffset.ints;
+		off += myoffset.numInts();
 	      }
 	      else {
-		off += myoffset.bools;
+		off += myoffset.numBools();
 	      }
 	    }
 	    if (v->ischan) {
@@ -726,17 +720,17 @@ void ActSimCore::_initSim ()
 
   int i;
   for (i=0; i < ports_exist + chpports_exist_bool; i++) {
-    _cur_abs_port_bool[i] = i + _curoffset.bools;
+    _cur_abs_port_bool[i] = i + _curoffset.numBools();
   }
-  _curoffset.bools += i;
+  _curoffset.addBool (i);
   for (i=0; i < chpports_exist_int; i++) {
-    _cur_abs_port_int[i] = i + _curoffset.ints;
+    _cur_abs_port_int[i] = i + _curoffset.numInts();
   }
-  _curoffset.ints += i;
+  _curoffset.addInt (i);
   for (i=0; i < chpports_exist_chan; i++) {
-    _cur_abs_port_chan[i] = i + _curoffset.chans;
+    _cur_abs_port_chan[i] = i + _curoffset.numChans();
   }
-  _curoffset.chans += i;
+  _curoffset.addChan (i);
   
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
@@ -876,15 +870,15 @@ int ActSimObj::getGlobalOffset (int loc, int type)
   
   switch (type) {
   case 0:
-    locoff = _o.bools;
+    locoff = _o.numBools();
     portoff = _abs_port_bool;
     break;
   case 1:
-    locoff = _o.ints;
+    locoff = _o.numInts();
     portoff = _abs_port_int;
     break;
   case 2:
-    locoff = _o.chans;
+    locoff = _o.numChans();
     portoff = _abs_port_chan;
     break;
   default:

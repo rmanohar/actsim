@@ -140,7 +140,7 @@ public:
   int getGlobalOffset (int loc, int type); // 0 = bool, 1 = int,
                                            // 2 = chan
 
-  void setOffsets (chp_offsets *x) { _o = *x; }
+  void setOffsets (state_counts *x) { _o = *x; }
   void setPorts (int *_bool, int *_int, int *_chan) {
     _abs_port_bool = _bool;
     _abs_port_int = _int;
@@ -153,7 +153,7 @@ public:
   virtual void propagate ();
 
 protected:
-  chp_offsets _o;		/* my state offsets for all local
+  state_counts _o;		/* my state offsets for all local
 				   state */
   ActSimCore *_sc;
 
@@ -246,7 +246,7 @@ protected:
   
   Process *_curproc;		/* current process, if any */
   ActId *_curinst;		/* current instance path, if any */
-  chp_offsets _curoffset;	/* offset of parent process */
+  state_counts _curoffset;	/* offset of parent process */
   stateinfo_t *_cursi;		/* current state info */
 
   int *_cur_abs_port_bool;	/* index of ports: absolute scale */
