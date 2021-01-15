@@ -1,0 +1,34 @@
+
+defproc sink32(chan?(int<32>) S) { int<32> t; chp { *[ S?t; log("Recv : ", t) ] }}
+defproc sink64(chan?(int<64>) S) { int<64> t; chp { *[ S?t; log("Recv : ", t) ] }}
+
+defproc test()
+{
+    int<16> t1, t2;
+    int<32> d1, d2;
+    int<64> d3;
+    sink64 s64;
+    sink32 s32;
+
+    chp
+    {
+        log("In CHP");
+
+        //  doesn't work
+        s32.S!{0x0001,0x0002};
+
+        //  doesn't work
+        s64.S!{0x00000001, 0x00000002};
+
+        // works
+        t1:=0x0001;     t2:=0x0002;     d1:={t1,t2};    s32.S!(d1);
+
+        //  doesn't work
+        d1:=0x00000001;     d2:=0x00000002;     d3:={d1,d2};      s64.S!(d3)
+	;log("d1=",d1," d2=",d2," d3=",d3)
+    }
+}
+
+test t;
+
+
