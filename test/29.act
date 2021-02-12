@@ -1,0 +1,19 @@
+defproc test (){
+
+	int<1> a;
+	int<32> b;
+
+	chp {
+		a := 3, b := 0;
+		log("A:",a);
+		b := b + a;
+		log("B:",b);
+		a := 4;
+		log("A:",a);
+		b := b + a;
+		log("B:",b)
+	}
+
+}
+
+test t;

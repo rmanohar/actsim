@@ -59,7 +59,7 @@ struct chpsimstmt {
       list_t *l;		/* arguments */
     } fn;
     struct {
-      int isbool;
+      int isint;		/* 0 = bool, otherwise bitwidth of int */
       struct chpsimderef d;	/* variable deref */
       Expr *e;
     } assign;			/* var := e */

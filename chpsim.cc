@@ -410,7 +410,7 @@ void ChpSim::Step (int ev_type)
 #endif
     pc = _updatepc (pc);
     off = computeOffset (&stmt->u.assign.d);
-    if (stmt->u.assign.isbool) {
+    if (stmt->u.assign.isint == 0) {
       off = getGlobalOffset (off, 0);
 #if 0      
       printf (" [glob=%d]", off);
@@ -430,6 +430,11 @@ void ChpSim::Step (int ev_type)
 #if 0      
       printf (" [glob=%d]", off);
 #endif
+      if (v.width > stmt->u.assign.isint) {
+	if (stmt->u.assign.isint < 64) {
+	  v.v = ((unsigned long)v.v & ((1UL << stmt->u.assign.isint)-1));
+	}
+      }
       _sc->setInt (off, v.v);
     }
     break;
@@ -477,6 +482,7 @@ void ChpSim::Step (int ev_type)
       struct chpsimderef *d;
       int id;
       int type;
+      int width;
       li = list_first (stmt->u.recv.vl);
       if (li) {
 	type = (long)list_value (li);
@@ -484,6 +490,7 @@ void ChpSim::Step (int ev_type)
 	Assert (li, "What?");
 	d = (struct chpsimderef *)list_value (li);
 	id = computeOffset (d);
+	width = d->width;
       }
       else {
 	type = -1;
@@ -514,7 +521,10 @@ void ChpSim::Step (int ev_type)
 	    off = getGlobalOffset (id, 1);
 #if 0	    
 	    printf (" [glob=%d]", off);
-#endif	    
+#endif
+	    if (width < 64) {
+	      v.v = ((unsigned long)v.v) & ((1UL << width)-1);
+	    }
 	    _sc->setInt (off, v.v);
 	  }
 	}
@@ -1915,6 +1925,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   ChpSimGraph *tmp2;
   int i, count;
   int tmp;
+  int width;
   
   if (!c) return NULL;
 
@@ -2071,7 +2082,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	else {
 	  NEW (d, struct chpsimderef);
 	  d->range = NULL;
-	  d->offset = sc->getLocalOffset (id, sc->cursi(), &type);
+	  d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
+	  d->width = width;
 	  d->cx = id->Canonical (sc->cursi()->bnl->cur);
 	}
 	if (type == 3) {
@@ -2122,7 +2134,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     ret->stmt->type = CHPSIM_ASSIGN;
     ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
     {
-      int type;
+      int type, width;
 
       if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
 	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type);
@@ -2132,16 +2144,17 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       else {
 	ret->stmt->u.assign.d.range = NULL;
 	ret->stmt->u.assign.d.offset =
-	  sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type);
+	  sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type, &width);
 	ret->stmt->u.assign.d.cx =
 	  c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
       }
       if (type == 1) {
-	ret->stmt->u.assign.isbool = 0;
+	Assert (width > 0, "zero-width int?");
+	ret->stmt->u.assign.isint = width;
       }
       else {
 	Assert (type == 0, "Typechecking?!");
-	ret->stmt->u.assign.isbool = 1;
+	ret->stmt->u.assign.isint = 0;
       }
     }
     (*stop) = ret;
