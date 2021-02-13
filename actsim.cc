@@ -64,6 +64,8 @@ ActSimCore::ActSimCore (Process *p)
   a = ActNamespace::Act();
   map = ihash_new (8);
   pmap = ihash_new (8);
+  I.H = NULL;
+  I.obj = NULL;
 
   if (!root_scope->isExpanded()) {
     fatal_error ("Need to expand ACT prior to starting a simulation");
@@ -174,7 +176,7 @@ ActSimCore::~ActSimCore()
 }
 
 
-void ActSimCore::_add_chp (act_chp *c)
+ChpSim *ActSimCore::_add_chp (act_chp *c)
 {
   ihash_bucket_t *b;
 
@@ -202,16 +204,16 @@ void ActSimCore::_add_chp (act_chp *c)
     sg->max_count = ChpSimGraph::max_pending_count;
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this);
+  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
   x->computeFanout ();
+  return x;
 }
 
-void ActSimCore::_add_dflow (act_dataflow *d)
+ActSimObj *ActSimCore::_add_dflow (act_dataflow *d)
 {
-
   printf ("add-dflow-inst: ");
   if (_curinst) {
     _curinst->Print (stdout);
@@ -220,7 +222,7 @@ void ActSimCore::_add_dflow (act_dataflow *d)
     printf ("-none-");
   }
   printf ("\n");
-
+  return NULL;
 }
 
 
@@ -251,7 +253,7 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
     sg->max_count = ChpSimGraph::max_pending_count;
     b->v = sg;
   }
-  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this);
+  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -333,19 +335,23 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   if ((l->getchp() || l->getdflow()) && lev == ACT_MODEL_CHP) {
     /* chp or dataflow */
     if (l->getchp()) {
-      _add_chp (l->getchp());
+      _curI->obj = _add_chp (l->getchp());
     }
     else {
-      _add_dflow (l->getdflow());
+      _curI->obj = _add_dflow (l->getdflow());
     }
   }
   else if (l->gethse() && lev == ACT_MODEL_HSE) {
+    ChpSim *x;
     /* hse */
-    _check_fragmentation (_add_hse (l->gethse()));
+    _check_fragmentation ((x = _add_hse (l->gethse())));
+    _curI->obj = x;
   }
   else if (l->getprs() && lev == ACT_MODEL_PRS) {
     /* prs */
-    _check_fragmentation (_add_prs (l->getprs(), l->getspec()));
+    PrsSim *x;
+    _check_fragmentation ((x = _add_prs (l->getprs(), l->getspec())));
+    _curI->obj = x;
   }
   else if (lev == ACT_MODEL_DEVICE) {
     fatal_error ("Xyce needs to be integrated");
@@ -353,19 +359,21 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   else {
     /* substitute a less detailed model, if possible */
     if (l->gethse() && lev == ACT_MODEL_PRS) {
+      ChpSim *x;
       warning ("%s: substituting hse model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
-      _check_fragmentation (_add_hse (l->gethse()));
+      _check_fragmentation ((x = _add_hse (l->gethse())));
+      _curI->obj = x;
     }
     else if ((l->getdflow() || l->getchp()) &&
 	     (lev == ACT_MODEL_PRS || lev == ACT_MODEL_HSE)) {
       if (l->getdflow()) {
 	warning ("%s: substituting dataflow model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
-	_add_dflow (l->getdflow());
+	_curI->obj = _add_dflow (l->getdflow());
       }
       else {
 	Assert (l->getchp(), "What?");
 	warning ("%s: substituting chp model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
-	_add_chp (l->getchp());
+	_curI->obj = _add_chp (l->getchp());
       }
     }
     else {
@@ -399,6 +407,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
   int *_my_port_int, *_my_port_chan, *_my_port_bool;
   stateinfo_t *mysi;
   state_counts myoffset;
+  ActInstTable *myI;
 
   Assert (sc->isExpanded(), "What?");
 
@@ -410,11 +419,17 @@ void ActSimCore::_add_all_inst (Scope *sc)
   _my_port_chan = _cur_abs_port_chan;
   mysi = _cursi;
   myoffset = _curoffset;
+  myI = _curI;
 
   /* -- increment cur offset after allocating all the items -- */
   _curoffset.addVar (_cursi->local);
 
   ActInstiter it(sc);
+
+  if (it.begin() != it.end()) {
+    myI->H = hash_new (4);
+  }
+  
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
     stateinfo_t *si;
@@ -456,6 +471,19 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	if (as) {
 	  tmpid->setArray (as->toArray());
 	}
+
+	/*-- tmpid = name of the id --*/
+
+	char buf[1024];
+	hash_bucket_t *ib;
+	ActInstTable *iT;
+	tmpid->sPrint (buf, 1024);
+	ib = hash_add (myI->H, buf);
+	NEW (iT, ActInstTable);
+	iT->obj = NULL;
+	iT->H = NULL;
+	ib->v = iT;
+	_curI = iT;
 
 	/*-- compute ports for this process --*/
 	lev = _getlevel();
@@ -623,8 +651,8 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  printf(" %d", _cur_abs_port_chan[i]);
 	}
 	printf ("\n");
-#endif	
-	
+#endif
+
 	_add_language (lev, x->getlang());
 	_add_all_inst (x->CurScope());
 
@@ -664,6 +692,7 @@ void ActSimCore::_initSim ()
   _curinst = NULL;
   _cursi = sp->getStateInfo (_curproc);
   _curoffset = sp->getGlobals();
+  _curI = &I;
 
   /*
     Allocate top-level ports
@@ -729,7 +758,7 @@ void ActSimCore::_initSim ()
     _cur_abs_port_chan[i] = i + _curoffset.numChans();
   }
   _curoffset.addChan (i);
-  
+
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
 
@@ -839,7 +868,13 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
     fatal_error ("getLocalOffset() failed!");
   }
   return 0;
-}  
+}
+
+act_connection *ActSimCore::getConnFromOffset (Process *p, int off, int type,
+					       int *dy)
+{
+  return sp->getConnFromOffset (p, off, type, dy);
+}
 
 
 int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width)

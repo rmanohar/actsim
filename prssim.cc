@@ -704,3 +704,9 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps, act_prs *p)
     p = p->next;
   }
 }
+
+
+void PrsSim::dumpState (FILE *fp)
+{
+  fprintf (fp, "FIXME: prs dump state!\n");
+}

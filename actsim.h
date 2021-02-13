@@ -131,6 +131,13 @@ public:
   virtual void propagate () { };
 };
 
+class ActSimObj;
+
+struct ActInstTable {
+  struct Hashtable *H;	// sub-instances (optional)
+  ActSimObj *obj;	// simulation object
+};
+
 
 class ActSimObj : public ActSimDES {
 public:
@@ -149,6 +156,8 @@ public:
 
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
   ActId *getName () { return name; }
+
+  virtual void dumpState (FILE *fp) { };
 
   virtual void propagate ();
 
@@ -210,6 +219,9 @@ class ActSimCore {
 
       sets type to 0, 1, 2, 3 for bool, int, chan(in), chan(out)
   */
+
+  act_connection *getConnFromOffset (Process *p, int off, int type, int *dy);
+  
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
@@ -235,6 +247,8 @@ protected:
   struct iHashtable *pmap;	/* map from process pointer to
 				   prssimgraph */
 
+  ActInstTable I;		/* instance map */
+
   unsigned int root_is_ns:1;	/* root is the global namespace? */
   Process *simroot;		/* set if root is not the global ns */
   Scope *root_scope;		/* root scope */
@@ -248,6 +262,7 @@ protected:
   ActId *_curinst;		/* current instance path, if any */
   state_counts _curoffset;	/* offset of parent process */
   stateinfo_t *_cursi;		/* current state info */
+  ActInstTable *_curI;		/* current inst table */
 
   int *_cur_abs_port_bool;	/* index of ports: absolute scale */
   int *_cur_abs_port_chan;
@@ -263,9 +278,9 @@ protected:
   ChpSimGraph *_build_chp_graph (act_chp_lang_t *c, ChpSimGraph **stop);
 
   /*- add specific language -*/
-  void _add_chp (act_chp *c);
+  ChpSim *_add_chp (act_chp *c);
   ChpSim *_add_hse (act_chp *c);
-  void _add_dflow (act_dataflow *c);
+  ActSimObj *_add_dflow (act_dataflow *c);
   PrsSim *_add_prs (act_prs *c, act_spec *);
   void _check_fragmentation (ChpSim *);
   void _check_fragmentation (PrsSim *);
@@ -307,6 +322,8 @@ public:
 
   void saveSim (FILE *);
   void restoreSim (FILE *);
+
+  ActInstTable *getInstTable () { return &I; }
   
 private:
 

@@ -43,7 +43,7 @@ int ChpSimGraph::max_pending_count = 0;
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
 
 
-ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim)
+ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim, Process *p)
 : ActSimObj (sim)
 {
   /*
@@ -81,6 +81,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim)
   _statestk = list_new ();
   _probe = NULL;
   _savedc = c;
+  _proc = p;
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
 }
@@ -326,6 +327,84 @@ int ChpSim::computeOffset (struct chpsimderef *d)
   }
   return d->offset + x;
 }
+
+void ChpSimGraph::printStmt (FILE *fp, Process *p)
+{
+  act_connection *c;
+  int dy;
+  
+  switch (stmt->type) {
+  case CHPSIM_FORK:
+    fprintf (fp, "concur-fork:");
+    for (int i=0; i < stmt->u.fork; i++) {
+      if (all[i]) {
+	fprintf (fp, " ");
+	all[i]->printStmt (fp, p);
+      }
+    }
+    break;
+
+  case CHPSIM_ASSIGN:
+    fprintf (fp, "assign: ");
+    c = state->getConnFromOffset (p, stmt->u.assign.d.offset,
+				  (stmt->u.assign.isint ? 1 : 0),
+				  &dy);
+    if (c) {
+      ActId *t = c->toid();
+      t->Print (fp);
+      delete t;
+    }
+    else {
+      fprintf (fp, "-?-");
+    }
+    break;
+
+  case CHPSIM_SEND:
+    fprintf (fp, "send: ");
+    c = state->getConnFromOffset (p, stmt->u.send.chvar, 3, &dy);
+    if (c) {
+      ActId *t = c->toid();
+      t->Print (fp);
+      delete t;
+    }
+    else {
+      fprintf (fp, "-?-");
+    }
+    break;
+
+  case CHPSIM_RECV:
+    fprintf (fp, "recv: ");
+    c = state->getConnFromOffset (p, stmt->u.recv.chvar, 2, &dy);
+    if (c) {
+      ActId *t = c->toid();
+      t->Print (fp);
+      delete t;
+    }
+    else {
+      fprintf (fp, "-?-");
+    }
+    break;
+
+
+  case CHPSIM_FUNC:
+    fprintf (fp, "log");
+    break;
+
+  case CHPSIM_COND:
+    if (next == NULL) {
+      fprintf (fp, "cond: ");
+    }
+    else {
+      fprintf (fp, "loop: ");
+    }
+    break;
+
+  default:
+    fatal_error ("What?");
+    break;
+  }
+}
+
 
 void ChpSim::Step (int ev_type)
 {
@@ -2382,4 +2461,26 @@ void ChpSimGraph::recordChannel (ActSimCore *sc, ChpSim *cc,
     fatal_error ("Unknown chp type %d\n", c->type);
     break;
   }
+}
+
+
+void ChpSim::dumpState (FILE *fp)
+{
+  int found = 0;
+  fprintf (fp, "--- Process: ");
+  getName()->Print (fp);
+  fprintf (fp, " [ %s ] ---\n", _proc->getName());
+
+  for (int i=0; i < _npc; i++) {
+    if (_pc[i]) {
+      found = 1;
+      fprintf (fp, "t#%02d: ", i);
+      _pc[i]->printStmt (fp, _proc);
+      fprintf (fp, "\n");
+    }
+  }
+  if (!found) {
+    fprintf (fp, "Terminated.\n");
+  }
+  fprintf (fp, "\n");
 }

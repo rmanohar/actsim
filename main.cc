@@ -121,13 +121,93 @@ int process_initialize (int argc, char **argv)
   return 1;
 }
 
+static void dump_state (ActInstTable *x)
+{
+  if (!x) {
+    warning ("Didn't find info; is this a valid instance?");
+    return;
+  }
+  
+  if (x->obj) {
+    x->obj->dumpState (stdout);
+  }
+  if (x->H) {
+    hash_bucket_t *b;
+    hash_iter_t i;
+    hash_iter_init (x->H, &i);
+    while ((b = hash_iter_next (x->H, &i))) {
+      ActInstTable *tmp = (ActInstTable *) b->v;
+      dump_state (tmp);
+    }
+  }
+}
+
+
+ActInstTable *find_table (ActId *id, ActInstTable *x)
+{
+  char buf[1024];
+  hash_bucket_t *b;
+  
+  if (!id) { return x; }
+
+  if (!x->H) { return NULL; }
+
+  ActId *tmp = id->Rest();
+  id->prune();
+  id->sPrint (buf, 1024);
+  id->Append (tmp);
+
+  b = hash_lookup (x->H, buf);
+  if (!b) {
+    return NULL;
+  }
+  else {
+    return find_table (id->Rest(), (ActInstTable *)b->v);
+  }
+}
+
+int process_procinfo (int argc, char **argv)
+{
+  ActId *id;
+  if (argc != 2 && argc != 1) {
+    fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
+    return 0;
+  }
+  if (argc == 1) {
+    /* all */
+    id = NULL;
+  }
+  else {
+    id = ActId::parseId (argv[1]);
+    if (id == NULL) {
+      fprintf (stderr, "Could not parse `%s' into an instance name\n",
+	       argv[1]);
+      return 0;
+    }
+  }
+
+  if (!id) {
+    /*-- print state of each process --*/
+    dump_state (glob_sim->getInstTable ());
+  }
+  else {
+    /*-- find this process --*/
+    ActInstTable *inst = find_table (id, glob_sim->getInstTable());
+    dump_state (inst);
+    delete id;
+  }
+  
+  return 1;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Running a simulation", NULL },
   { "initialize", "initialize <proc> - initialize simulation for <proc>",
     process_initialize },
   { "cycle", "cycle - run until simulation stops", process_cycle },
   { "step", "step [n] - run the next [n] events", process_step },
-  { "advance", "advance <delay> - run for <delay> time", process_advance }
+  { "advance", "advance <delay> - run for <delay> time", process_advance },
+  { "procinfo", "procinfo [<inst-name>] - show the program counter for a process", process_procinfo }
 };
 
 int main (int argc, char **argv)

@@ -91,6 +91,7 @@ class ChpSimGraph {
 				   used by comma and selections 
 				*/
   ChpSimGraph *completed (int pc, int *tot, int *done);
+  void printStmt (FILE *fp, Process *p);
 
   static ChpSimGraph *buildChpSimGraph (ActSimCore *,
 					act_chp_lang_t *, ChpSimGraph **stop);
@@ -113,7 +114,8 @@ private:
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, int maxcnt, act_chp_lang_t *, ActSimCore *sim);
+  ChpSim (ChpSimGraph *, int maxcnt, act_chp_lang_t *, ActSimCore *sim,
+	  Process *p);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
@@ -121,6 +123,8 @@ class ChpSim : public ActSimObj {
   void computeFanout ();
 
   int computeOffset (struct chpsimderef *d);
+
+  void dumpState (FILE *fp);
 
  private:
   int _npc;			/* # of program counters */
@@ -133,6 +137,8 @@ class ChpSim : public ActSimObj {
   act_chp_lang_t *_savedc;
 
   WaitForOne *_probe;
+
+  Process *_proc;
   
   int _max_program_counters (act_chp_lang_t *c);
   void _compute_used_variables (act_chp_lang_t *c);
