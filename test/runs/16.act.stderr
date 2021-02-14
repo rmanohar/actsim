@@ -1,3 +1,5 @@
 WARNING: test<>: substituting chp model (requested prs, not found)
 WARNING: mem<32>: substituting chp model (requested prs, not found)
+In: m  [ mem<32> ]
+	Accessing index [32] from x
 FATAL: Array out of bounds!

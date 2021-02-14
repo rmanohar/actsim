@@ -323,6 +323,16 @@ int ChpSim::computeOffset (struct chpsimderef *d)
   }
   int x = d->range->Offset (d->idx);
   if (x == -1) {
+    fprintf (stderr, "In: ");
+    getName()->Print (stderr);
+    fprintf (stderr, "  [ %s ]\n", _proc->getName());
+    fprintf (stderr, "\tAccessing index ");
+    for (int i=0; i < d->range->nDims(); i++) {
+      fprintf (stderr, "[%d]", d->idx[i]);
+    }
+    fprintf (stderr, " from ");
+    d->cx->toid()->Print (stderr);
+    fprintf (stderr, "\n");
     fatal_error ("Array out of bounds!");
   }
   return d->offset + x;
@@ -353,6 +363,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
       ActId *t = c->toid();
       t->Print (fp);
       delete t;
+      if (dy != -1) { fprintf (fp, "[]"); }
     }
     else {
       fprintf (fp, "-?-");
@@ -366,6 +377,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
       ActId *t = c->toid();
       t->Print (fp);
       delete t;
+      if (dy != -1) { fprintf (fp, "[]"); }
     }
     else {
       fprintf (fp, "-?-");
@@ -379,6 +391,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
       ActId *t = c->toid();
       t->Print (fp);
       delete t;
+      if (dy != -1) { fprintf (fp, "[]"); }
     }
     else {
       fprintf (fp, "-?-");
