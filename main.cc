@@ -35,11 +35,13 @@
 static void signal_handler (int sig)
 {
   LispInterruptExecution = 1;
+  SimDES::interrupt();
 }
 
 static void clr_interrupt (void)
 {
   LispInterruptExecution = 0;
+  SimDES::resume();
 }
 
 static void usage (char *name)
@@ -256,7 +258,10 @@ int main (int argc, char **argv)
 	       sizeof (Cmds)/sizeof (Cmds[0]));
 
   while (!LispCliRun (stdin)) {
-    
+    if (LispInterruptExecution) {
+      fprintf (stderr, " *** interrupted\n");
+    }
+    clr_interrupt ();
   }
 
   LispCliEnd ();
