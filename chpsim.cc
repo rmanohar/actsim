@@ -1746,7 +1746,8 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
 
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s);
 
-static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type)
+static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
+				      int *width = NULL)
 {
   struct chpsimderef *d;
   Scope *sc = s->cursi()->bnl->cur;
@@ -1759,6 +1760,9 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type)
   d->cx = vx->connection();
   d->offset = s->getLocalOffset (vx->connection()->primary(),
 				 s->cursi(), type, &d->width);
+  if (width) {
+    *width = d->width;
+  }
 
   d->range = vx->t->arrayInfo();
   Assert (d->range, "What?");
@@ -2229,7 +2233,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       int type, width;
 
       if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
-	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type);
+	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type, &width);
 	ret->stmt->u.assign.d = *d;
 	FREE (d);
       }
