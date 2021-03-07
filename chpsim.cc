@@ -1044,6 +1044,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
 
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
+    if (TypeFactory::isParamType (vx->t)) continue;
 
     b = hash_add (lstate, vx->getName());
     NEW (x, expr_res);
