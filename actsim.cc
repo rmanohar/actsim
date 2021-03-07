@@ -360,19 +360,25 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     /* substitute a less detailed model, if possible */
     if (l->gethse() && lev == ACT_MODEL_PRS) {
       ChpSim *x;
-      warning ("%s: substituting hse model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+      if (Act::lang_subst) {
+	warning ("%s: substituting hse model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+      }
       _check_fragmentation ((x = _add_hse (l->gethse())));
       _curI->obj = x;
     }
     else if ((l->getdflow() || l->getchp()) &&
 	     (lev == ACT_MODEL_PRS || lev == ACT_MODEL_HSE)) {
       if (l->getdflow()) {
-	warning ("%s: substituting dataflow model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+	if (Act::lang_subst) {
+	  warning ("%s: substituting dataflow model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+	}
 	_curI->obj = _add_dflow (l->getdflow());
       }
       else {
 	Assert (l->getchp(), "What?");
-	warning ("%s: substituting chp model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+	if (Act::lang_subst) {
+	  warning ("%s: substituting chp model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
+	}
 	_curI->obj = _add_chp (l->getchp());
       }
     }
