@@ -144,6 +144,55 @@ static void dump_state (ActInstTable *x)
   }
 }
 
+static unsigned long _get_energy (ActInstTable *x, double *lk, int ts = 0)
+{
+  unsigned long tot;
+  unsigned long sub;
+  double totl, subl;
+
+  if (!x) {
+    warning ("Didn't find info; is this a valid instance?");
+    return 0;
+  }
+
+  tot = 0;
+  totl = 0;
+  
+  if (x->obj) {
+    tot = x->obj->getEnergy ();
+    totl = x->obj->getLeakage ();
+
+    if (tot > 0 || totl > 0) {
+      for (int i=0; i < ts; i++) {
+	printf ("  ");
+      }
+      printf (" - ");
+      x->obj->getName()->Print (stdout);
+      printf (" %lu  (%g W)\n", tot, totl);
+    }
+  }
+  sub = tot;
+  subl = totl;
+  if (x->H) {
+    hash_bucket_t *b;
+    hash_iter_t i;
+    double tmpl;
+    hash_iter_init (x->H, &i);
+    while ((b = hash_iter_next (x->H, &i))) {
+      ActInstTable *tmp = (ActInstTable *) b->v;
+      tot += _get_energy (tmp, &tmpl, ts+1);
+      totl += tmpl;
+    }
+    if ((tot - sub) > 0 || ((totl - subl) > 0)) {
+      for (int i=0; i < ts; i++) {
+	printf ("  ");
+      }
+      printf (" ---:subtree %lu (%g W)\n", tot - sub, totl - subl);
+    }
+  }
+  *lk = totl;
+  return tot;
+}
 
 ActInstTable *find_table (ActId *id, ActInstTable *x)
 {
@@ -202,6 +251,43 @@ int process_procinfo (int argc, char **argv)
   return 1;
 }
 
+int process_getenergy (int argc, char **argv)
+{
+  ActId *id;
+  double lk;
+    
+  if (argc != 2 && argc != 1) {
+    fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
+    return 0;
+  }
+  if (argc == 1) {
+    /* all */
+    id = NULL;
+  }
+  else {
+    id = ActId::parseId (argv[1]);
+    if (id == NULL) {
+      fprintf (stderr, "Could not parse `%s' into an instance name\n",
+	       argv[1]);
+      return 0;
+    }
+  }
+
+  if (!id) {
+    /*-- print state of each process --*/
+    printf ("Total: %lu", _get_energy (glob_sim->getInstTable (), &lk));
+    printf ("  (%g W)\n", lk);
+  }
+  else {
+    /*-- find this process --*/
+    ActInstTable *inst = find_table (id, glob_sim->getInstTable());
+    printf ("Total: %lu", _get_energy (inst, &lk));
+    printf ("  (%g W)\n", lk);
+    delete id;
+  }
+  return 1;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Running a simulation", NULL },
   { "initialize", "initialize <proc> - initialize simulation for <proc>",
@@ -209,7 +295,8 @@ struct LispCliCommand Cmds[] = {
   { "cycle", "cycle - run until simulation stops", process_cycle },
   { "step", "step [n] - run the next [n] events", process_step },
   { "advance", "advance <delay> - run for <delay> time", process_advance },
-  { "procinfo", "procinfo [<inst-name>] - show the program counter for a process", process_procinfo }
+  { "procinfo", "procinfo [<inst-name>] - show the program counter for a process", process_procinfo },
+  { "energy", "energy [<inst-name>] - show energy usage", process_getenergy }
 };
 
 int main (int argc, char **argv)

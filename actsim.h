@@ -158,6 +158,8 @@ public:
   ActId *getName () { return name; }
 
   virtual void dumpState (FILE *fp) { };
+  virtual unsigned long getEnergy () { return 0; }
+  virtual double getLeakage () { return 0.0; }
 
   virtual void propagate ();
 

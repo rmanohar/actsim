@@ -51,6 +51,8 @@ struct chpsimderef {
 
 struct chpsimstmt {
   int type;
+  int delay_cost;
+  int energy_cost;
   union {
     int fork;			/* # of forks */
     chpsimcond c;		/* conditional */
@@ -125,6 +127,8 @@ class ChpSim : public ActSimObj {
   int computeOffset (struct chpsimderef *d);
 
   void dumpState (FILE *fp);
+  unsigned long getEnergy (void);
+  double getLeakage (void);
 
  private:
   int _npc;			/* # of program counters */
@@ -135,6 +139,9 @@ class ChpSim : public ActSimObj {
 				   used */
   int _stalled_pc;
   act_chp_lang_t *_savedc;
+
+  unsigned long _energy_cost;
+  double _leakage_cost;
 
   WaitForOne *_probe;
 

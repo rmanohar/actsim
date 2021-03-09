@@ -43,9 +43,36 @@ int ChpSimGraph::max_pending_count = 0;
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
 
 
+static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
+{
+  char buf[1024];
+
+  snprintf (buf, 1024, "sim.chp.%s.delay.%s", si->bnl->p->getName(),
+	    id->getName());
+  if (config_exists (buf)) {
+    stmt->delay_cost = config_get_int (buf);
+  }
+  else {
+    // default delay is 10
+    stmt->delay_cost = 10;
+  }
+
+  snprintf (buf, 1024, "sim.chp.%s.energy.%s", si->bnl->p->getName(),
+	    id->getName());
+  if (config_exists (buf)) {
+    stmt->energy_cost = config_get_int (buf);
+  }
+  else {
+    // default energy is 1
+    stmt->energy_cost = 0;
+  }
+}
+
+
 ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim, Process *p)
 : ActSimObj (sim)
 {
+  char buf[1024];
   /*
     Analyze the chp body to find out the maximum number of concurrent
     threads; those are the event types.
@@ -82,6 +109,15 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _probe = NULL;
   _savedc = c;
   _proc = p;
+  _energy_cost = 0;
+
+  _leakage_cost = 0.0;
+  if (p) {
+    snprintf (buf, 1024, "sim.chp.%s.leakage", p->getName());
+    if (config_exists (buf)) {
+      _leakage_cost = config_get_real (buf);
+    }
+  }
 
   new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
 }
@@ -427,7 +463,7 @@ void ChpSim::Step (int ev_type)
   int joined;
   expr_res v;
   int off;
-  int delay = 10;
+  int delay;
 
   Assert (0 <= pc && pc < _pcused, "What?");
 
@@ -455,6 +491,9 @@ void ChpSim::Step (int ev_type)
   name->Print (stdout);
   printf ("> ");
 #endif
+
+  delay = stmt->delay_cost;
+  _energy_cost += stmt->energy_cost;
 
   /*--- simulate statement until there's a blocking scenario ---*/
   switch (stmt->type) {
@@ -1988,6 +2027,8 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
 
   NEW (ret, chpsimstmt);
   ret->type = CHPSIM_COND;
+  ret->delay_cost = 0;
+  ret->energy_cost = 0;
   tmp = NULL;
   
   while (gc) {
@@ -2081,6 +2122,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     }
     if (count > 0) {
       NEW (ret->stmt, chpsimstmt);
+      ret->stmt->delay_cost = 0;
+      ret->stmt->energy_cost = 0;
       ret->stmt->type = CHPSIM_FORK;
       ret->stmt->u.fork = count;
       (*stop)->wait = count;
@@ -2146,6 +2189,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_SEND:
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
+    _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
     ret->stmt->type = CHPSIM_SEND;
     {
       listitem_t *li;
@@ -2164,6 +2208,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_RECV:
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
+    _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
     ret->stmt->type = CHPSIM_RECV;
     {
       listitem_t *li;
@@ -2205,6 +2250,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       listitem_t *li;
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
+      ret->stmt->delay_cost = 0;
+      ret->stmt->energy_cost = 0;
       ret->stmt->type = CHPSIM_FUNC;
       ret->stmt->u.fn.name = string_char (c->u.func.name);
       ret->stmt->u.fn.l = list_new();
@@ -2228,6 +2275,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_ASSIGN:
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
+    _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
     ret->stmt->type = CHPSIM_ASSIGN;
     ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
     {
@@ -2500,5 +2548,29 @@ void ChpSim::dumpState (FILE *fp)
   if (!found) {
     fprintf (fp, "Terminated.\n");
   }
+
+  fprintf (fp, "Energy cost: %lu\n", _energy_cost);
+  if (_leakage_cost > 1e-3) {
+    fprintf (fp, "Leakage: %g mW\n", _leakage_cost*1e3);
+  }
+  else if (_leakage_cost > 1e-6) {
+    fprintf (fp, "Leakage: %g uW\n", _leakage_cost*1e6);
+  }
+  else if (_leakage_cost > 1e-9) {
+    fprintf (fp, "Leakage: %g nW\n", _leakage_cost*1e9);
+  }
+  else {
+    fprintf (fp, "Leakage: %g pW\n", _leakage_cost*1e12);
+  }
   fprintf (fp, "\n");
+}
+
+unsigned long ChpSim::getEnergy (void)
+{
+  return _energy_cost;
+}
+
+double ChpSim::getLeakage (void)
+{
+  return _leakage_cost;
 }
