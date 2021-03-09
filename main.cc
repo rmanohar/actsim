@@ -152,6 +152,7 @@ static unsigned long _get_energy (ActInstTable *x, double *lk, int ts = 0)
 
   if (!x) {
     warning ("Didn't find info; is this a valid instance?");
+    *lk = 0;
     return 0;
   }
 
