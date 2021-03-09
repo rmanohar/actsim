@@ -1,12 +1,12 @@
 [      10 t#:0] <> test mem
-[      20 t#:0] <m> hi
-[      30 t#:0] <m> there
-[      70 t#:0] <m> hi
-[      80 t#:0] <m> there
-[     120 t#:0] <m> hi
-[     130 t#:0] <m> here
-[     160 t#:0] <> got 5
+[      10 t#:0] <m> hi
+[      20 t#:0] <m> there
+[      50 t#:0] <m> hi
+[      60 t#:0] <m> there
+[      90 t#:0] <m> hi
+[     100 t#:0] <m> here
+[     130 t#:0] <> got 5
+[     130 t#:0] <m> hi
+[     140 t#:0] <m> here
+[     170 t#:0] <> got 6
 [     170 t#:0] <m> hi
-[     180 t#:0] <m> here
-[     210 t#:0] <> got 6
-[     220 t#:0] <m> hi

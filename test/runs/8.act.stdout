@@ -1,11 +1,11 @@
 [      20 t#:0] <dn> in dend
-[     110 t#:0] <dn> Recv w v:2 0
-[     110 t#:0] <dv> Send w v:2 0
-[     180 t#:0] <dn> Recv w v:2 1
-[     180 t#:0] <dv> Send w v:2 1
-[     250 t#:0] <dn> Recv w v:2 2
-[     250 t#:0] <dv> Send w v:2 2
-[     320 t#:0] <dn> Recv w v:2 3
-[     320 t#:0] <dv> Send w v:2 3
-[     390 t#:0] <dn> Recv w v:2 4
-[     390 t#:0] <dv> Send w v:2 4
+[      80 t#:0] <dn> Recv w v:2 0
+[      80 t#:0] <dv> Send w v:2 0
+[     120 t#:0] <dn> Recv w v:2 1
+[     120 t#:0] <dv> Send w v:2 1
+[     160 t#:0] <dn> Recv w v:2 2
+[     160 t#:0] <dv> Send w v:2 2
+[     200 t#:0] <dn> Recv w v:2 3
+[     200 t#:0] <dv> Send w v:2 3
+[     240 t#:0] <dn> Recv w v:2 4
+[     240 t#:0] <dv> Send w v:2 4

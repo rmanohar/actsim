@@ -7,7 +7,7 @@ ACTTOOL=../actsim.$EXT
 
 if [ $# -eq 0 ]
 then
-	list=*.act
+	list=[0-9]*.act
 else
 	list="$@"
 fi

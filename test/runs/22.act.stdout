@@ -1,7 +1,7 @@
 [      10 t#:0] <y> set p
 [      20 t#:0] <y> wait q
 [      50 t#:0] <x> wait-a
-[      60 t#:0] <x> set-b
-[      90 t#:0] <x> pre-done
-[     100 t#:0] <x> done-1
-[     110 t#:0] <y> done-2
+[      50 t#:0] <x> set-b
+[      80 t#:0] <x> pre-done
+[      90 t#:0] <x> done-1
+[      90 t#:0] <y> done-2
