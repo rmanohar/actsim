@@ -47,7 +47,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 {
   char buf[1024];
 
-  snprintf (buf, 1024, "sim.chp.%s.delay.%s", si->bnl->p->getName(),
+  snprintf (buf, 1024, "sim.chp.%s.%s.D", si->bnl->p->getName(),
 	    id->getName());
   if (config_exists (buf)) {
     stmt->delay_cost = config_get_int (buf);
@@ -57,13 +57,13 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     stmt->delay_cost = 10;
   }
 
-  snprintf (buf, 1024, "sim.chp.%s.energy.%s", si->bnl->p->getName(),
+  snprintf (buf, 1024, "sim.chp.%s.%s.E", si->bnl->p->getName(),
 	    id->getName());
   if (config_exists (buf)) {
     stmt->energy_cost = config_get_int (buf);
   }
   else {
-    // default energy is 1
+    // default energy is 0
     stmt->energy_cost = 0;
   }
 }
