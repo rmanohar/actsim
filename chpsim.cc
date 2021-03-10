@@ -501,14 +501,13 @@ void ChpSim::Step (int ev_type)
   printf ("> ");
 #endif
 
-  _energy_cost += stmt->energy_cost;
-
   /*--- simulate statement until there's a blocking scenario ---*/
   switch (stmt->type) {
   case CHPSIM_FORK:
 #ifdef DUMP_ALL
     printf ("fork");
 #endif    
+    _energy_cost += stmt->energy_cost;
     forceret = 1;
     {
       int first = 1;
@@ -540,6 +539,7 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_ASSIGN:
+    _energy_cost += stmt->energy_cost;
 #ifdef DUMP_ALL
     printf ("assign v[%d] := ", stmt->u.assign.d.offset);
 #endif
@@ -612,6 +612,7 @@ void ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL      
       printf ("send done");
 #endif      
+      _energy_cost += stmt->energy_cost;
     }
     break;
 
@@ -668,11 +669,13 @@ void ChpSim::Step (int ev_type)
 	  }
 	}
 	pc = _updatepc (pc);
+	_energy_cost += stmt->energy_cost;
       }
     }
     break;
 
   case CHPSIM_FUNC:
+    _energy_cost += stmt->energy_cost;
     printf ("[%8lu t#:%d] <", CurTimeLo(), pc);
     name->Print (stdout);
     printf ("> ");
@@ -704,6 +707,7 @@ void ChpSim::Step (int ev_type)
 	printf ("loop");
       }
 #endif
+      _energy_cost += stmt->energy_cost;
       
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
