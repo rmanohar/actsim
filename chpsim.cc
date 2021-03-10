@@ -118,10 +118,20 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
       _leakage_cost = config_get_real (buf);
     }
   }
-
-  new Event (this, SIM_EV_MKTYPE (0,0) /* pc */, 10);
+  _nextEvent (0);
 }
 
+int ChpSim::_nextEvent (int pc)
+{
+  while (_pc[pc] && !_pc[pc]->stmt) {
+    pc = _updatepc (pc);
+  }
+  if (_pc[pc]) {
+    new Event (this, SIM_EV_MKTYPE (pc,0) /* pc */, _pc[pc]->stmt->delay_cost);
+    return 1;
+  }
+  return 0;
+}
 
 void ChpSim::computeFanout ()
 {
@@ -463,7 +473,6 @@ void ChpSim::Step (int ev_type)
   int joined;
   expr_res v;
   int off;
-  int delay;
 
   Assert (0 <= pc && pc < _pcused, "What?");
 
@@ -492,7 +501,6 @@ void ChpSim::Step (int ev_type)
   printf ("> ");
 #endif
 
-  delay = stmt->delay_cost;
   _energy_cost += stmt->energy_cost;
 
   /*--- simulate statement until there's a blocking scenario ---*/
@@ -521,7 +529,7 @@ void ChpSim::Step (int ev_type)
 #if 0	  
 	  printf (" idx:%d", idx);
 #endif
-	  new Event (this, SIM_EV_MKTYPE (idx,0), 10);
+	  _nextEvent (idx);
 	}
       }
       _pcused += stmt->u.fork - 1;
@@ -680,7 +688,6 @@ void ChpSim::Step (int ev_type)
     }
     printf ("\n");
     pc = _updatepc (pc);
-    delay = 0;
     break;
 
   case CHPSIM_COND:
@@ -764,7 +771,7 @@ void ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL  
     printf (" [NEXT!]\n");
 #endif
-    new Event (this, SIM_EV_MKTYPE (pc,0), delay);
+    _nextEvent (pc);
   }
 }
 

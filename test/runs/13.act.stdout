@@ -1,3 +1,3 @@
-[      10 t#:0] <> test bitfield
-[      20 t#:0] <> x was 100
-[      30 t#:0] <> x is now 4
+[       0 t#:0] <> test bitfield
+[      10 t#:0] <> x was 100
+[      20 t#:0] <> x is now 4

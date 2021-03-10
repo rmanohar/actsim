@@ -1,16 +1,16 @@
-[      20 t#:0] <dn> in dend
+[      10 t#:0] <dn> in dend
 [      60 t#:0] <dn> got tick
 [      70 t#:0] <dn> Send S:0
 [      70 t#:0] <dv> Send w v:2 0
-[      90 t#:0] <dn> got tick
-[     100 t#:0] <dn> Send S:0
-[     100 t#:0] <dv> Send w v:2 1
-[     120 t#:0] <dn> got tick
-[     130 t#:0] <dn> Send S:0
-[     130 t#:0] <dv> Send w v:2 2
-[     150 t#:0] <dn> got tick
-[     160 t#:0] <dn> Send S:0
-[     160 t#:0] <dv> Send w v:2 3
+[     100 t#:0] <dn> got tick
+[     110 t#:0] <dn> Send S:0
+[     110 t#:0] <dv> Send w v:2 1
+[     140 t#:0] <dn> got tick
+[     150 t#:0] <dn> Send S:0
+[     150 t#:0] <dv> Send w v:2 2
 [     180 t#:0] <dn> got tick
 [     190 t#:0] <dn> Send S:0
-[     190 t#:0] <dv> Send w v:2 4
+[     190 t#:0] <dv> Send w v:2 3
+[     220 t#:0] <dn> got tick
+[     230 t#:0] <dn> Send S:0
+[     230 t#:0] <dv> Send w v:2 4

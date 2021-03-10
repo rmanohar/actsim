@@ -1,21 +1,21 @@
-[      20 t#:0] <dn> in dend
-[      80 t#:0] <dn> Recv w v:2 0
-[      80 t#:0] <dv> Send w v:2 0
-[     100 t#:0] <dn> got tick
-[     110 t#:0] <dn> Send S:0
-[     140 t#:0] <dn> Recv w v:2 1
-[     140 t#:0] <dv> Send w v:2 1
-[     160 t#:0] <dn> got tick
-[     170 t#:0] <dn> Send S:2
-[     200 t#:0] <dn> Recv w v:2 2
-[     200 t#:0] <dv> Send w v:2 2
-[     220 t#:0] <dn> got tick
-[     230 t#:0] <dn> Send S:4
-[     260 t#:0] <dn> Recv w v:2 3
-[     260 t#:0] <dv> Send w v:2 3
-[     280 t#:0] <dn> got tick
-[     290 t#:0] <dn> Send S:6
-[     320 t#:0] <dn> Recv w v:2 4
-[     320 t#:0] <dv> Send w v:2 4
-[     340 t#:0] <dn> got tick
-[     350 t#:0] <dn> Send S:8
+[      10 t#:0] <dn> in dend
+[      60 t#:0] <dn> Recv w v:2 0
+[      60 t#:0] <dv> Send w v:2 0
+[      90 t#:0] <dn> got tick
+[     100 t#:0] <dn> Send S:0
+[     120 t#:0] <dn> Recv w v:2 1
+[     120 t#:0] <dv> Send w v:2 1
+[     150 t#:0] <dn> got tick
+[     160 t#:0] <dn> Send S:2
+[     180 t#:0] <dn> Recv w v:2 2
+[     180 t#:0] <dv> Send w v:2 2
+[     210 t#:0] <dn> got tick
+[     220 t#:0] <dn> Send S:4
+[     240 t#:0] <dn> Recv w v:2 3
+[     240 t#:0] <dv> Send w v:2 3
+[     270 t#:0] <dn> got tick
+[     280 t#:0] <dn> Send S:6
+[     300 t#:0] <dn> Recv w v:2 4
+[     300 t#:0] <dv> Send w v:2 4
+[     330 t#:0] <dn> got tick
+[     340 t#:0] <dn> Send S:8
