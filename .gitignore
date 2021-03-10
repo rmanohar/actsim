@@ -3,4 +3,5 @@ actsim.i386_*
 actsim.x86_64_*
 Makefile.deps
 i386_*
-x86_84_*
+x86_64_*
+.actsim_history
