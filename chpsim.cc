@@ -2020,6 +2020,12 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     }
     break;
 
+  case E_BUILTIN_INT:
+  case E_BUILTIN_BOOL:
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s);
+    break;
+
   case E_SELF:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
