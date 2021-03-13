@@ -129,6 +129,7 @@ class ChpSim : public ActSimObj {
   void dumpState (FILE *fp);
   unsigned long getEnergy (void);
   double getLeakage (void);
+  unsigned long getArea (void);
 
  private:
   int _npc;			/* # of program counters */
@@ -142,6 +143,7 @@ class ChpSim : public ActSimObj {
 
   unsigned long _energy_cost;
   double _leakage_cost;
+  unsigned long _area_cost;
 
   WaitForOne *_probe;
 

@@ -112,10 +112,15 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _energy_cost = 0;
 
   _leakage_cost = 0.0;
+  _area_cost = 0;
   if (p) {
     snprintf (buf, 1024, "sim.chp.%s.leakage", p->getName());
     if (config_exists (buf)) {
       _leakage_cost = config_get_real (buf);
+    }
+    snprintf (buf, 1024, "sim.chp.%s.area", p->getName());
+    if (config_exists (buf)) {
+      _area_cost = config_get_int (buf);
     }
   }
   _nextEvent (0);
@@ -2579,6 +2584,7 @@ void ChpSim::dumpState (FILE *fp)
   else {
     fprintf (fp, "Leakage: %g pW\n", _leakage_cost*1e12);
   }
+  fprintf (fp, "Area: %lu\n", _area_cost);
   fprintf (fp, "\n");
 }
 
@@ -2590,4 +2596,9 @@ unsigned long ChpSim::getEnergy (void)
 double ChpSim::getLeakage (void)
 {
   return _leakage_cost;
+}
+
+unsigned long ChpSim::getArea (void)
+{
+  return _area_cost;
 }

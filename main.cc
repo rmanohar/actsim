@@ -144,11 +144,14 @@ static void dump_state (ActInstTable *x)
   }
 }
 
-static unsigned long _get_energy (ActInstTable *x, double *lk, int ts = 0)
+static unsigned long _get_energy (ActInstTable *x, double *lk,
+				  unsigned long *area,
+				  int ts = 0)
 {
   unsigned long tot;
   unsigned long sub;
   double totl, subl;
+  unsigned long suba, tota;
 
   if (!x) {
     warning ("Didn't find info; is this a valid instance?");
@@ -158,40 +161,47 @@ static unsigned long _get_energy (ActInstTable *x, double *lk, int ts = 0)
 
   tot = 0;
   totl = 0;
+  tota = 0;
   
   if (x->obj) {
     tot = x->obj->getEnergy ();
     totl = x->obj->getLeakage ();
+    tota = x->obj->getArea ();
 
-    if (tot > 0 || totl > 0) {
+    if (tot > 0 || totl > 0 || tota > 0) {
       for (int i=0; i < ts; i++) {
 	printf ("  ");
       }
       printf (" - ");
       x->obj->getName()->Print (stdout);
-      printf (" %lu  (%g W)\n", tot, totl);
+      printf (" %lu  (%g W); area: %lu\n", tot, totl, tota);
     }
   }
   sub = tot;
   subl = totl;
+  suba = tota;
   if (x->H) {
     hash_bucket_t *b;
     hash_iter_t i;
     double tmpl;
+    unsigned long tmpa;
     hash_iter_init (x->H, &i);
     while ((b = hash_iter_next (x->H, &i))) {
       ActInstTable *tmp = (ActInstTable *) b->v;
-      tot += _get_energy (tmp, &tmpl, ts+1);
+      tot += _get_energy (tmp, &tmpl, &tmpa, ts+1);
       totl += tmpl;
+      tota += tmpa;
     }
-    if ((tot - sub) > 0 || ((totl - subl) > 0)) {
+    if ((tot - sub) > 0 || ((totl - subl) > 0) || ((tota - suba) > 0)) {
       for (int i=0; i < ts; i++) {
 	printf ("  ");
       }
-      printf (" ---:subtree %lu (%g W)\n", tot - sub, totl - subl);
+      printf (" ---:subtree %lu (%g W); area: %lu\n", tot - sub, totl - subl,
+	      tota - suba);
     }
   }
   *lk = totl;
+  *area = tota;
   return tot;
 }
 
@@ -256,6 +266,7 @@ int process_getenergy (int argc, char **argv)
 {
   ActId *id;
   double lk;
+  unsigned long area;
     
   if (argc != 2 && argc != 1) {
     fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
@@ -276,14 +287,14 @@ int process_getenergy (int argc, char **argv)
 
   if (!id) {
     /*-- print state of each process --*/
-    printf ("Total: %lu", _get_energy (glob_sim->getInstTable (), &lk));
-    printf ("  (%g W)\n", lk);
+    printf ("Total: %lu", _get_energy (glob_sim->getInstTable (), &lk, &area));
+    printf ("  (%g W); area: %lu\n", lk, area);
   }
   else {
     /*-- find this process --*/
     ActInstTable *inst = find_table (id, glob_sim->getInstTable());
-    printf ("Total: %lu", _get_energy (inst, &lk));
-    printf ("  (%g W)\n", lk);
+    printf ("Total: %lu", _get_energy (inst, &lk, &area));
+    printf ("  (%g W); area: %lu\n", lk, area);
     delete id;
   }
   return 1;
