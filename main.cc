@@ -228,6 +228,31 @@ ActInstTable *find_table (ActId *id, ActInstTable *x)
   }
 }
 
+ActSimObj *find_object (ActId **id, ActInstTable *x)
+{
+  char buf[1024];
+  hash_bucket_t *b;
+  
+  if (!(*id)) { return x->obj; }
+  if (!x->H) { return x->obj; }
+
+  ActId *tmp = (*id)->Rest();
+  (*id)->prune();
+  (*id)->sPrint (buf, 1024);
+  (*id)->Append (tmp);
+
+  b = hash_lookup (x->H, buf);
+  if (!b) {
+    return x->obj;
+  }
+  else {
+    (*id) = (*id)->Rest();
+    return find_object (id, (ActInstTable *)b->v);
+  }
+}
+
+
+
 int process_procinfo (int argc, char **argv)
 {
   ActId *id;
@@ -300,6 +325,168 @@ int process_getenergy (int argc, char **argv)
   return 1;
 }
 
+
+int id_to_siminfo (char *s, int *ptype, int *poffset)
+{
+  ActId *id = ActId::parseId (s);
+  if (!id) {
+    fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
+    return 0;
+  }
+
+  /* -- find object / id combo -- */
+  ActId *tmp = id;
+  ActSimObj *obj = find_object (&tmp, glob_sim->getInstTable());
+
+  if (!obj) {
+    fprintf (stderr, "Could not find `%s' in simulation\n", s);
+    delete id;
+    return 0;
+  }
+
+  /* -- now convert tmp into a local offset -- */
+  int offset, type;
+  int res;
+  stateinfo_t *si;
+  act_connection *c;
+
+  si = glob_sp->getStateInfo (obj->getProc ());
+  if (!si) {
+    fprintf (stderr, "Could not find info for process `%s'\n", obj->getProc()->getName());
+    delete id;
+    return 0;
+  }
+
+  if (!si->bnl->cur->FullLookup (tmp, NULL)) {
+    fprintf (stderr, "Could not find identifier `%s' within process `%s'",
+	     s, obj->getProc()->getName());
+    delete id;
+    return 0;
+  }    
+
+  c = tmp->Canonical (si->bnl->cur);
+  Assert (c, "What?");
+
+  res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+  if (!res) {
+    fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+	     s, obj->getProc()->getName());
+    delete id;
+    return 0;
+  }
+  
+  offset = obj->getGlobalOffset (offset, type);
+
+  *ptype = type;
+  *poffset = offset;
+
+  delete id;
+  return 1;
+}
+
+
+int process_set (int argc, char **argv)
+{
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
+    return 0;
+  }
+
+  int type, offset;
+
+  if (!id_to_siminfo (argv[1], &type, &offset)) {
+    return 0;
+  }
+
+  if (type == 2 || type == 3) {
+    printf ("'%s' is a channel; not currently supported!\n", argv[1]);
+    return 0;
+  }
+
+  int val;
+  
+  if (type == 0) {
+    if (strcmp (argv[2], "0") == 0 || strcmp (argv[2], "#f") == 0) {
+      val = 0;
+    }
+    else if (strcmp (argv[2], "1") == 0 || strcmp (argv[2], "#t") == 0) {
+      val = 1;
+    }
+    else if (strcmp (argv[2], "X") == 0) {
+      val = 2;
+    }
+    else {
+      fprintf (stderr, "Boolean must be set to either 0, 1, or X\n");
+      return 0;
+    }
+    glob_sim->setBool (offset, val);
+  }
+  else if (type == 1) {
+    val = atoi (argv[2]);
+    if (val < 0) {
+      fprintf (stderr, "Integers are unsigned.\n");
+      return 0;
+    }
+    glob_sim->setInt (offset, val);
+  }
+  else {
+    fatal_error ("Should not be here");
+  }
+
+  SimDES **arr;
+  arr = glob_sim->getFO (offset, type);
+  for (int i=0; i < glob_sim->numFanout (offset, type); i++) {
+    ActSimDES *p = dynamic_cast <ActSimDES *> (arr[i]);
+    Assert (p, "Hmm?");
+    p->propagate ();
+  }
+  return 1;
+}
+
+int process_get (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return 0;
+  }
+
+  int type, offset;
+
+  if (!id_to_siminfo (argv[1], &type, &offset)) {
+    return 0;
+  }
+
+  if (type == 2 || type == 3) {
+    printf ("'%s' is a channel; not currently supported!\n", argv[1]);
+    return 0;
+  }
+
+  
+  unsigned long val;
+  if (type == 0) {
+    val = glob_sim->getBool (offset);
+    if (val == 0) {
+      printf ("%s: 0\n", argv[1]);
+    }
+    else if (val == 1) {
+      printf ("%s: 1\n", argv[1]);
+    }
+    else {
+      printf ("%s: X\n", argv[1]);
+    }
+  }
+  else if (type == 1) {
+    val = glob_sim->getInt (offset);
+    printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);
+  }
+  else {
+    fatal_error ("Should not be here");
+  }
+  return 1;
+}
+
+
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Running a simulation", NULL },
   { "initialize", "initialize <proc> - initialize simulation for <proc>",
@@ -307,6 +494,13 @@ struct LispCliCommand Cmds[] = {
   { "cycle", "cycle - run until simulation stops", process_cycle },
   { "step", "step [n] - run the next [n] events", process_step },
   { "advance", "advance <delay> - run for <delay> time", process_advance },
+
+  { "set", "set <name> <val> - set a variable to a value", process_set },
+  { "get", "get <name> - get value of a variable", process_get },
+
+
+  { NULL, "Statistics", NULL },
+  
   { "procinfo", "procinfo [<inst-name>] - show the program counter for a process", process_procinfo },
   { "energy", "energy [<inst-name>] - show energy usage", process_getenergy }
 };

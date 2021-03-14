@@ -70,7 +70,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 
 
 ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim, Process *p)
-: ActSimObj (sim)
+: ActSimObj (sim, p)
 {
   char buf[1024];
   /*
@@ -108,7 +108,6 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _statestk = list_new ();
   _probe = NULL;
   _savedc = c;
-  _proc = p;
   _energy_cost = 0;
 
   _leakage_cost = 0.0;

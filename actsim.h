@@ -141,7 +141,7 @@ struct ActInstTable {
 
 class ActSimObj : public ActSimDES {
 public:
-  ActSimObj (ActSimCore *sim);
+  ActSimObj (ActSimCore *sim, Process *p);
 
   
   int getGlobalOffset (int loc, int type); // 0 = bool, 1 = int,
@@ -156,6 +156,7 @@ public:
 
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
   ActId *getName () { return name; }
+  Process *getProc () { return _proc; }
 
   virtual void dumpState (FILE *fp) { };
   virtual unsigned long getEnergy () { return 0; }
@@ -170,6 +171,7 @@ protected:
   ActSimCore *_sc;
 
   ActId *name;
+  Process *_proc;
   
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
@@ -302,22 +304,6 @@ public:
 
   void setBp (act_connection *c); // breakpoint if this changes
   void clrBp (act_connection *c); // clear breakpoint
-
-  /* set and get state */
-
-  void setBool (act_connection *c, bool b, int delay = 0); 
-  void setInt (act_connection *c, long ival, int delay = 0);
-  void setChan (act_connection *c, act_channel_state *s, int delay = 0);
-  
-  bool getBool (act_connection *);
-  long getInt (act_connection *);
-  act_channel_state *getChan (act_connection *);
-
-  int numFanout (act_connection *);
-  void getFanout (act_connection *c, act_connection **n);
-
-  int numFanin (act_connection *c);
-  void getFanin (act_connection *c, act_connection **n);
 
   act_connection *runSim (act_connection **cause);
   act_connection *Step (int nsteps);

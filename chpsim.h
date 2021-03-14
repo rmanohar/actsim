@@ -147,8 +147,6 @@ class ChpSim : public ActSimObj {
 
   WaitForOne *_probe;
 
-  Process *_proc;
-  
   int _max_program_counters (act_chp_lang_t *c);
   void _compute_used_variables (act_chp_lang_t *c);
   void _compute_used_variables_helper (act_chp_lang_t *c);

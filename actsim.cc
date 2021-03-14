@@ -288,7 +288,7 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   }
   /* need prs simulation graph */
 
-  PrsSim *x = new PrsSim (pg, this);
+  PrsSim *x = new PrsSim (pg, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -892,9 +892,10 @@ int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *widt
   return getLocalOffset (c, si, type, width);
 }
 
-ActSimObj::ActSimObj (ActSimCore *sim)
+ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
 {
   _sc = sim;
+  _proc = p;
 }
 
 

@@ -98,7 +98,7 @@ public:
 
 class PrsSim : public ActSimObj {
  public:
-  PrsSim (PrsSimGraph *, ActSimCore *sim);
+  PrsSim (PrsSimGraph *, ActSimCore *sim, Process *p);
      /* initialize simulation, and create initial event */
 
   void Step (int ev_type);	/* run a step of the simulation */
