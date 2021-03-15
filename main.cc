@@ -337,7 +337,11 @@ int id_to_siminfo (char *s, int *ptype, int *poffset)
   /* -- find object / id combo -- */
   ActId *tmp = id;
   ActSimObj *obj = find_object (&tmp, glob_sim->getInstTable());
-
+  stateinfo_t *si;
+  int offset, type;
+  int res;
+  act_connection *c;
+  
   if (!obj) {
     fprintf (stderr, "Could not find `%s' in simulation\n", s);
     delete id;
@@ -345,10 +349,6 @@ int id_to_siminfo (char *s, int *ptype, int *poffset)
   }
 
   /* -- now convert tmp into a local offset -- */
-  int offset, type;
-  int res;
-  stateinfo_t *si;
-  act_connection *c;
 
   si = glob_sp->getStateInfo (obj->getProc ());
   if (!si) {

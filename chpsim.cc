@@ -73,45 +73,15 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
 : ActSimObj (sim, p)
 {
   char buf[1024];
-  /*
-    Analyze the chp body to find out the maximum number of concurrent
-    threads; those are the event types.
-  */
-  _npc = _max_program_counters (c);
-  _pcused = 1;
-  Assert (_npc >= 1, "What?");
-
-  if (_npc > 32) {
-    fatal_error ("Currently there is a hard limit of 32 concurrent modules within a single CHP block. Your program requires %d.", _npc);
-  }
-
-  _pc = (ChpSimGraph **)
-    sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
-  for (int i=0; i < _npc; i++) {
-    _pc[i] = NULL;
-  }
-
-  if (max_cnt > 0) {
-    _tot = (int *)sim->getState()->allocState (sizeof (int)*max_cnt);
-    for (int i=0; i < max_cnt; i++) {
-      _tot[i] = 0;
-    }
-  }
-  else {
-    _tot = NULL;
-  }
-
-  Assert (_npc >= 1, "What?");
-  _pc[0] = g;
 
   _stalled_pc = -1;
-  _statestk = list_new ();
   _probe = NULL;
   _savedc = c;
   _energy_cost = 0;
-
   _leakage_cost = 0.0;
   _area_cost = 0;
+  _statestk = NULL;
+
   if (p) {
     snprintf (buf, 1024, "sim.chp.%s.leakage", p->getName());
     if (config_exists (buf)) {
@@ -122,7 +92,41 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
       _area_cost = config_get_int (buf);
     }
   }
-  _nextEvent (0);
+  
+  if (c) {
+    /*
+      Analyze the chp body to find out the maximum number of concurrent
+      threads; those are the event types.
+    */
+    _npc = _max_program_counters (c);
+    _pcused = 1;
+    Assert (_npc >= 1, "What?");
+
+    if (_npc > 32) {
+      fatal_error ("Currently there is a hard limit of 32 concurrent modules within a single CHP block. Your program requires %d.", _npc);
+    }
+
+    _pc = (ChpSimGraph **)
+      sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
+    for (int i=0; i < _npc; i++) {
+      _pc[i] = NULL;
+    }
+
+    if (max_cnt > 0) {
+      _tot = (int *)sim->getState()->allocState (sizeof (int)*max_cnt);
+      for (int i=0; i < max_cnt; i++) {
+	_tot[i] = 0;
+      }
+    }
+    else {
+      _tot = NULL;
+    }
+
+    Assert (_npc >= 1, "What?");
+    _pc[0] = g;
+    _statestk = list_new ();
+    _nextEvent (0);
+  }
 }
 
 int ChpSim::_nextEvent (int pc)
@@ -139,7 +143,9 @@ int ChpSim::_nextEvent (int pc)
 
 void ChpSim::computeFanout ()
 {
-  _compute_used_variables (_savedc);
+  if (_savedc) {
+    _compute_used_variables (_savedc);
+  }
 }
 
 int ChpSim::_updatepc (int pc)

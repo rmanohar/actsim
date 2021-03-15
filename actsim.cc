@@ -189,22 +189,29 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
     printf ("-none-");
   }
   printf ("\n");
-#endif  
+#endif
 
-  chpsimgraph_info *sg;
-  b = ihash_lookup (map, (long)_curproc);
-  if (b) {
-    sg = (chpsimgraph_info *)b->v;
+  chpsimgraph_info *sg = NULL;
+  ChpSim *x;
+  
+  if (c) {
+    b = ihash_lookup (map, (long)_curproc);
+    if (b) {
+      sg = (chpsimgraph_info *)b->v;
+    }
+    else {
+      ChpSimGraph *stop;
+      b = ihash_add (map, (long)_curproc);
+      NEW (sg, chpsimgraph_info);
+      sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+      sg->max_count = ChpSimGraph::max_pending_count;
+      b->v = sg;
+    }
+    x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
   }
   else {
-    ChpSimGraph *stop;
-    b = ihash_add (map, (long)_curproc);
-    NEW (sg, chpsimgraph_info);
-    sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
-    sg->max_count = ChpSimGraph::max_pending_count;
-    b->v = sg;
+    x = new ChpSim (NULL, 0, NULL, this, _curproc);
   }
-  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -329,7 +336,10 @@ int ActSimCore::_getlevel ()
 
 void ActSimCore::_add_language (int lev, act_languages *l)
 {
-  if (!l) return;
+  if (!l) {
+    _curI->obj = _add_chp (NULL);
+    return;
+  }
 
   /*- we have the full path here -*/
   if ((l->getchp() || l->getdflow()) && lev == ACT_MODEL_CHP) {
@@ -400,6 +410,9 @@ void ActSimCore::_add_language (int lev, act_languages *l)
 	}
 	fprintf (stderr, "\n");
 	fatal_error ("Model level requirement inconsistent with ACT");
+      }
+      else {
+	_curI->obj = _add_chp (NULL);
       }
     }
   }
