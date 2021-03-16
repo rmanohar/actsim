@@ -233,6 +233,12 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
+  case E_CHP_BITFIELD:
+    if (((struct chpsimderef *)e->u.e.l)->offset < 0) {
+      ret = 1;
+    }
+    break;
+
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
@@ -1385,7 +1391,7 @@ expr_res ChpSim::exprEval (Expr *e)
     } while (e);
     break;
 
-  case E_BITFIELD:
+  case E_CHP_BITFIELD:
     {
       int lo, hi;
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
@@ -1450,6 +1456,34 @@ expr_res ChpSim::exprEval (Expr *e)
       hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
       Assert (b, "what?");
       l = *((expr_res *)b->v);
+    }
+    break;
+
+  case E_BITFIELD:
+    {
+      int lo, hi;
+
+      Assert (!list_isempty (_statestk), "What?");
+      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+      Assert (state,"what?");
+      hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
+      Assert (b, "what?");
+      l = *((expr_res *)b->v);
+
+      hi = (long)e->u.e.r->u.e.r->u.v;
+      if (e->u.e.r->u.e.l) {
+	lo = (long)e->u.e.r->u.e.l->u.v;
+      }
+      else {
+	lo = hi;
+      }
+
+      if (hi >= l.width) {
+	warning ("Bit-width is less than the width specifier");
+      }
+      l.width = hi - lo + 1;
+      l.v = l.v >> lo;
+      l.v = l.v & ((1UL << l.width)-1);
     }
     break;
 
@@ -1935,12 +1969,13 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
 				       &d->width);
 	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
-	
       }
+      
       ret->u.e.l = (Expr *) d;
       NEW (ret->u.e.r, Expr);
       ret->u.e.r->u.e.l = e->u.e.r->u.e.l;
       ret->u.e.r->u.e.r = e->u.e.r->u.e.r;
+      ret->type = E_CHP_BITFIELD;
     }
     break;
 

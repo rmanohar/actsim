@@ -40,6 +40,8 @@
 #define E_PROBEIN  (E_NEWEND + 7)
 #define E_PROBEOUT  (E_NEWEND + 8)
 
+#define E_CHP_BITFIELD (E_NEWEND + 9)
+
 /*
  *
  * Core simulation library
