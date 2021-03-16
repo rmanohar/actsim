@@ -1,0 +1,21 @@
+bool Reset;
+
+defproc test2(bool w)
+{
+  bool a, b, c;
+  
+  w = a;
+  prs {
+    a | Reset => b-
+    b => c-
+    c => a-
+  }
+}
+
+defproc test()
+{
+  bool q;
+  test2 u(q);
+}
+  
+test t;    

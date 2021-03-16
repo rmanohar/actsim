@@ -1,7 +1,9 @@
 *~
 actsim.i386_*
 actsim.x86_64_*
+actsim.arm*
 Makefile.deps
 i386_*
 x86_64_*
+arm*
 .actsim_history

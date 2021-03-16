@@ -1,0 +1,4 @@
+WARNING: test<>: substituting chp model (requested prs, not found)
+In:   [ test<> ]
+	Accessing index [10] from x
+FATAL: Array out of bounds!
