@@ -1,0 +1,35 @@
+deftype axp (chan?!(int) cmd; chan!?(int) resp) { }
+
+
+
+defproc riscv(axp! port)
+{
+  int v;
+  chp {
+    log("send: 0");
+    port.cmd!0;
+    port.resp?v;
+    log("rv got: ", v)
+  }
+}
+
+
+defproc avp(axp? port)
+{
+  int v;
+  chp {
+     port.cmd?v;
+     log("av: got ", v);
+     port.resp!(v+2)
+  }
+}
+
+defproc test ()
+{
+  riscv r;
+  avp x;
+
+  x.port = r.port;
+}
+
+test t;
