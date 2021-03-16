@@ -358,7 +358,7 @@ int id_to_siminfo (char *s, int *ptype, int *poffset)
   }
 
   if (!si->bnl->cur->FullLookup (tmp, NULL)) {
-    fprintf (stderr, "Could not find identifier `%s' within process `%s'",
+    fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
 	     s, obj->getProc()->getName());
     delete id;
     return 0;

@@ -1389,9 +1389,14 @@ expr_res ChpSim::exprEval (Expr *e)
     {
       int lo, hi;
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
-      
-      lo = (long)e->u.e.r->u.e.l;
-      hi = (long)e->u.e.r->u.e.r;
+
+      hi = (long)e->u.e.r->u.e.r->u.v;
+      if (e->u.e.r->u.e.l) {
+	lo = (long)e->u.e.r->u.e.l->u.v;
+      }
+      else {
+	lo = hi;
+      }
 
       /* is an int */
       l = varEval (off, 1);
