@@ -522,7 +522,7 @@ void ChpSim::Step (int ev_type)
   case CHPSIM_FORK:
 #ifdef DUMP_ALL
     printf ("fork");
-#endif    
+#endif
     _energy_cost += stmt->energy_cost;
     forceret = 1;
     {
@@ -548,7 +548,7 @@ void ChpSim::Step (int ev_type)
 	}
       }
       _pcused += stmt->u.fork - 1;
-#if 0
+#ifdef DUMP_ALL
       printf (" _used:%d", _pcused);
 #endif      
     }
@@ -561,7 +561,7 @@ void ChpSim::Step (int ev_type)
 #endif
     v = exprEval (stmt->u.assign.e);
 #ifdef DUMP_ALL    
-    printf ("%d (w=%d)", v.v, v.width);
+    printf ("%lu (w=%d)", v.v, v.width);
 #endif
     pc = _updatepc (pc);
     off = computeOffset (&stmt->u.assign.d);
@@ -610,7 +610,7 @@ void ChpSim::Step (int ev_type)
 	v.width = 0;
       }
 #ifdef DUMP_ALL      
-      printf ("send val=%d", v.v);
+      printf ("send val=%lu", v.v);
 #endif
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
@@ -663,7 +663,7 @@ void ChpSim::Step (int ev_type)
       else {
 	/*-- success! --*/
 #ifdef DUMP_ALL	
-	printf ("recv got %d!", v.v);
+	printf ("recv got %lu!", v.v);
 #endif	
 	if (type != -1) {
 	  if (type == 0) {
@@ -922,6 +922,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
       c->send_here = 0;
       c->sender_probe = 0;
     }
+    Assert (c->recv_here == 0, "What?");
     c->recv_here = (pc+1);
     if (!c->w->isWaiting (this)) {
       c->w->AddObject (this);
