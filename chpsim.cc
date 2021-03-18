@@ -849,6 +849,18 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     c->data = v.v;
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
+    if (c->send_here != 0) {
+      act_connection *x;
+      int dy;
+      fprintf (stderr, "Process %s: concurrent access to channel `",
+	       _proc->getName());
+      x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "'\n");
+      fprintf (stderr, "Instance: ");
+      getName()->Print (stderr);
+      fprintf (stderr, "\n");
+    }
     Assert (c->send_here == 0 && c->sender_probe == 0 &&
 	    c->receiver_probe == 0,"What?");
     return 0;
@@ -867,6 +879,19 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     }
     // we need to wait for the receive to show up
     c->data2 = v.v;
+    if (c->send_here != 0) {
+      act_connection *x;
+      int dy;
+      fprintf (stderr, "Process %s: concurrent access to channel `",
+	       _proc->getName());
+      x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "'\n");
+      fprintf (stderr, "Instance: ");
+      getName()->Print (stderr);
+      fprintf (stderr, "\n");
+    }
+    Assert (c->send_here == 0, "What?");
     c->send_here = (pc+1);
     if (!c->w->isWaiting (this)) {
       c->w->AddObject (this);
@@ -895,6 +920,18 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
     printf (" [recv-wakeup %d]", pc);
 #endif    
     v->v = c->data;
+    if (c->recv_here != 0) {
+      act_connection *x;
+      int dy;
+      fprintf (stderr, "Process %s: concurrent access to channel `",
+	       _proc->getName());
+      x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "'\n");
+      fprintf (stderr, "Instance: ");
+      getName()->Print (stderr);
+      fprintf (stderr, "\n");
+    }
     Assert (c->recv_here == 0, "What?");
     return 0;
   }
@@ -921,6 +958,18 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
       c->probe->Notify (c->send_here-1);
       c->send_here = 0;
       c->sender_probe = 0;
+    }
+    if (c->recv_here != 0) {
+      act_connection *x;
+      int dy;
+      fprintf (stderr, "Process %s: concurrent access to channel `",
+	       _proc->getName());
+      x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "'\n");
+      fprintf (stderr, "Instance: ");
+      getName()->Print (stderr);
+      fprintf (stderr, "\n");
     }
     Assert (c->recv_here == 0, "What?");
     c->recv_here = (pc+1);
