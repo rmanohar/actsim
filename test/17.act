@@ -14,16 +14,19 @@ defproc mem(chan?(bool) rd; chan?(int) addr, din; chan!(int) dout)
 
 defproc test()
 {
-  mem<32> m;
+  chan(bool) rd;
+  chan(int) addr, din;
+  chan(int) dout;
+  mem<32> m(rd, addr, din, dout);
   int x;
 
   chp {
      log("test mem");
-     m.rd!false,m.addr!0,m.din!5;
-     m.rd!false,m.addr!1,m.din!6;
-     m.rd!true,m.addr!0,m.dout?x;
+     rd!false,addr!0,din!5;
+     rd!false,addr!1,din!6;
+     rd!true,addr!0,dout?x;
      log("got ", x);
-     m.rd!true,m.addr!1,m.dout?x;
+     rd!true,addr!1,dout?x;
      log("got ", x)
    }
 }

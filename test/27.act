@@ -7,24 +7,26 @@ defproc test()
     int<16> t1, t2;
     int<32> d1, d2;
     int<64> d3;
-    sink64 s64;
-    sink32 s32;
+    chan(int<64>) cx;
+    chan(int<32>) dx;
+    sink64 s64(cx);
+    sink32 s32(dx);
 
     chp
     {
         log("In CHP");
 
         //  doesn't work
-        s32.S!{0x0001,0x0002};
+        dx!{0x0001,0x0002};
 
         //  doesn't work
-        s64.S!{0x00000001, 0x00000002};
+        cx!{0x00000001, 0x00000002};
 
         // works
-        t1:=0x0001;     t2:=0x0002;     d1:={t1,t2};    s32.S!(d1);
+        t1:=0x0001;     t2:=0x0002;     d1:={t1,t2};    dx!(d1);
 
         //  doesn't work
-        d1:=0x00000001;     d2:=0x00000002;     d3:={d1,d2};      s64.S!(d3)
+        d1:=0x00000001;     d2:=0x00000002;     d3:={d1,d2};      cx!(d3)
 	;log("d1=",d1," d2=",d2," d3=",d3)
     }
 }

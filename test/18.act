@@ -1,4 +1,4 @@
-deftype memiface (chan?(bool) rd; chan?(int) addr, din; chan!(int) dout) { }
+deftype memiface (chan?!(bool) rd; chan?!(int) addr, din; chan!?(int) dout) { }
 
 template<pint N>
 defproc mem(memiface i)
