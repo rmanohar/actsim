@@ -917,11 +917,23 @@ act_connection *ActSim::Advance (int delay)
 ActSim::ActSim (Process *root) : ActSimCore (root)
 {
   /* nothing */
+  _init_simobjs = NULL;
 }
 
 ActSim::~ActSim()
 {
   /* stuff here */
+  if (_init_simobjs) {
+    listitem_t *li;
+    for (li = list_first (_init_simobjs); li; li = list_next (li)) {
+      ChpSim *x = (ChpSim *) list_value (li);
+      li = list_next (li);
+      ChpSimGraph *g = (ChpSimGraph *) list_value (li);
+      delete g;
+      delete x;
+    }
+  }
+  list_free (_init_simobjs);
 }
 
 int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
@@ -929,6 +941,14 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
 {
   int res;
   int offset;
+
+  if (!sp->connExists (si, c)) {
+    ActId *t = c->toid();
+    fprintf (stderr, "Identifier `");
+    t->Print (stderr);
+    fprintf (stderr, "' used, but not used in the design hierarchy selected.\n");
+    fatal_error ("Error in initializer block?");
+  }
 
   res = sp->getTypeOffset (si, c, &offset, type, width);
   if (res) {
@@ -1087,4 +1107,78 @@ ActSimObj::~ActSimObj()
     FREE (_abs_port_chan);
   }
   delete name;
+}
+
+
+void ActSim::runInit ()
+{
+  ActNamespace *g = ActNamespace::Global();
+  act_initialize *x;
+  /* -- we add the initial events -- */
+  if (!g->getlang() || !g->getlang()->getinit()) {
+    return;
+  }
+  int num = 1;
+  x = g->getlang()->getinit();
+
+  while (x->next) {
+    num++;
+    x = x->next;
+  }
+
+  listitem_t **lia;
+  MALLOC (lia, listitem_t *, num);
+
+  x = g->getlang()->getinit();
+  for (int i=0; i < num; i++) {
+    Assert (x, "What?");
+    lia[i] = list_first (x->actions);
+    x = x->next;
+  }
+  Assert (!x, "What?");
+
+  /* -- everything except the last action -- */
+  int more_steps = 1;
+
+  if (!_init_simobjs) {
+    _init_simobjs = list_new ();
+  }
+
+  while (more_steps) {
+    more_steps = 0;
+    for (int i=0; i < num; i++) {
+      if (lia[i] && list_next (lia[i])) {
+	act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
+	ChpSimGraph *stop;
+	ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
+	ChpSim *sim_init =
+	  new ChpSim (sg, ChpSimGraph::max_pending_count, c, this, NULL);
+
+	list_append (_init_simobjs, sim_init);
+	list_append (_init_simobjs, sg);
+	  
+	lia[i] = list_next (lia[i]);
+	
+	more_steps = 1;
+	
+	if (SimDES::AdvanceTime (100) != NULL) {
+	  warning ("More events?");
+	}
+      }
+    }
+  }
+  for (int i=0; i < num; i++) {
+    if (lia[i]) {
+      act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
+      ChpSimGraph *stop;
+      ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
+      ChpSim *sim_init =
+	new ChpSim (sg, ChpSimGraph::max_pending_count, c, this, NULL);
+
+      list_append (_init_simobjs, sim_init);
+      list_append (_init_simobjs, sg);
+	  
+      lia[i] = list_next (lia[i]);
+    }
+  }
 }

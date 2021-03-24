@@ -120,6 +120,7 @@ int process_initialize (int argc, char **argv)
   glob_sp = new ActStatePass (glob_act);
   glob_sp->run (p);
   glob_sim = new ActSim (p);
+  glob_sim->runInit ();
   return 1;
 }
 
@@ -543,6 +544,7 @@ int main (int argc, char **argv)
   glob_sp->run (p);
   
   glob_sim = new ActSim (p);
+  glob_sim->runInit ();
 
   signal (SIGINT, signal_handler);
 

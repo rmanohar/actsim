@@ -394,7 +394,7 @@ int ChpSim::computeOffset (struct chpsimderef *d)
   if (x == -1) {
     fprintf (stderr, "In: ");
     getName()->Print (stderr);
-    fprintf (stderr, "  [ %s ]\n", _proc->getName());
+    fprintf (stderr, "  [ %s ]\n", _proc ? _proc->getName() : "-global-");
     fprintf (stderr, "\tAccessing index ");
     for (int i=0; i < d->range->nDims(); i++) {
       fprintf (stderr, "[%d]", d->idx[i]);
@@ -868,7 +868,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
       act_connection *x;
       int dy;
       fprintf (stderr, "Process %s: concurrent access to channel `",
-	       _proc->getName());
+	       _proc ? _proc->getName() : "-global-");
       x = _sc->getConnFromOffset (_proc, id, 2, &dy);
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
@@ -898,7 +898,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
       act_connection *x;
       int dy;
       fprintf (stderr, "Process %s: concurrent access to channel `",
-	       _proc->getName());
+	       _proc ? _proc->getName() : "-global-");
       x = _sc->getConnFromOffset (_proc, id, 2, &dy);
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
@@ -939,7 +939,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
       act_connection *x;
       int dy;
       fprintf (stderr, "Process %s: concurrent access to channel `",
-	       _proc->getName());
+	       _proc ? _proc->getName() : "-global-");
       x = _sc->getConnFromOffset (_proc, id, 2, &dy);
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
@@ -978,7 +978,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
       act_connection *x;
       int dy;
       fprintf (stderr, "Process %s: concurrent access to channel `",
-	       _proc->getName());
+	       _proc ? _proc->getName() : "-global-");
       x = _sc->getConnFromOffset (_proc, id, 2, &dy);
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
@@ -2802,7 +2802,7 @@ void ChpSim::dumpState (FILE *fp)
   int found = 0;
   fprintf (fp, "--- Process: ");
   getName()->Print (fp);
-  fprintf (fp, " [ %s ] ---\n", _proc->getName());
+  fprintf (fp, " [ %s ] ---\n", _proc ? _proc->getName() : "-global-");
 
   for (int i=0; i < _npc; i++) {
     if (_pc[i]) {

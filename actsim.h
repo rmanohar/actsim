@@ -312,13 +312,20 @@ public:
   act_connection *Step (int nsteps);
   act_connection *Advance (int delay);
 
+  void runInit (void);		// run initialization block. This runs
+				// all the actions upto the final
+				// one. The final block is simply
+				// scheduled.
+
+   
+
   void saveSim (FILE *);
   void restoreSim (FILE *);
 
   ActInstTable *getInstTable () { return &I; }
   
 private:
-
+  list_t *_init_simobjs;
 };
 
 void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id);
