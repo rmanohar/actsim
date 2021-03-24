@@ -2,6 +2,7 @@ defproc test()
 {
    int x[5];
    chp {
+     x[0] := 0;
      x[2] := 3;
      x[x[0]+10] := 1
    }
