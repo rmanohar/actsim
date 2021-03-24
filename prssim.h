@@ -82,6 +82,7 @@ private:
   
 public:
   PrsSimGraph();
+  ~PrsSimGraph();
   
   void addPrs (ActSimCore *, act_prs_lang_t *);
 
@@ -100,6 +101,7 @@ class PrsSim : public ActSimObj {
  public:
   PrsSim (PrsSimGraph *, ActSimCore *sim, Process *p);
      /* initialize simulation, and create initial event */
+  ~PrsSim ();
 
   void Step (int ev_type);	/* run a step of the simulation */
 
@@ -120,6 +122,7 @@ class PrsSim : public ActSimObj {
 
   ActSimCore *_sc;
   PrsSimGraph *_g;
+  list_t *_sim;			// simulation objects
 };
 
 

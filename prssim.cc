@@ -28,6 +28,17 @@ PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 {
   _sc = sim;
   _g = g;
+  _sim = list_new ();
+}
+
+PrsSim::~PrsSim()
+{
+  listitem_t *li;
+  for (li = list_first (_sim); li; li = list_next (li)) {
+    OnePrsSim *x = (OnePrsSim *) list_value (li);
+    delete x;
+  }
+  list_free (_sim);
 }
 
 void PrsSim::Step (int ev_type)
@@ -75,6 +86,7 @@ void PrsSim::computeFanout ()
   for (x = _g->getRules(); x; x = x->next) {
     /* -- create rule -- */
     OnePrsSim *t = new OnePrsSim (this, x);
+    list_append (_sim, t);
     if (x->type == PRSSIM_RULE) {
       _computeFanout (x->up[0], t);
       _computeFanout (x->up[1], t);
@@ -392,6 +404,52 @@ PrsSimGraph::PrsSimGraph ()
   _labels = hash_new (4);
 }
 
+static void _free_prssim_expr (prssim_expr *e)
+{
+  if (!e) return;
+  switch (e->type) {
+  case PRSSIM_EXPR_AND:
+  case PRSSIM_EXPR_OR:
+    _free_prssim_expr (e->r);
+  case PRSSIM_EXPR_NOT:
+    _free_prssim_expr (e->l);
+    break;
+
+  case PRSSIM_EXPR_VAR:
+  case PRSSIM_EXPR_TRUE:
+  case PRSSIM_EXPR_FALSE:
+    break;
+
+  default:
+    fatal_error ("free_prssim_expr (%d) unknown\n", e->type);
+    break;
+  }
+  FREE (e);
+}
+
+PrsSimGraph::~PrsSimGraph()
+{
+  hash_free (_labels);
+  while (_rules) {
+    switch (_rules->type) {
+    case PRSSIM_RULE:
+      _free_prssim_expr (_rules->up[0]);
+      _free_prssim_expr (_rules->up[1]);
+      _free_prssim_expr (_rules->dn[0]);
+      _free_prssim_expr (_rules->dn[1]);
+      break;
+      
+    case PRSSIM_PASSP:
+    case PRSSIM_PASSN:
+    case PRSSIM_TGATE:
+      break;
+    }
+
+    _tail = _rules->next;
+    FREE (_rules);
+    _rules = _tail;
+  }
+}
 
 PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p, act_spec *spec)
 {
