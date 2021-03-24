@@ -51,6 +51,7 @@ do
 	$ACTTOOL $i 'test<>'  > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 get Reset
 step 10000
+get Reset
 EOF
 	ok=1
 	if ! cmp runs/$i.t.stdout runs/$i.stdout >/dev/null 2>/dev/null
