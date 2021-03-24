@@ -20,6 +20,7 @@ fi
 for i in $list
 do
 	$ACTTOOL $i 'test<>' > runs/$i.stdout 2> runs/$i.stderr <<EOF
+get Reset
 step 10000
 EOF
 done

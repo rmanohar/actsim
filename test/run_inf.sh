@@ -49,6 +49,7 @@ do
 	num=`expr $num + 1`
         myecho ".[$bname]"
 	$ACTTOOL $i 'test<>'  > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
+get Reset
 step 10000
 EOF
 	ok=1
