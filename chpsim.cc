@@ -404,6 +404,11 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 {
   act_connection *c;
   int dy;
+
+  if (!stmt) {
+    fprintf (fp, "(null)");
+    return;
+  }
   
   switch (stmt->type) {
   case CHPSIM_FORK:
@@ -418,6 +423,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 
   case CHPSIM_ASSIGN:
     fprintf (fp, "assign: ");
+    if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.assign.d.offset,
 				  (stmt->u.assign.isint ? 1 : 0),
 				  &dy);
@@ -434,6 +440,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 
   case CHPSIM_SEND:
     fprintf (fp, "send: ");
+    if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.send.chvar, 3, &dy);
     if (c) {
       ActId *t = c->toid();
@@ -448,6 +455,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 
   case CHPSIM_RECV:
     fprintf (fp, "recv: ");
+    if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.recv.chvar, 2, &dy);
     if (c) {
       ActId *t = c->toid();
@@ -1869,7 +1877,10 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
   all = NULL;
   wait = 0;
   totidx = 0;
+  /*printf ("alloc %p\n", this);*/
 }
+
+
 
 
 ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
@@ -1895,6 +1906,18 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
 }
 
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s);
+static void _free_chp_expr (Expr *e);
+
+static void _free_deref (struct chpsimderef *d)
+{
+  if (d->range) {
+    for (int i=0; i < d->range->nDims(); i++) {
+      _free_chp_expr (d->chp_idx[i]);
+    }
+    FREE (d->chp_idx);
+    FREE (d->idx);
+  }
+}
 
 static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
 				      int *width = NULL)
@@ -1935,6 +1958,120 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
  * The CHP simulation graph
  *------------------------------------------------------------------------
  */
+static void _free_chp_expr (Expr *e)
+{
+  if (!e) return;
+  switch (e->type) {
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    _free_chp_expr (e->u.e.l);
+    _free_chp_expr (e->u.e.r);
+    break;
+    
+  case E_NOT:
+  case E_UMINUS:
+  case E_COMPLEMENT:
+    _free_chp_expr (e->u.e.l);
+    break;
+
+  case E_QUERY:
+    _free_chp_expr (e->u.e.l);
+    _free_chp_expr (e->u.e.r->u.e.l);
+    _free_chp_expr (e->u.e.r->u.e.r);
+    FREE (e->u.e.r);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    _free_chp_expr (e->u.e.l);
+    _free_chp_expr (e->u.e.r);
+    break;
+
+  case E_CHP_BITFIELD:
+    _free_chp_expr (e->u.e.r->u.e.l);
+    _free_chp_expr (e->u.e.r->u.e.r);
+    FREE (e->u.e.r);
+    {
+      struct chpsimderef *d;
+      d = (struct chpsimderef *)e->u.e.l;
+      _free_deref (d);
+      FREE (d);
+    }
+    break;
+
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+    return;
+    break;
+
+  case E_REAL:
+    break;
+
+  case E_CHP_VARBOOL_DEREF:
+  case E_CHP_VARINT_DEREF:
+    {
+      struct chpsimderef *d = (struct chpsimderef *)e->u.e.l;
+      _free_deref (d);
+      FREE (d);
+    }
+    break;
+
+  case E_CHP_VARCHAN:
+  case E_CHP_VARINT:
+  case E_CHP_VARBOOL:
+    break;
+    
+  case E_PROBEIN:
+  case E_PROBEOUT:
+    break;
+    
+  case E_FUNCTION:
+    {
+      Expr *tmp = NULL;
+      tmp = e->u.fn.r;
+      while (tmp) {
+	Expr *x;
+	_free_chp_expr (tmp->u.e.l);
+	x = tmp->u.e.r;
+	FREE (tmp);
+	tmp = x;
+      }
+    }
+    break;
+
+  case E_BUILTIN_INT:
+  case E_BUILTIN_BOOL:
+    _free_chp_expr (e->u.e.l);
+    _free_chp_expr (e->u.e.r);
+    break;
+
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+  FREE (e);
+}
 
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 {
@@ -2696,4 +2833,121 @@ double ChpSim::getLeakage (void)
 unsigned long ChpSim::getArea (void)
 {
   return _area_cost;
+}
+
+
+ChpSimGraph::~ChpSimGraph ()
+{
+  /*
+    printf ("del %p:: ", this);
+    printStmt (stdout, NULL);
+    printf ("\n");
+  */
+  
+  wait = -1;
+  if (stmt) {
+    switch (stmt->type) {
+    case CHPSIM_COND:
+      {
+	struct chpsimcond *x;
+	int nguards = 1;
+	_free_chp_expr (stmt->u.c.g);
+	x = stmt->u.c.next;
+	while (x) {
+	  struct chpsimcond *t;
+	  _free_chp_expr (x->g);
+	  t = x->next;
+	  FREE (x);
+	  x = t;
+	  nguards++;
+	}
+	if (!next) {
+	  /* not a loop: now what: free one guard */
+	  for (int i=0; i < nguards; i++) {
+	    if (all[i]) {
+	      delete all[i];
+	      /* -- memory leak -- */
+	      break;
+	    }
+	  }
+	  if (all) {
+	    FREE (all);
+	  }
+	}
+	else {
+	  for (int i=0; i < nguards; i++) {
+	    if (all[i]) {
+	      delete all[i];
+	    }
+	  }
+	  if (all) {
+	    FREE (all);
+	  }
+	}
+      }
+      break;
+      
+    case CHPSIM_FORK:
+      Assert (all, "What?");
+      for (int i=0; i < stmt->u.fork; i++) {
+	if (all[i]) {
+	  delete all[i];
+	}
+      }
+      FREE (all);
+      next = NULL; // no need to use next, it will be handled by one
+		   // of the forked branches
+      break;
+      
+    case CHPSIM_ASSIGN:
+      _free_deref (&stmt->u.assign.d);
+      _free_chp_expr (stmt->u.assign.e);
+      break;
+      
+    case CHPSIM_SEND:
+      for (listitem_t *li = list_first (stmt->u.send.el); li; li = list_next (li)) {
+	_free_chp_expr ((Expr *) list_value (li));
+      }
+      list_free (stmt->u.send.el);
+      break;
+      
+    case CHPSIM_RECV:
+      for (listitem_t *li = list_first (stmt->u.recv.vl); li;
+	   li = list_next (li)) {
+	/* (type, deref) pairs */
+	li = list_next (li);
+	Assert (li, "Huh");
+	_free_deref ((struct chpsimderef *) list_value (li));
+      }
+      list_free (stmt->u.recv.vl);
+      break;
+      
+    case CHPSIM_FUNC:
+      for (listitem_t *li = list_first (stmt->u.fn.l); li;
+	   li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	if (!tmp->isstring) {
+	  _free_chp_expr (tmp->u.e);
+	}
+	FREE (tmp);
+      }
+      list_free (stmt->u.fn.l);
+      break;
+
+    default:
+      fatal_error ("What type is this (%d) in ~ChpSimGraph()?", stmt->type);
+      break;
+    }
+  }
+  if (next) {
+    if (next->wait > 1) {
+      next->wait--;
+    }
+    else {
+      if (next->wait != -1) {
+	delete next;
+      }
+    }
+  }
+  next = NULL;
 }

@@ -132,6 +132,31 @@ ActSimCore::ActSimCore (Process *p)
   _rootsi = si;
   _initSim();
 }
+
+static void _delete_sim_objs (ActInstTable *I, int del)
+{
+  hash_bucket_t *b;
+  hash_iter_t hi;
+  if (!I) return;
+
+  if (I->obj) {
+    delete I->obj;
+  }
+  I->obj = NULL;
+
+  if (I->H) {
+    hash_iter_init (I->H, &hi);
+    while ((b = hash_iter_next (I->H, &hi))) {
+      ActInstTable *x = (ActInstTable *)b->v;
+      _delete_sim_objs (x, 1);
+    }
+    hash_free (I->H);
+  }
+  I->H = NULL;
+  if (del) {
+    FREE (I);
+  }
+}
       
 ActSimCore::~ActSimCore()
 {
@@ -151,8 +176,9 @@ ActSimCore::~ActSimCore()
   if (map) {
     for (int i=0; i < map->size; i++) {
       for (ihash_bucket_t *b = map->head[i]; b; b = b->next) {
-	ChpSimGraph *g = (ChpSimGraph *)b->v;
-	delete g;
+	struct chpsimgraph_info *sg = (struct chpsimgraph_info *)b->v;
+	delete sg->g;
+	FREE (sg);
       }
     }
     ihash_free (map);
@@ -173,6 +199,19 @@ ActSimCore::~ActSimCore()
   if (state) {
     delete state;
   }
+
+  /*-- fanout tables --*/
+  if (nfo) {
+    FREE (nfo);
+    Assert (fo, "What?");
+    FREE (fo);
+  }
+  if (hfo) {
+    ihash_free (hfo);
+  }
+
+  /*-- instance tables --*/
+  _delete_sim_objs (&I, 0);
 }
 
 
@@ -1021,4 +1060,19 @@ void ActSimObj::propagate ()
 {
   /* by default, just wake up all globally stalled processs */
   _sc->gWakeup ();
+}
+
+
+ActSimObj::~ActSimObj()
+{
+  if (_abs_port_bool) {
+    FREE (_abs_port_bool);
+  }
+  if (_abs_port_int) {
+    FREE (_abs_port_int);
+  }
+  if (_abs_port_chan) {
+    FREE (_abs_port_chan);
+  }
+  delete name;
 }

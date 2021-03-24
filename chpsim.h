@@ -84,6 +84,8 @@ struct chpsimstmt {
 class ChpSimGraph {
  public:
   ChpSimGraph (ActSimCore *);
+  ~ChpSimGraph ();
+  
   ActSimCore *state;
   chpsimstmt *stmt;		/* object to simulate */
   int wait;			/* for concurrency */

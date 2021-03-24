@@ -93,6 +93,14 @@ ActSimState::~ActSimState()
     FREE (chans);
   }
   delete gshared;
+
+  for (listitem_t *li = list_first (extra_state); li; li = list_next (li)) {
+    struct extra_state_alloc *s;
+    s = (struct extra_state_alloc *) list_value (li);
+    FREE (s->space);
+    FREE (s);
+  }
+  list_free (extra_state);
 }
 		 
 long ActSimState::getInt (int x)

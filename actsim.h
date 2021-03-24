@@ -130,6 +130,7 @@ private:
 
 class ActSimDES : public SimDES {
 public:
+  virtual ~ActSimDES() { };
   virtual void propagate () { };
 };
 
@@ -144,8 +145,8 @@ struct ActInstTable {
 class ActSimObj : public ActSimDES {
 public:
   ActSimObj (ActSimCore *sim, Process *p);
+  virtual ~ActSimObj();
 
-  
   int getGlobalOffset (int loc, int type); // 0 = bool, 1 = int,
                                            // 2 = chan
 

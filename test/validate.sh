@@ -21,6 +21,5 @@ for i in $list
 do
 	$ACTTOOL $i 'test<>' > runs/$i.stdout 2> runs/$i.stderr <<EOF
 cycle
-exit
 EOF
 done

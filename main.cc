@@ -558,6 +558,8 @@ int main (int argc, char **argv)
   }
 
   LispCliEnd ();
+  
+  delete glob_sim;
 
   return 0;
 }
