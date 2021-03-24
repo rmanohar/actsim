@@ -474,12 +474,11 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     break;
 
   case CHPSIM_COND:
-    if (next == NULL) {
-      fprintf (fp, "cond: ");
-    }
-    else {
-      fprintf (fp, "loop: ");
-    }
+    fprintf (fp, "cond: ");
+    break;
+
+  case CHPSIM_LOOP:
+    fprintf (fp, "loop: ");
     break;
 
   default:
@@ -718,13 +717,14 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_COND:
+  case CHPSIM_LOOP:
     {
       chpsimcond *gc;
       int cnt = 0;
       expr_res res;
 
 #ifdef DUMP_ALL
-      if (_pc[pc]->next == NULL) {
+      if (stmt->type == CHPSIM_COND) {
 	printf ("cond");
       }
       else {
@@ -760,7 +760,7 @@ void ChpSim::Step (int ev_type)
       }
       /* all guards false */
       if (!gc) {
-	if (_pc[pc]->next == NULL) {
+	if (stmt->type == CHPSIM_COND) {
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
 	  forceret = 1;
@@ -1877,7 +1877,9 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
   all = NULL;
   wait = 0;
   totidx = 0;
-  /*printf ("alloc %p\n", this);*/
+#if 0  
+  printf ("alloc %p\n", this);
+#endif  
 }
 
 
@@ -1886,7 +1888,7 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
 ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
 {
   *done = 0;
-  if (!next) {
+  if (!next || (stmt && stmt->type == CHPSIM_COND)) {
     return NULL;
   }
   if (next->wait > 0) {
@@ -2391,6 +2393,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_LOOP:
     ret = new ChpSimGraph (sc);
     ret->stmt = gc_to_chpsim (c->u.gc, sc);
+    if (c->type == ACT_CHP_LOOP) {
+      ret->stmt->type = CHPSIM_LOOP;
+    }
     i = 0;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
       i++;
@@ -2400,9 +2405,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       
     (*stop) = new ChpSimGraph (sc);
 
-    if (c->type == ACT_CHP_LOOP) {
-      ret->next = (*stop);
-    }
+    //if (c->type == ACT_CHP_LOOP) {
+    ret->next = (*stop);
+    //}
     i = 0;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
       ret->all[i] = _buildChpSimGraph (sc, gc->s, &tmp2);
@@ -2430,6 +2435,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_DOLOOP:
     ret = new ChpSimGraph (sc);
     ret->stmt = gc_to_chpsim (c->u.gc, sc);
+    ret->stmt->type = CHPSIM_LOOP;
     (*stop) = new ChpSimGraph (sc);
     ret->next = (*stop);
     MALLOC (ret->all, ChpSimGraph *, 1);
@@ -2838,19 +2844,21 @@ unsigned long ChpSim::getArea (void)
 
 ChpSimGraph::~ChpSimGraph ()
 {
-  /*
-    printf ("del %p:: ", this);
-    printStmt (stdout, NULL);
-    printf ("\n");
-  */
+#if 0  
+  printf ("del %p:: ", this);
+  printStmt (stdout, NULL);
+  printf ("\n");
+#endif  
   
   wait = -1;
   if (stmt) {
     switch (stmt->type) {
     case CHPSIM_COND:
+    case CHPSIM_LOOP:
       {
 	struct chpsimcond *x;
 	int nguards = 1;
+	int nw;
 	_free_chp_expr (stmt->u.c.g);
 	x = stmt->u.c.next;
 	while (x) {
@@ -2861,36 +2869,25 @@ ChpSimGraph::~ChpSimGraph ()
 	  x = t;
 	  nguards++;
 	}
-	if (!next) {
-	  /* not a loop: now what: free one guard */
-	  for (int i=0; i < nguards; i++) {
-	    if (all[i]) {
-	      delete all[i];
-	      /* -- memory leak -- */
-	      break;
-	    }
-	  }
-	  if (all) {
-	    FREE (all);
+	Assert (next, "What?");
+	nw = next->wait;
+	next->wait = -1;
+	for (int i=0; i < nguards; i++) {
+	  if (all[i] && all[i]->wait != -1) {
+	    delete all[i];
 	  }
 	}
-	else {
-	  for (int i=0; i < nguards; i++) {
-	    if (all[i]) {
-	      delete all[i];
-	    }
-	  }
-	  if (all) {
-	    FREE (all);
-	  }
+	if (all) {
+	  FREE (all);
 	}
+	next->wait = nw;
       }
       break;
       
     case CHPSIM_FORK:
       Assert (all, "What?");
       for (int i=0; i < stmt->u.fork; i++) {
-	if (all[i]) {
+	if (all[i] && all[i]->wait != -1) {
 	  delete all[i];
 	}
       }

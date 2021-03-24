@@ -39,6 +39,7 @@ struct chpsimcond {
 #define CHPSIM_RECV   3
 #define CHPSIM_FUNC   4  /* built-in functions */
 #define CHPSIM_FORK   5
+#define CHPSIM_LOOP   6
 
 struct chpsimderef {
   Array *range;			// if NULL, then offset is the id
