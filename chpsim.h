@@ -122,6 +122,7 @@ class ChpSim : public ActSimObj {
   ChpSim (ChpSimGraph *, int maxcnt, act_chp_lang_t *, ActSimCore *sim,
 	  Process *p);
      /* initialize simulation, and create initial event */
+  ~ChpSim ();
 
   void Step (int ev_type);	/* run a step of the simulation */
 

@@ -129,6 +129,13 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   }
 }
 
+ChpSim::~ChpSim()
+{
+  if (_statestk) {
+    list_free (_statestk);
+  }
+}
+
 int ChpSim::_nextEvent (int pc)
 {
   while (_pc[pc] && !_pc[pc]->stmt) {
@@ -2935,6 +2942,7 @@ ChpSimGraph::~ChpSimGraph ()
       fatal_error ("What type is this (%d) in ~ChpSimGraph()?", stmt->type);
       break;
     }
+    FREE (stmt);
   }
   if (next) {
     if (next->wait > 1) {

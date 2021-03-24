@@ -202,9 +202,18 @@ ActSimCore::~ActSimCore()
 
   /*-- fanout tables --*/
   if (nfo) {
-    FREE (nfo);
     Assert (fo, "What?");
+    for (int i=0; i < nfo_len; i++) {
+      if (nfo[i] > 0) {
+	Assert (fo[i], "What?");
+	FREE (fo[i]);
+      }
+      else {
+	Assert (!fo[i], "Hmm");
+      }
+    }
     FREE (fo);
+    FREE (nfo);
   }
   if (hfo) {
     ihash_free (hfo);
@@ -731,6 +740,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
       else {
 	delete _curinst;
 	_curinst = NULL;
+      }
+      if (as) {
+	delete as;
       }
     }
   }
