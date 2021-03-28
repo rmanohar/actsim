@@ -19,9 +19,9 @@
  *
  **************************************************************************
  */
-#include <simdes.h>
+#include <common/simdes.h>
 #include "prssim.h"
-#include "qops.h"
+#include <common/qops.h>
 
 PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)

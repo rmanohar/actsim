@@ -22,7 +22,7 @@
 #ifndef __ACT_CHP_SIM_H__
 #define __ACT_CHP_SIM_H__
 
-#include <simdes.h>
+#include <common/simdes.h>
 #include "actsim.h"
 
 
@@ -125,6 +125,8 @@ class ChpSim : public ActSimObj {
   ~ChpSim ();
 
   void Step (int ev_type);	/* run a step of the simulation */
+
+  void reStart (ChpSimGraph *g, int maxcnt);
 
   void computeFanout ();
 

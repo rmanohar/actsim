@@ -27,7 +27,7 @@
 #include <signal.h>
 #include <act/act.h>
 #include <act/passes.h>
-#include "config.h"
+#include <common/config.h>
 #include "actsim.h"
 #include <lisp.h>
 #include <lispCli.h>

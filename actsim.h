@@ -22,8 +22,8 @@
 #ifndef __ACT_SIM__H__
 #define __ACT_SIM__H__
 
-#include <bitset.h>
-#include <simdes.h>
+#include <common/bitset.h>
+#include <common/simdes.h>
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
@@ -167,6 +167,7 @@ public:
   virtual unsigned long getArea () { return 0; }
 
   virtual void propagate ();
+  virtual void computeFanout() { printf ("should not be here\n"); }
 
 protected:
   state_counts _o;		/* my state offsets for all local

@@ -22,7 +22,7 @@
 #ifndef __ACT_PRS_SIM_H__
 #define __ACT_PRS_SIM_H__
 
-#include <simdes.h>
+#include <common/simdes.h>
 #include "actsim.h"
 
 /*

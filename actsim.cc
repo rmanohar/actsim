@@ -44,6 +44,7 @@
 
 struct chpsimgraph_info {
   ChpSimGraph *g;
+  Expr *e;			/* for probes, if needed */
   int max_count;
 };
 
@@ -252,6 +253,7 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       b = ihash_add (map, (long)_curproc);
       NEW (sg, chpsimgraph_info);
       sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+      sg->e = NULL;
       sg->max_count = ChpSimGraph::max_pending_count;
       b->v = sg;
     }
@@ -263,7 +265,7 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
-  x->computeFanout ();
+
   return x;
 }
 
@@ -312,7 +314,6 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
-  x->computeFanout ();
   
   return x;
 }
@@ -347,7 +348,6 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
-  x->computeFanout ();
 
   return x;
 }
@@ -463,6 +463,9 @@ void ActSimCore::_add_language (int lev, act_languages *l)
 	_curI->obj = _add_chp (NULL);
       }
     }
+  }
+  if (_curI->obj) {
+    _curI->obj->computeFanout();
   }
 }
 

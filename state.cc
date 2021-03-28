@@ -21,7 +21,7 @@
  */
 #include <stdio.h>
 #include "actsim.h"
-#include "misc.h"
+#include <common/misc.h>
 
 ActSimState::ActSimState (int bools, int ints, int chantot)
 {

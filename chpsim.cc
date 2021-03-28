@@ -20,9 +20,9 @@
  **************************************************************************
  */
 #include <stdio.h>
-#include "config.h"
-#include <simdes.h>
+#include <common/config.h>
 #include "chpsim.h"
+#include <common/simdes.h>
 #include <dlfcn.h>
 
 class ChpSim;
@@ -128,6 +128,19 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     _nextEvent (0);
   }
 }
+
+void ChpSim::reStart (ChpSimGraph *g, int max_cnt)
+{
+  for (int i=0; i < _npc; i++) {
+    _pc[i] = NULL;
+  }
+  for (int i=0; i < max_cnt; i++) {
+    _tot[i] = 0;
+  }
+  _pc[0] = g;
+  _nextEvent (0);
+}
+		     
 
 ChpSim::~ChpSim()
 {
@@ -824,12 +837,12 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
       c->frag_st = 1;
       c->ufrag_st = 0;
     case 1:
+      /* send */
       
-      /* in send, advance through */
 
       break;
     case 2:
-      /* in send_up, advance through */
+      /* send_up */
 
       break;
     case 3:
@@ -1689,9 +1702,21 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
   ihash_iter_init (_tmpused, &iter);
   //printf ("going through...\n");
   while ((b = ihash_iter_next (_tmpused, &iter))) {
+    int off = getGlobalOffset (b->key, b->i < 2 ? b->i : 2);
     if (b->i == 0 || b->i == 1) {
-      int off = getGlobalOffset (b->key, b->i);
       _sc->incFanout (off, b->i, this);
+    }
+    else {
+      act_channel_state *ch = _sc->getChan (off);
+      Assert (ch, "Hmm");
+      if (ch->fragmented) {
+	ihash_bucket_t *ib;
+	ihash_iter_t ih;
+	ihash_iter_init (ch->fH, &ih);
+	while ((ib = ihash_iter_next (ch->fH, &ih))) {
+	  _sc->incFanout (ib->i, 0, this);
+	}
+      }
     }
   }
   ihash_free (_tmpused);
@@ -1859,12 +1884,17 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_SEND:
+    _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
     for (listitem_t *li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
       _compute_used_variables_helper ((Expr *)list_value (li));
     }
     break;
     
   case ACT_CHP_RECV:
+    _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
+    for (listitem_t *li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
+      _mark_vars_used (_sc, (ActId *)list_value (li), _tmpused);
+    }
     break;
 
   default:

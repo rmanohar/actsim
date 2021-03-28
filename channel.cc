@@ -26,6 +26,11 @@ static void _hse_record_ids (act_channel_state *ch,
 			     ActId *ch_name,
 			     ActId *id)
 {
+  /*-- self is a special case --*/
+  if (!id->Rest() && (strcmp (id->getName(), "self") == 0)) {
+    return;
+  }
+  
   act_connection *ac = id->Canonical (ch->ct->CurScope());
   ihash_bucket_t *b;
 
