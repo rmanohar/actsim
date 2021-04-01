@@ -983,6 +983,10 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
 {
   _sc = sim;
   _proc = p;
+  _abs_port_bool = NULL;
+  _abs_port_int = NULL;
+  _abs_port_chan = NULL;
+  name = NULL;
 }
 
 

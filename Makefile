@@ -29,7 +29,7 @@ OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o
 SRCS=$(OBJS:.o=.cc)
 
 
-include $(VLSI_TOOLS_SRC)/scripts/Makefile.std
+include $(ACT_HOME)/scripts/Makefile.std
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND)
 	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit

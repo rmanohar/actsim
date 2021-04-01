@@ -1,7 +1,7 @@
 #!/bin/sh
 
-ARCH=`$VLSI_TOOLS_SRC/scripts/getarch`
-OS=`$VLSI_TOOLS_SRC/scripts/getos`
+ARCH=`$ACT_HOME/scripts/getarch`
+OS=`$ACT_HOME/scripts/getos`
 EXT=${ARCH}_${OS}
 ACTTOOL=../actsim.$EXT 
 
