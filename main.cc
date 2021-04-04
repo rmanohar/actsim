@@ -510,8 +510,11 @@ int main (int argc, char **argv)
 {
   char *proc;
 
+  config_set_default_int ("sim.chp.default_delay", 10);
+
   /* initialize ACT library */
   Act::Init (&argc, &argv);
+
 
   /* some usage check */
   if (argc != 3) {

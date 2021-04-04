@@ -54,7 +54,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   }
   else {
     // default delay is 10
-    stmt->delay_cost = 10;
+    stmt->delay_cost = config_get_int ("sim.chp.default_delay");
   }
 
   snprintf (buf, 1024, "sim.chp.%s.%s.E", si->bnl->p->getName(),
@@ -126,6 +126,10 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     _pc[0] = g;
     _statestk = list_new ();
     _nextEvent (0);
+  }
+  else {
+    _pc = NULL;
+    _npc = 0;
   }
 }
 
