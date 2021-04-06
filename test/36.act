@@ -1,0 +1,45 @@
+namespace signed {
+
+template<pint W1, W2>
+function lt (int<W1> i1; int<W2> i2) : bool
+{
+  chp {
+    [ i1{W1-1} != i2{W2-1} -> self := bool(i1{W2-1})
+   [] else -> self := bool (int(i1 < i2) ^ i1{W1-1})
+    ] ;
+    log ("Got ", i1, " ", i2, ": ", self)
+  }
+}
+
+}
+
+defproc test_signed(chan?(int<8>) X, Y)
+{
+   int<8> x, y;
+   chp {
+     *[ X?x, Y?y;
+        [ x < y -> log (x, " < ", y, " ? un:yes") [] else -> log (x, " < ",  y, " ? un:no") ];
+        [ signed::lt<8,8>(x,y) -> log (x, " <s ", y, " ? si:yes") [] else -> log (x, " <s ", y, " ? si:no") ]
+      ]
+   } 
+}
+
+defproc src_check(chan!(int<8>) A, B)
+{
+  chp {
+     log ("send");
+     A!0, B!0;
+     A!1, B!0;
+     A!0, B!1;
+     A!255, B!0;
+     A!0, B!255
+  }
+}
+
+defproc test()
+{
+  test_signed t;
+  src_check chk(t.X,t.Y);
+}
+
+test x;

@@ -1144,8 +1144,28 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
     
   case ACT_CHP_SEND:
   case ACT_CHP_RECV:
+    fatal_error ("Functions cannot use send/receive");
+    break;
+    
   case ACT_CHP_FUNC:
-    fatal_error ("Functions cannot use send/receive or log!");
+    if (strcmp (string_char (c->u.func.name), "log") != 0) {
+      warning ("Built-in function `%s' is not known; valid values: log",
+	       string_char (c->u.func.name));
+    }
+    else {
+      listitem_t *li;
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	if (tmp->isstring) {
+	  printf ("%s", string_char (tmp->u.s));
+	}
+	else {
+	  expr_res v = exprEval (tmp->u.e);
+	  printf (ACT_EXPR_RES_PRINTF, v.v);
+	}
+      }
+      printf ("\n");
+    }
     break;
     
   case ACT_CHP_ASSIGN:
