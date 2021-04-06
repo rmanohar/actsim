@@ -1472,7 +1472,7 @@ expr_res ChpSim::exprEval (Expr *e)
       l.v = ((1UL << l.width)-1) - l.v;
     }
     else {
-      l.v = -l.v;
+      l.v = ~l.v;
     }
     break;
 
