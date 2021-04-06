@@ -1,0 +1,29 @@
+function foo (int<32> in) : int<32>
+{
+
+	chp {
+		self := ~in
+	}
+
+}
+
+defproc test () 
+{
+
+	int b;
+
+	chp {
+		b := 2;
+		log (b);
+		b := foo(b);
+		log (b);
+
+		b := 0xFFFFFFFE;
+		log (b);
+		b := foo(b);
+		log (b)
+	}
+
+}
+
+test t;

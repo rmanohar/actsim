@@ -1,0 +1,16 @@
+[       0 t#:0] <chk> send
+[      10 t#:0] <t> 0 < 0 ? un:no
+Got 0 0: 0
+[      10 t#:0] <t> 0 <s 0 ? si:no
+[      20 t#:0] <t> 1 < 0 ? un:no
+Got 1 0: 0
+[      20 t#:0] <t> 1 <s 0 ? si:no
+[      30 t#:0] <t> 0 < 1 ? un:yes
+Got 0 1: 1
+[      30 t#:0] <t> 0 <s 1 ? si:yes
+[      40 t#:0] <t> 255 < 0 ? un:no
+Got 255 0: 1
+[      40 t#:0] <t> 255 <s 0 ? si:yes
+[      50 t#:0] <t> 0 < 255 ? un:yes
+Got 0 255: 0
+[      50 t#:0] <t> 0 <s 255 ? si:no

@@ -733,6 +733,10 @@ void ChpSim::Step (int ev_type)
       }
       else {
 	v = exprEval (arg->u.e);
+	if (v.width < 64) {
+	  v.v = v.v << (64-v.width);
+	  v.v = v.v >> (64-v.width);
+	}
 	printf (ACT_EXPR_RES_PRINTF, v.v);
       }
     }
@@ -1454,7 +1458,7 @@ expr_res ChpSim::exprEval (Expr *e)
     
   case E_NOT:
     l = exprEval (e->u.e.l);
-    l.v = !l.v;
+    l.v = ~l.v;
     break;
     
   case E_UMINUS:
