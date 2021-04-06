@@ -1468,7 +1468,12 @@ expr_res ChpSim::exprEval (Expr *e)
 
   case E_COMPLEMENT:
     l = exprEval (e->u.e.l);
-    l.v = ((1 << l.width)-1) - l.v;
+    if (l.width < 64) {
+      l.v = ((1UL << l.width)-1) - l.v;
+    }
+    else {
+      l.v = -l.v;
+    }
     break;
 
   case E_QUERY:
