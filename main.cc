@@ -490,20 +490,20 @@ int process_get (int argc, char **argv)
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Running a simulation", NULL },
-  { "initialize", "initialize <proc> - initialize simulation for <proc>",
+  { "initialize", "<proc> - initialize simulation for <proc>",
     process_initialize },
-  { "cycle", "cycle - run until simulation stops", process_cycle },
-  { "step", "step [n] - run the next [n] events", process_step },
-  { "advance", "advance <delay> - run for <delay> time", process_advance },
+  { "cycle", "- run until simulation stops", process_cycle },
+  { "step", "[n] - run the next [n] events", process_step },
+  { "advance", "<delay> - run for <delay> time", process_advance },
 
-  { "set", "set <name> <val> - set a variable to a value", process_set },
-  { "get", "get <name> - get value of a variable", process_get },
+  { "set", "<name> <val> - set a variable to a value", process_set },
+  { "get", "<name> - get value of a variable", process_get },
 
 
   { NULL, "Statistics", NULL },
   
-  { "procinfo", "procinfo [<inst-name>] - show the program counter for a process", process_procinfo },
-  { "energy", "energy [<inst-name>] - show energy usage", process_getenergy }
+  { "procinfo", "[<inst-name>] - show the program counter for a process", process_procinfo },
+  { "energy", "[<inst-name>] - show energy usage", process_getenergy }
 };
 
 int main (int argc, char **argv)
