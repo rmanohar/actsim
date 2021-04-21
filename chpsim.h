@@ -69,13 +69,10 @@ struct chpsimstmt {
     struct {
       int chvar;
       act_connection *vc;
-      list_t *el;		/* list of expressions */
-    } send;
-    struct {
-      int chvar;
-      act_connection *vc;
-      list_t *vl;		/* list of vars */
-    } recv;
+      Expr *e;
+      struct chpsimderef *d;
+      int d_type;
+    } sendrecv;
   } u;
 };
 

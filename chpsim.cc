@@ -465,7 +465,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
   case CHPSIM_SEND:
     fprintf (fp, "send: ");
     if (!p) break;
-    c = state->getConnFromOffset (p, stmt->u.send.chvar, 3, &dy);
+    c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 3, &dy);
     if (c) {
       ActId *t = c->toid();
       t->Print (fp);
@@ -480,7 +480,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
   case CHPSIM_RECV:
     fprintf (fp, "recv: ");
     if (!p) break;
-    c = state->getConnFromOffset (p, stmt->u.recv.chvar, 2, &dy);
+    c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 2, &dy);
     if (c) {
       ActId *t = c->toid();
       t->Print (fp);
@@ -631,9 +631,8 @@ void ChpSim::Step (int ev_type)
            expression being sent over the channel --*/
       
       listitem_t *li;
-      li = list_first (stmt->u.send.el);
-      if (li) {
-	v = exprEval ((Expr *)list_value (li));
+      if (stmt->u.sendrecv.e) {
+	v = exprEval (stmt->u.sendrecv.e);
       }
       else {
 	/* data-less */
@@ -646,7 +645,7 @@ void ChpSim::Step (int ev_type)
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
       otherwise we have to wait for the receiver --*/
-    if (varSend (pc, flag, stmt->u.send.chvar, v)) {
+    if (varSend (pc, flag, stmt->u.sendrecv.chvar, v)) {
       /* blocked */
       forceret = 1;
 #ifdef DUMP_ALL      
@@ -670,12 +669,9 @@ void ChpSim::Step (int ev_type)
       int id;
       int type;
       int width;
-      li = list_first (stmt->u.recv.vl);
-      if (li) {
-	type = (long)list_value (li);
-	li = list_next (li);
-	Assert (li, "What?");
-	d = (struct chpsimderef *)list_value (li);
+      if (stmt->u.sendrecv.d) {
+	type = stmt->u.sendrecv.d_type;
+	d = stmt->u.sendrecv.d;
 	id = computeOffset (d);
 	width = d->width;
       }
@@ -684,7 +680,7 @@ void ChpSim::Step (int ev_type)
       }
 
       /*-- attempt to receive value --*/
-      if (varRecv (pc, flag, stmt->u.recv.chvar, &v)) {
+      if (varRecv (pc, flag, stmt->u.sendrecv.chvar, &v)) {
 	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
@@ -1918,15 +1914,21 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     
   case ACT_CHP_SEND:
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
-    for (listitem_t *li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-      _compute_used_variables_helper ((Expr *)list_value (li));
+    if (c->u.comm.e) {
+      _compute_used_variables_helper (c->u.comm.e);
+    }
+    if (c->u.comm.var) {
+      _mark_vars_used (_sc, c->u.comm.var, _tmpused);
     }
     break;
     
   case ACT_CHP_RECV:
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
-    for (listitem_t *li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-      _mark_vars_used (_sc, (ActId *)list_value (li), _tmpused);
+    if (c->u.comm.e) {
+      _compute_used_variables_helper (c->u.comm.e);
+    }
+    if (c->u.comm.var) {
+      _mark_vars_used (_sc, c->u.comm.var, _tmpused);
     }
     break;
 
@@ -2521,16 +2523,36 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     NEW (ret->stmt, chpsimstmt);
     _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
     ret->stmt->type = CHPSIM_SEND;
-    {
-      listitem_t *li;
-      ret->stmt->u.send.el = list_new ();
-      for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-	Expr *e = (Expr *) list_value (li);
-	list_append (ret->stmt->u.send.el, expr_to_chp_expr (e, sc));
+
+    ret->stmt->u.sendrecv.e = NULL;
+    ret->stmt->u.sendrecv.d = NULL;
+
+    if (c->u.comm.e) {
+      ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
+    }
+    if (c->u.comm.var) {
+      ActId *id = c->u.comm.var;
+      int type;
+      struct chpsimderef *d;
+
+      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	d = _mk_deref (id, sc, &type);
       }
-    }    
-    ret->stmt->u.send.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
-    ret->stmt->u.send.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+      else {
+	NEW (d, struct chpsimderef);
+	d->range = NULL;
+	d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
+	d->width = width;
+	d->cx = id->Canonical (sc->cursi()->bnl->cur);
+      }
+      if (type == 3) {
+	type = 2;
+      }
+      ret->stmt->u.sendrecv.d = d;
+      ret->stmt->u.sendrecv.d_type = type;
+    }
+    ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
     (*stop) = ret;
     break;
     
@@ -2540,34 +2562,37 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     NEW (ret->stmt, chpsimstmt);
     _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
     ret->stmt->type = CHPSIM_RECV;
-    {
-      listitem_t *li;
-      ret->stmt->u.recv.vl = list_new ();
-      for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-	ActId *id = (ActId *) list_value (li);
-	int type;
-	struct chpsimderef *d;
 
-	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
-	  d = _mk_deref (id, sc, &type);
-	}
-	else {
-	  NEW (d, struct chpsimderef);
-	  d->range = NULL;
-	  d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
-	  d->width = width;
-	  d->cx = id->Canonical (sc->cursi()->bnl->cur);
-	}
-	if (type == 3) {
-	  type = 2;
-	}
-	list_append (ret->stmt->u.recv.vl, (void *)(long)type);
-	//list_append (ret->stmt->u.recv.vl, (void *)(long)x);
-	list_append (ret->stmt->u.recv.vl, (void *)d);
-      }
+    ret->stmt->u.sendrecv.e = NULL;
+    ret->stmt->u.sendrecv.d = NULL;
+
+    if (c->u.comm.e) {
+      ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
     }
-    ret->stmt->u.recv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
-    ret->stmt->u.recv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+    if (c->u.comm.var) {
+      ActId *id = c->u.comm.var;
+      int type;
+      struct chpsimderef *d;
+
+      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	d = _mk_deref (id, sc, &type);
+      }
+      else {
+	NEW (d, struct chpsimderef);
+	d->range = NULL;
+	d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
+	d->width = width;
+	d->cx = id->Canonical (sc->cursi()->bnl->cur);
+      }
+      if (type == 3) {
+	type = 2;
+      }
+      ret->stmt->u.sendrecv.d = d;
+      ret->stmt->u.sendrecv.d_type = type;
+    }
+
+    ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+    ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
     (*stop) = ret;
     break;
 
@@ -2783,21 +2808,16 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
     break;
     
   case ACT_CHP_SEND:
-    recordChannel (sc, cc, c->u.comm.chan);
-    for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-      Expr *e = (Expr *) list_value (li);
-      checkFragmentation (sc, cc, e);
-    }    
-    break;
-    
   case ACT_CHP_RECV:
     recordChannel (sc, cc, c->u.comm.chan);
-    for (li = list_first (c->u.comm.rhs); li; li = list_next (li)) {
-      ActId *id = (ActId *) list_value (li);
-      checkFragmentation (sc, cc, id);
+    if (c->u.comm.e) {
+      checkFragmentation (sc, cc, c->u.comm.e);
+    }
+    if (c->u.comm.var) {
+      checkFragmentation (sc, cc,c->u.comm.var);
     }
     break;
-
+    
   case ACT_CHP_FUNC:
     break;
     
@@ -2971,22 +2991,14 @@ ChpSimGraph::~ChpSimGraph ()
       _free_chp_expr (stmt->u.assign.e);
       break;
       
-    case CHPSIM_SEND:
-      for (listitem_t *li = list_first (stmt->u.send.el); li; li = list_next (li)) {
-	_free_chp_expr ((Expr *) list_value (li));
-      }
-      list_free (stmt->u.send.el);
-      break;
-      
     case CHPSIM_RECV:
-      for (listitem_t *li = list_first (stmt->u.recv.vl); li;
-	   li = list_next (li)) {
-	/* (type, deref) pairs */
-	li = list_next (li);
-	Assert (li, "Huh");
-	_free_deref ((struct chpsimderef *) list_value (li));
+    case CHPSIM_SEND:
+      if (stmt->u.sendrecv.e) {
+	_free_chp_expr (stmt->u.sendrecv.e);
       }
-      list_free (stmt->u.recv.vl);
+      if (stmt->u.sendrecv.d) {
+	_free_deref (stmt->u.sendrecv.d);
+      }
       break;
       
     case CHPSIM_FUNC:
