@@ -2519,6 +2519,21 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
     
   case ACT_CHP_SEND:
+    {
+      InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.comm.chan, NULL);
+      Chan *ch;
+      if (TypeFactory::isUserType (it)) {
+	Channel *x = dynamic_cast<Channel *> (it->BaseType());
+	ch = dynamic_cast<Chan *> (x->root()->BaseType());
+      }
+      else {
+	ch = dynamic_cast<Chan *> (it->BaseType());
+      }
+      if (TypeFactory::isStructure (ch->datatype()) ||
+	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
+	fatal_error ("CHP structure send. FIXME!");
+      }
+    }
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
     _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
@@ -2558,6 +2573,21 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     
     
   case ACT_CHP_RECV:
+    {
+      InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.comm.chan, NULL);
+      Chan *ch;
+      if (TypeFactory::isUserType (it)) {
+	Channel *x = dynamic_cast<Channel *> (it->BaseType());
+	ch = dynamic_cast<Chan *> (x->root()->BaseType());
+      }
+      else {
+	ch = dynamic_cast<Chan *> (it->BaseType());
+      }
+      if (TypeFactory::isStructure (ch->datatype()) ||
+	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
+	fatal_error ("CHP structure recv. FIXME!");
+      }
+    }
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
     _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
@@ -2573,6 +2603,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ActId *id = c->u.comm.var;
       int type;
       struct chpsimderef *d;
+
+      /*-- if this is a structure, unravel the structure! --*/
 
       if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	d = _mk_deref (id, sc, &type);
@@ -2628,6 +2660,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
     
   case ACT_CHP_ASSIGN:
+    {
+      InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.assign.id, NULL);
+      if (TypeFactory::isStructure (it)) {
+	fatal_error ("CHP structure assignment. FIXME!");
+      }
+    }
     ret = new ChpSimGraph (sc);
     NEW (ret->stmt, chpsimstmt);
     _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);

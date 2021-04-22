@@ -22,6 +22,9 @@
 #ifndef __ACTSIM__EXT_H__
 #define __ACTSIM__EXT_H__
 
+#include <common/misc.h>
+
+
 struct expr_res {
   unsigned long v;		/* value */
   int width;			/* bitwidth */
@@ -29,5 +32,17 @@ struct expr_res {
 
 #define ACT_EXPR_RES_PRINTF "%lu"
 
+#ifdef __cplusplus
+
+class expr_result {
+ public:
+  expr_result() { nvals = 0; }
+  ~expr_result() { if (v) { FREE (v); } }
+
+  int nvals;
+  expr_res *v;
+};
+
+#endif
 
 #endif /* __ACTSIM__EXT_H__ */

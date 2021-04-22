@@ -40,14 +40,26 @@ struct chpsimcond {
 #define CHPSIM_FUNC   4  /* built-in functions */
 #define CHPSIM_FORK   5
 #define CHPSIM_LOOP   6
+#define CHPSIM_SEND_STRUCT 7
+#define CHPSIM_RECV_STRUCT 8
+#define CHPSIM_ASSIGN_STRUCT 9
 
 struct chpsimderef {
   Array *range;			// if NULL, then offset is the id
   Expr **chp_idx;
   int *idx;
-  int offset;
+
+  int offset;			// offset
+  
   int width;			// for all vars
+  
   act_connection *cx;
+};
+
+struct chpsimderef_struct {
+  chpsimderef d;		// offset is just the count this time
+  int *offsets;			// here are the real offsets and widths
+  int *widths;
 };
 
 struct chpsimstmt {
@@ -67,12 +79,23 @@ struct chpsimstmt {
       Expr *e;
     } assign;			/* var := e */
     struct {
+      struct chpsimderef_struct d;
+      Expr *e;
+    } assign_s;
+    struct {
       int chvar;
       act_connection *vc;
       Expr *e;
-      struct chpsimderef *d;
+      struct chpsimderef *d;	/* this may be a list of variables... */
       int d_type;
     } sendrecv;
+    struct {
+      int chvar;
+      act_connection *vc;
+      Expr *e;
+      struct chpsimderef_struct *d;
+      int d_type;
+    } sendrecv_s;
   } u;
 };
 
