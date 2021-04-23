@@ -42,6 +42,9 @@
 
 #define E_CHP_BITFIELD (E_NEWEND + 9)
 
+#define E_CHP_VARSTRUCT_DEREF (E_NEWEND + 10)
+#define E_CHP_VARSTRUCT       (E_NEWEND + 11)
+
 /*
  *
  * Core simulation library
@@ -228,6 +231,10 @@ class ActSimCore {
 
       sets type to 0, 1, 2, 3 for bool, int, chan(in), chan(out)
   */
+
+  int getLocalDynamicStructOffset (act_connection *c,
+				   stateinfo_t *si,
+				   int *offset_i, int *offset_b);
 
   act_connection *getConnFromOffset (Process *p, int off, int type, int *dy);
   

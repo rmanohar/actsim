@@ -47,19 +47,15 @@ struct chpsimcond {
 struct chpsimderef {
   Array *range;			// if NULL, then offset is the id
   Expr **chp_idx;
-  int *idx;
-
-  int offset;			// offset
+  int *idx;			// for structures, we use this
+				// array. Length is 3x the # of items
+				// in the struct. Format: offset,
+				// width, type
+				// 
   
-  int width;			// for all vars
-  
+  int offset;			// offset / offseti for struct
+  int width;			// for all vars / offsetb for struct
   act_connection *cx;
-};
-
-struct chpsimderef_struct {
-  chpsimderef d;		// offset is just the count this time
-  int *offsets;			// here are the real offsets and widths
-  int *widths;
 };
 
 struct chpsimstmt {
@@ -74,28 +70,18 @@ struct chpsimstmt {
       list_t *l;		/* arguments */
     } fn;
     struct {
-      int isint;		/* 0 = bool, otherwise bitwidth of int */
-      struct chpsimderef d;	/* variable deref */
+      int isint;		/* 0 = bool, otherwise bitwidth of int
+				   */
       Expr *e;
+      struct chpsimderef d;	/* variable deref */
     } assign;			/* var := e */
     struct {
-      struct chpsimderef_struct d;
-      Expr *e;
-    } assign_s;
-    struct {
       int chvar;
       act_connection *vc;
-      Expr *e;
-      struct chpsimderef *d;	/* this may be a list of variables... */
       int d_type;
+      Expr *e;
+      struct chpsimderef *d;
     } sendrecv;
-    struct {
-      int chvar;
-      act_connection *vc;
-      Expr *e;
-      struct chpsimderef_struct *d;
-      int d_type;
-    } sendrecv_s;
   } u;
 };
 

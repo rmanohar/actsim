@@ -963,6 +963,31 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
   return 0;
 }
 
+int ActSimCore::getLocalDynamicStructOffset (act_connection *c,
+					     stateinfo_t *si,
+					     int *offset_i, int *offset_b)
+{
+  int res;
+  int offset;
+
+  if (!sp->connExists (si, c)) {
+    ActId *t = c->toid();
+    fprintf (stderr, "Identifier `");
+    t->Print (stderr);
+    fprintf (stderr, "' used, but not used in the design hierarchy selected.\n");
+    fatal_error ("Error in initializer block?");
+  }
+
+  res = sp->getTypeDynamicStructOffset (si, c, offset_i, offset_b);
+  if (res) {
+    return 1;
+  }
+  else {
+    fatal_error ("getLocalOffset() failed!");
+  }
+  return 0;
+}
+
 act_connection *ActSimCore::getConnFromOffset (Process *p, int off, int type,
 					       int *dy)
 {

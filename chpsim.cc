@@ -809,6 +809,10 @@ void ChpSim::Step (int ev_type)
     }
     break;
 
+  case CHPSIM_SEND_STRUCT:
+  case CHPSIM_RECV_STRUCT:
+  case CHPSIM_ASSIGN_STRUCT:
+    fatal_error ("chpsim-struct not working yet");
   default:
     fatal_error ("What?");
     break;
@@ -1759,28 +1763,87 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
   int sz, loff;
   int type;
   ihash_bucket_t *b;
+  InstType *it;
+
+  it = _sc->cursi()->bnl->cur->FullLookup (id, NULL);
 
   if (ActBooleanizePass::isDynamicRef (_sc->cursi()->bnl, id)) {
     /* mark the entire array as used */
     ValueIdx *vx = id->rootVx (_sc->cursi()->bnl->cur);
     int sz;
     Assert (vx->connection(), "Hmm");
-    loff = _sc->getLocalOffset (vx->connection()->primary(),
+
+    /* check structure case */
+    if (TypeFactory::isStructure (it)) {
+      int loff_i, loff_b;
+      if (!_sc->getLocalDynamicStructOffset (vx->connection()->primary(),
+					    _sc->cursi(), &loff_i, &loff_b)) {
+	fatal_error ("Structure int/bool error!");
+      }
+      sz = vx->t->arrayInfo()->size();
+      state_counts sc;
+      Data *d = dynamic_cast<Data *>(it->BaseType());
+      Assert (d, "Hmm");
+      ActStatePass::getStructCount (d, &sc);
+      while (sz > 0) {
+	sz--;
+	if (loff_i >= 0) {
+	  for (int i=0; i < sc.numInts(); i++) {
+	    if (!ihash_lookup (H, loff_i + i)) {
+	      b = ihash_add (H, loff_i + i);
+	      b->i = 1; /* int */
+	    }
+	  }
+	  loff_i += sc.numInts();
+	}
+	if (loff_b >= 0) {
+	  for (int i=0; i < sc.numBools(); i++) {
+	    if (!ihash_lookup (H, loff_b + i)) {
+	      b = ihash_add (H, loff_b + i);
+	      b->i = 0; /* bool */
+	    }
+	  }
+	  loff_b += sc.numBools();
+	}
+      }
+    }
+    else {
+      loff = _sc->getLocalOffset (vx->connection()->primary(),
 				_sc->cursi(), &type);
-    sz = vx->t->arrayInfo()->size();
-    while (sz > 0) {
-      sz--;
-      if (!ihash_lookup (H, loff+sz)) {
-	b = ihash_add (H, loff+sz);
-	b->i = type;
+      sz = vx->t->arrayInfo()->size();
+      while (sz > 0) {
+	sz--;
+	if (!ihash_lookup (H, loff+sz)) {
+	  b = ihash_add (H, loff+sz);
+	  b->i = type;
+	}
       }
     }
   }
   else {
-    loff = _sc->getLocalOffset (id, _sc->cursi(), &type);
-    if (!ihash_lookup (H, loff)) {
-      b = ihash_add (H, loff);
-      b->i = type;
+    if (TypeFactory::isStructure (it)) {
+      /* walk through all pieces of the struct and mark it used */
+      Data *d = dynamic_cast<Data *>(it->BaseType());
+      ActId *tmp, *tail;
+      tail = id;
+      while (tail->Rest()) {
+	tail = tail->Rest();
+      }
+      
+      for (int i=0; i < d->getNumPorts(); i++) {
+	tmp = new ActId (d->getPortName(i));
+	tail->Append (tmp);
+	_mark_vars_used (_sc, id, H);
+	tail->prune();
+	delete tmp;
+      }
+    }
+    else {
+      loff = _sc->getLocalOffset (id, _sc->cursi(), &type);
+      if (!ihash_lookup (H, loff)) {
+	b = ihash_add (H, loff);
+	b->i = type;
+      }
     }
   }
 }
@@ -1913,6 +1976,7 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_SEND:
+    /* FIXME: check structure */
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
     if (c->u.comm.e) {
       _compute_used_variables_helper (c->u.comm.e);
@@ -1923,6 +1987,7 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_RECV:
+    /* FIXME: check structure */
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
     if (c->u.comm.e) {
       _compute_used_variables_helper (c->u.comm.e);
@@ -1991,6 +2056,11 @@ static void _free_deref (struct chpsimderef *d)
     FREE (d->chp_idx);
     FREE (d->idx);
   }
+  else {
+    if (d->idx) {
+      FREE (d->idx);
+    }
+  }
 }
 
 static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
@@ -2003,7 +2073,7 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   Assert (vx->connection(), "What?");
 
   NEW (d, struct chpsimderef);
-
+  d->idx = NULL;
   d->cx = vx->connection();
   d->offset = s->getLocalOffset (vx->connection()->primary(),
 				 s->cursi(), type, &d->width);
@@ -2024,6 +2094,93 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   }
 
   return d;
+}
+
+
+static struct chpsimderef *
+_mk_deref_struct (ActId *id, ActSimCore *s)
+{
+  struct chpsimderef *d = NULL;
+  Scope *sc = s->cursi()->bnl->cur;
+
+  ValueIdx *vx = id->rootVx (sc);
+  Assert (vx->connection(), "What?");
+
+  NEW (d, struct chpsimderef);
+  d->cx = vx->connection();
+  if (!s->getLocalDynamicStructOffset (vx->connection()->primary(),
+				       s->cursi(),
+				       &d->offset, &d->width)) {
+    fatal_error ("Structure derefence generation failed!");
+    return NULL;
+  }
+    
+  d->range = vx->t->arrayInfo();
+  Assert (d->range, "What?");
+  Assert (d->range->nDims() > 0, "What?");
+  MALLOC (d->idx, int, d->range->nDims());
+  MALLOC (d->chp_idx, Expr *, d->range->nDims());
+  
+  /* now convert array deref into a chp array deref! */
+  for (int i = 0; i < d->range->nDims(); i++) {
+    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s);
+    d->idx[i] = -1;
+  }
+  
+  return d;
+}
+
+static void _add_deref_struct (ActSimCore *sc,
+			       ActId *id, Data *d, struct chpsimderef *ds)
+{
+  ActId *tmp, *tail;
+	    
+  tail = id;
+  while (tail->Rest()) {
+    tail = tail->Rest();
+  }
+  for (int i=0; i < d->getNumPorts(); i++) {
+    InstType *it = d->getPortType (i);
+    tmp = new ActId (d->getPortName(i));
+    tail->Append (tmp);
+    if (TypeFactory::isStructure (it)) {
+      Data *x = dynamic_cast<Data *> (it->BaseType());
+      Assert (x, "What?");
+      _add_deref_struct (sc, id, x, ds);
+    }
+    else {
+      ds->idx[ds->offset] = sc->getLocalOffset (id, sc->cursi(),
+						&ds->idx[ds->offset+1],
+						&ds->idx[ds->offset+2]);
+      ds->offset += 3;
+    }
+    tail->prune ();
+    delete tmp;
+  }
+}
+  
+
+static struct chpsimderef *
+_mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
+{
+  struct chpsimderef *ds = NULL;
+  Scope *sc = s->cursi()->bnl->cur;
+
+  NEW (ds, struct chpsimderef);
+  ds->range = NULL;
+  ds->idx = NULL;
+
+  state_counts ts;
+  ActStatePass::getStructCount (d, &ts);
+
+  ds->offset = 0;
+  MALLOC (ds->idx, int, 3*(ts.numInts() + ts.numBools()));
+  _add_deref_struct (s, id, d, ds);
+
+  Assert (ds->offset == 3*(ts.numInts() + ts.numBools()), "What?");
+  
+  ds->cx = id->Canonical (s->cursi()->bnl->cur);
+  return ds;
 }
 
 
@@ -2227,6 +2384,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       else {
 	NEW (d, struct chpsimderef);
 	d->range = NULL;
+	d->idx = NULL;
 	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
 				       &d->width);
 	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
@@ -2255,36 +2413,59 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     {
       int type;
 
+      InstType *it = s->cursi()->bnl->cur->FullLookup ((ActId *)e->u.e.l,
+						       NULL);
+      
       if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
 					   ((ActId *)e->u.e.l))) {
-	struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
-
-	ret->u.e.l = (Expr *) d;
-        ret->u.e.r = (Expr *) d->cx;
-	  
-	if (type == 0) {
-	  ret->type = E_CHP_VARBOOL_DEREF;
+	if (TypeFactory::isStructure (it)) {
+	  struct chpsimderef *ds = _mk_deref_struct ((ActId *)e->u.e.l, s);
+	  ret->u.e.l = (Expr *) ds;
+	  ret->u.e.r = (Expr *) ds->cx;
+	  ret->type = E_CHP_VARSTRUCT_DEREF;
 	}
 	else {
-	  ret->type = E_CHP_VARINT_DEREF;
+	  struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
+	  ret->u.e.l = (Expr *) d;
+	  ret->u.e.r = (Expr *) d->cx;
+	  
+	  if (type == 0) {
+	    ret->type = E_CHP_VARBOOL_DEREF;
+	  }
+	  else {
+	    ret->type = E_CHP_VARINT_DEREF;
+	  }
 	}
       }
       else {
 	int w;
-	ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
-	ret->u.x.extra = w;
-	//ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
-	if (type == 2) {
-	  ret->type = E_CHP_VARCHAN;
-	}
-	else if (type == 1) {
-	  ret->type = E_CHP_VARINT;
-	}
-	else if (type == 0) {
-	  ret->type = E_CHP_VARBOOL;
+	if (TypeFactory::isStructure (it)) {
+	  struct chpsimderef *ds;
+
+	  Data *d = dynamic_cast<Data *>(it->BaseType());
+	  Assert (d, "Hmm");
+	  ds = _mk_std_deref_struct ((ActId *)e->u.e.l, d, s);
+
+	  ret->u.e.l = (Expr *)ds;
+	  ret->u.e.r = (Expr *)ds->cx;
+	  ret->type = E_CHP_VARSTRUCT;
 	}
 	else {
-	  fatal_error ("Channel output variable used in expression?");
+	  ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
+	  ret->u.x.extra = w;
+	//ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	  if (type == 2) {
+	    ret->type = E_CHP_VARCHAN;
+	  }
+	  else if (type == 1) {
+	    ret->type = E_CHP_VARINT;
+	  }
+	  else if (type == 0) {
+	    ret->type = E_CHP_VARBOOL;
+	  }
+	  else {
+	    fatal_error ("Channel output variable used in expression?");
+	  }
 	}
       }
     }
@@ -2522,6 +2703,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     {
       InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.comm.chan, NULL);
       Chan *ch;
+      int ch_struct;
+
+      ch_struct = 0;
       if (TypeFactory::isUserType (it)) {
 	Channel *x = dynamic_cast<Channel *> (it->BaseType());
 	ch = dynamic_cast<Chan *> (x->root()->BaseType());
@@ -2531,44 +2715,63 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       if (TypeFactory::isStructure (ch->datatype()) ||
 	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
-	fatal_error ("CHP structure send. FIXME!");
+	ch_struct = 1;
       }
-    }
-    ret = new ChpSimGraph (sc);
-    NEW (ret->stmt, chpsimstmt);
-    _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
-    ret->stmt->type = CHPSIM_SEND;
 
-    ret->stmt->u.sendrecv.e = NULL;
-    ret->stmt->u.sendrecv.d = NULL;
-
-    if (c->u.comm.e) {
-      ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
-    }
-    if (c->u.comm.var) {
-      ActId *id = c->u.comm.var;
-      int type;
-      struct chpsimderef *d;
-
-      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
-	d = _mk_deref (id, sc, &type);
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      if (ch_struct) {
+	ret->stmt->type = CHPSIM_SEND_STRUCT;
       }
       else {
-	NEW (d, struct chpsimderef);
-	d->range = NULL;
-	d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
-	d->width = width;
-	d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	ret->stmt->type = CHPSIM_SEND;
       }
-      if (type == 3) {
-	type = 2;
+      ret->stmt->u.sendrecv.e = NULL;
+      ret->stmt->u.sendrecv.d = NULL;
+
+      if (c->u.comm.e) {
+	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
       }
-      ret->stmt->u.sendrecv.d = d;
-      ret->stmt->u.sendrecv.d_type = type;
+      if (c->u.comm.var) {
+	ActId *id = c->u.comm.var;
+	int type;
+	struct chpsimderef *d;
+
+	if (TypeFactory::isStructure (ch->acktype())) {
+	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	    d = _mk_deref_struct (id, sc);
+	    type = 1;
+	  }
+	  else {
+	    Data *x = dynamic_cast<Data *> (ch->acktype()->BaseType());
+	    Assert (x, "What!");
+	    d = _mk_std_deref_struct (id, x, sc);
+	  }
+	}
+	else {
+	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	    d = _mk_deref (id, sc, &type);
+	  }
+	  else {
+	    NEW (d, struct chpsimderef);
+	    d->range = NULL;
+	    d->idx = NULL;
+	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
+	    d->width = width;
+	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	  }
+	}
+	if (type == 3) {
+	  type = 2;
+	}
+	ret->stmt->u.sendrecv.d = d;
+	ret->stmt->u.sendrecv.d_type = type;
+      }
+      ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+      ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+      (*stop) = ret;
     }
-    ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
-    ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
-    (*stop) = ret;
     break;
     
     
@@ -2576,6 +2779,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     {
       InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.comm.chan, NULL);
       Chan *ch;
+      int ch_struct;
+
+      ch_struct = 0;
       if (TypeFactory::isUserType (it)) {
 	Channel *x = dynamic_cast<Channel *> (it->BaseType());
 	ch = dynamic_cast<Chan *> (x->root()->BaseType());
@@ -2585,47 +2791,65 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       if (TypeFactory::isStructure (ch->datatype()) ||
 	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
-	fatal_error ("CHP structure recv. FIXME!");
+	ch_struct = 1;
       }
-    }
-    ret = new ChpSimGraph (sc);
-    NEW (ret->stmt, chpsimstmt);
-    _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
-    ret->stmt->type = CHPSIM_RECV;
-
-    ret->stmt->u.sendrecv.e = NULL;
-    ret->stmt->u.sendrecv.d = NULL;
-
-    if (c->u.comm.e) {
-      ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
-    }
-    if (c->u.comm.var) {
-      ActId *id = c->u.comm.var;
-      int type;
-      struct chpsimderef *d;
-
-      /*-- if this is a structure, unravel the structure! --*/
-
-      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
-	d = _mk_deref (id, sc, &type);
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      if (ch_struct) {
+	ret->stmt->type = CHPSIM_RECV_STRUCT;
       }
       else {
-	NEW (d, struct chpsimderef);
-	d->range = NULL;
-	d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
-	d->width = width;
-	d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	ret->stmt->type = CHPSIM_RECV;
       }
-      if (type == 3) {
-	type = 2;
-      }
-      ret->stmt->u.sendrecv.d = d;
-      ret->stmt->u.sendrecv.d_type = type;
-    }
 
-    ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
-    ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
-    (*stop) = ret;
+      ret->stmt->u.sendrecv.e = NULL;
+      ret->stmt->u.sendrecv.d = NULL;
+
+      if (c->u.comm.e) {
+	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
+      }
+      if (c->u.comm.var) {
+	ActId *id = c->u.comm.var;
+	int type;
+	struct chpsimderef *d;
+
+	/*-- if this is a structure, unravel the structure! --*/
+
+	if (TypeFactory::isStructure (ch->datatype())) {
+	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	    d = _mk_deref_struct (id, sc);
+	    type = 1;
+	  }
+	  else {
+	    Data *x = dynamic_cast<Data *> (ch->datatype()->BaseType());
+	    Assert (x, "Hmm");
+	    d = _mk_std_deref_struct (id, x, sc);
+	  }
+	}
+	else {
+	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	    d = _mk_deref (id, sc, &type);
+	  }
+	  else {
+	    NEW (d, struct chpsimderef);
+	    d->range = NULL;
+	    d->idx = NULL;
+	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
+	    d->width = width;
+	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	  }
+	}
+	if (type == 3) {
+	  type = 2;
+	}
+	ret->stmt->u.sendrecv.d = d;
+	ret->stmt->u.sendrecv.d_type = type;
+      }
+      ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
+      ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+      (*stop) = ret;
+    }
     break;
 
   case ACT_CHP_FUNC:
@@ -2662,37 +2886,58 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_ASSIGN:
     {
       InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.assign.id, NULL);
-      if (TypeFactory::isStructure (it)) {
-	fatal_error ("CHP structure assignment. FIXME!");
-      }
-    }
-    ret = new ChpSimGraph (sc);
-    NEW (ret->stmt, chpsimstmt);
-    _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
-    ret->stmt->type = CHPSIM_ASSIGN;
-    ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
-    {
       int type, width;
 
-      if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
-	struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type, &width);
-	ret->stmt->u.assign.d = *d;
-	FREE (d);
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
+      if (TypeFactory::isStructure (it)) {
+	ret->stmt->type = CHPSIM_ASSIGN_STRUCT;
       }
       else {
-	ret->stmt->u.assign.d.range = NULL;
-	ret->stmt->u.assign.d.offset =
-	  sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type, &width);
-	ret->stmt->u.assign.d.cx =
-	  c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+	ret->stmt->type = CHPSIM_ASSIGN;
       }
-      if (type == 1) {
-	Assert (width > 0, "zero-width int?");
-	ret->stmt->u.assign.isint = width;
+      ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
+
+      if (ret->stmt->type == CHPSIM_ASSIGN_STRUCT) {
+	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id))  {
+	  struct chpsimderef *d = _mk_deref_struct (c->u.assign.id, sc);
+	  type = 1;
+	  ret->stmt->u.assign.d = *d;
+	  FREE (d);
+	}
+	else {
+	  struct chpsimderef *d;
+	  Data *x = dynamic_cast<Data *>(it->BaseType());
+	  Assert (x, "Hmm");
+
+	  d = _mk_std_deref_struct (c->u.assign.id, x, sc);
+	  ret->stmt->u.assign.d = *d;
+	  FREE (d);
+	}
       }
       else {
-	Assert (type == 0, "Typechecking?!");
-	ret->stmt->u.assign.isint = 0;
+	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
+	  struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type, &width);
+	  ret->stmt->u.assign.d = *d;
+	  FREE (d);
+	}
+	else {
+	  ret->stmt->u.assign.d.range = NULL;
+	  ret->stmt->u.assign.d.idx = NULL;
+	  ret->stmt->u.assign.d.offset =
+	    sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type, &width);
+	  ret->stmt->u.assign.d.cx =
+	    c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+	}
+	if (type == 1) {
+	  Assert (width > 0, "zero-width int?");
+	  ret->stmt->u.assign.isint = width;
+	}
+	else {
+	  Assert (type == 0, "Typechecking?!");
+	  ret->stmt->u.assign.isint = 0;
+	}
       }
     }
     (*stop) = ret;
