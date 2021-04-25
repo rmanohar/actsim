@@ -811,8 +811,11 @@ void ChpSim::Step (int ev_type)
 
   case CHPSIM_SEND_STRUCT:
   case CHPSIM_RECV_STRUCT:
+    fatal_error ("chpsim-struct send/recv not working yet");
+    
   case CHPSIM_ASSIGN_STRUCT:
-    fatal_error ("chpsim-struct not working yet");
+    fatal_error ("chpsim-struct assign not working yet");
+    
   default:
     fatal_error ("What?");
     break;
@@ -1218,13 +1221,14 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;
 
+    if (vx->t->arrayInfo()) {
+      warning ("Ignoring arrays for now...");
+    }
+
     b = hash_add (lstate, vx->getName());
     NEW (x, expr_res);
     x->v = 0;
     x->width = TypeFactory::bitWidth (vx->t);
-    if (vx->t->arrayInfo()) {
-      warning ("Ignoring arrays for now...");
-    }
     b->v = x;
   }
 
@@ -1670,6 +1674,153 @@ expr_res ChpSim::exprEval (Expr *e)
   return l;
 }
 
+expr_multires ChpSim::varStruct (struct chpsimderef *d)
+{
+  expr_multires res ((Data *)d->chp_idx);
+
+  return res;
+}
+
+expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
+{
+  struct Hashtable *lstate;
+  hash_bucket_t *b;
+  hash_iter_t iter;
+  expr_res *x;
+  expr_multires ret;
+  ActInstiter it(f->CurScope());
+  InstType *ret_type = f->getRetType ();
+  Data *d;
+
+  Assert (TypeFactory::isStructure (ret_type), "What?");
+  d = dynamic_cast<Data *> (ret_type->BaseType());
+  Assert (d, "What?");
+  /*-- allocate state and bindings --*/
+  lstate = hash_new (4);
+
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+    if (TypeFactory::isParamType (vx->t)) continue;
+
+    if (vx->t->arrayInfo()) {
+      warning ("Ignoring arrays for now...");
+    }
+    
+    b = hash_add (lstate, vx->getName());
+    if (strcmp (vx->getName(), "self") == 0) {
+      expr_multires *x2;
+      x2 = new expr_multires (d);
+      b->v = x2;
+    }
+    else {
+      NEW (x, expr_res);
+      x->v = 0;
+      x->width = TypeFactory::bitWidth (vx->t);
+      b->v = x;
+    }
+  }
+
+  if (nargs != f->getNumPorts()) {
+    fatal_error ("Function `%s': invalid number of arguments", f->getName());
+  }
+
+  for (int i=0; i < f->getNumPorts(); i++) {
+    b = hash_lookup (lstate, f->getPortName (i));
+    Assert (b, "What?");
+    x = (expr_res *) b->v;
+
+    x->v = args[i].v;
+    if (args[i].width > x->width) {
+      x->v &= ((1 << x->width) - 1);
+    }
+  }
+
+  /* --- run body -- */
+  if (f->isExternal()) {
+    fatal_error ("External function cannot return a structure!");
+  }
+  
+  act_chp *c = f->getlang()->getchp();
+  stack_push (_statestk, lstate);
+  _run_chp (c->c);
+  stack_pop (_statestk);
+
+  /* -- return result -- */
+  b = hash_lookup (lstate, "self");
+  ret = *((expr_multires *)b->v);
+  
+  hash_iter_init (lstate, &iter);
+  while ((b = hash_iter_next (lstate, &iter))) {
+    if (strcmp (b->key, "self") == 0) {
+      delete ((expr_multires *)b->v);
+    }
+    else {
+      FREE (b->v);
+    }
+  }
+  hash_free (lstate);
+
+  return ret;
+}
+
+
+
+expr_multires ChpSim::exprStruct (Expr *e)
+{
+  expr_multires res;
+  Assert (e, "What?!");
+
+  switch (e->type) {
+  case E_CHP_VARSTRUCT_DEREF:
+  case E_CHP_VARSTRUCT:
+    res = varStruct ((struct chpsimderef *)e->u.e.l);
+    break;
+
+  case E_VAR:
+    {
+      Assert (!list_isempty (_statestk), "What?");
+      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+      Assert (state, "what?");
+      hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
+      Assert (b, "what?");
+      res = *((expr_multires *)b->v);
+    }
+    break;
+
+  case E_FUNCTION:
+    /* function is e->u.fn.s */
+    {
+      Expr *tmp = NULL;
+      int nargs = 0;
+      int i;
+      expr_res *args;
+
+      /* first: evaluate arguments */
+      tmp = e->u.fn.r;
+      while (tmp) {
+	nargs++;
+	tmp = tmp->u.e.r;
+      }
+      MALLOC (args, expr_res, nargs);
+      tmp = e->u.fn.r;
+      i = 0;
+      while (tmp) {
+	args[i] = exprEval (tmp->u.e.l);
+	i++;
+	tmp = tmp->u.e.r;
+      }
+      res = funcStruct ((Function *)e->u.fn.s, nargs, args);
+    }
+    break;
+
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+  return res;
+}
+
+
 int ChpSim::_max_program_counters (act_chp_lang_t *c)
 {
   int ret, val;
@@ -1976,7 +2127,6 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_SEND:
-    /* FIXME: check structure */
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
     if (c->u.comm.e) {
       _compute_used_variables_helper (c->u.comm.e);
@@ -1987,7 +2137,6 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_RECV:
-    /* FIXME: check structure */
     _mark_vars_used (_sc, c->u.comm.chan, _tmpused);
     if (c->u.comm.e) {
       _compute_used_variables_helper (c->u.comm.e);
@@ -2169,6 +2318,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   NEW (ds, struct chpsimderef);
   ds->range = NULL;
   ds->idx = NULL;
+  ds->chp_idx = (Expr **) d;
 
   state_counts ts;
   ActStatePass::getStructCount (d, &ts);
@@ -3313,4 +3463,50 @@ ChpSimGraph::~ChpSimGraph ()
     }
   }
   next = NULL;
+}
+
+
+int expr_multires::_count (Data *d)
+{
+  int n = 0;
+  Assert (d, "What?");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    if (TypeFactory::isStructure (d->getPortType(i))) {
+      n += _count (dynamic_cast<Data *>(d->getPortType(i)->BaseType()));
+    }
+    else {
+      n++;
+    }
+  }
+  return n;
+}
+
+void expr_multires::_init_helper (Data *d, int *pos)
+{
+  Assert (d, "What?");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    if (TypeFactory::isStructure (d->getPortType(i))) {
+      _init_helper (dynamic_cast<Data *>(d->getPortType(i)->BaseType()), pos);
+    }
+    else if (TypeFactory::isBoolType (d->getPortType(i))) {
+      v[*pos].width = 1;
+      v[*pos].v = 0;
+      *pos = (*pos) + 1;
+    }
+    else if (TypeFactory::isIntType (d->getPortType(i))) {
+      v[*pos].width = TypeFactory::bitWidth (d->getPortType(i));
+      v[*pos].v = 0;
+      *pos = *pos + 1;
+    }
+  }
+}
+
+void expr_multires::_init (Data *d)
+{
+  if (!d) return;
+  nvals = _count (d);
+  MALLOC (v, expr_res, nvals);
+  int pos = 0;
+  _init_helper (d, &pos);
+  Assert (pos == nvals, "What?");
 }

@@ -34,13 +34,51 @@ struct expr_res {
 
 #ifdef __cplusplus
 
-class expr_result {
+class expr_multires {
  public:
-  expr_result() { nvals = 0; }
-  ~expr_result() { if (v) { FREE (v); } }
+  expr_multires(Data *d = NULL) { nvals = 0; v = NULL; _init (d); }
+  ~expr_multires() { if (v) { FREE (v); } }
 
-  int nvals;
+  expr_multires (expr_multires &&m) {
+    v = m.v;
+    nvals = m.nvals;
+  }
+  expr_multires (expr_multires &m) {
+    nvals = m.nvals;
+    if (nvals > 0) {
+      MALLOC (v, expr_res, nvals);
+      bcopy (m.v, v, sizeof (expr_res)*nvals);
+    }
+  }
+
+  expr_multires &operator=(expr_multires &&m) {
+    if (nvals > 0) {
+      FREE (v);
+    }
+    v = m.v;
+    nvals = m.nvals;
+    return *this;
+  }
+  
+  expr_multires &operator=(expr_multires &m) {
+    if (nvals > 0) {
+      FREE (v);
+    }
+    nvals = m.nvals;
+    if (nvals > 0) {
+      MALLOC (v, expr_res, nvals);
+      bcopy (m.v, v, sizeof (expr_res)*nvals);
+    }
+    return *this;
+  }
+
   expr_res *v;
+  int nvals;
+
+private:
+  int _count (Data *d);
+  void _init_helper (Data *d, int *pos);
+  void _init (Data *d);
 };
 
 #endif

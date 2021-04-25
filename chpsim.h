@@ -166,9 +166,15 @@ class ChpSim : public ActSimObj {
   struct iHashtable *_tmpused;
 
   list_t *_statestk;
+
   expr_res exprEval (Expr *e);
   expr_res funcEval (Function *, int, expr_res *);
   expr_res varEval (int id, int type);
+  
+  expr_multires exprStruct (Expr *e);
+  expr_multires funcStruct (Function *, int, expr_res *);
+  expr_multires varStruct (struct chpsimderef *);
+  
   void _run_chp (act_chp_lang_t *);
   /* type == 3 : probe */
 
