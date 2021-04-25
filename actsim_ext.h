@@ -34,6 +34,8 @@ struct expr_res {
 
 #ifdef __cplusplus
 
+class ActSimCore;
+
 class expr_multires {
  public:
   expr_multires(Data *d = NULL) { nvals = 0; v = NULL; _init (d); }
@@ -72,6 +74,9 @@ class expr_multires {
     return *this;
   }
 
+  void fillValue (Data *d, ActSimCore *sc, int off_i, int off_b);
+  
+
   expr_res *v;
   int nvals;
 
@@ -79,6 +84,8 @@ private:
   int _count (Data *d);
   void _init_helper (Data *d, int *pos);
   void _init (Data *d);
+  void _fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob);
+  
 };
 
 #endif

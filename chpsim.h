@@ -51,8 +51,8 @@ struct chpsimderef {
 				// array. Length is 3x the # of items
 				// in the struct. Format: offset,
 				// width, type
-				// 
-  
+  Data *d;			// used for structures
+
   int offset;			// offset / offseti for struct
   int width;			// for all vars / offsetb for struct
   act_connection *cx;

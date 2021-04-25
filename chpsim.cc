@@ -814,7 +814,9 @@ void ChpSim::Step (int ev_type)
     fatal_error ("chpsim-struct send/recv not working yet");
     
   case CHPSIM_ASSIGN_STRUCT:
-    fatal_error ("chpsim-struct assign not working yet");
+    
+
+    break;
     
   default:
     fatal_error ("What?");
@@ -1674,10 +1676,25 @@ expr_res ChpSim::exprEval (Expr *e)
   return l;
 }
 
+
+
 expr_multires ChpSim::varStruct (struct chpsimderef *d)
 {
-  expr_multires res ((Data *)d->chp_idx);
-
+  expr_multires res (d->d);
+  if (!d->range) {
+    for (int i=0; i < res.nvals; i++) {
+      res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1]);
+    }
+  }
+  else {
+    /*-- structure deref --*/
+    state_counts sc;
+    ActStatePass::getStructCount (d->d, &sc);
+    int off = computeOffset (d) - d->offset;
+    int off_i = d->offset + off*sc.numInts();
+    int off_b = d->width + off*sc.numBools();
+    res.fillValue (d->d, _sc, off_i, off_b);
+  }
   return res;
 }
 
@@ -2257,6 +2274,8 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
 
   NEW (d, struct chpsimderef);
   d->cx = vx->connection();
+  d->d = dynamic_cast<Data *> (vx->t->BaseType());
+  Assert (d->d, "what?");
   if (!s->getLocalDynamicStructOffset (vx->connection()->primary(),
 				       s->cursi(),
 				       &d->offset, &d->width)) {
@@ -2318,7 +2337,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   NEW (ds, struct chpsimderef);
   ds->range = NULL;
   ds->idx = NULL;
-  ds->chp_idx = (Expr **) d;
+  ds->d = d;
 
   state_counts ts;
   ActStatePass::getStructCount (d, &ts);
@@ -3509,4 +3528,31 @@ void expr_multires::_init (Data *d)
   int pos = 0;
   _init_helper (d, &pos);
   Assert (pos == nvals, "What?");
+}
+
+void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob)
+{
+  Assert (d, "Hmm");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    if (TypeFactory::isStructure (d->getPortType(i))) {
+      _fill_helper (dynamic_cast<Data *>(d->getPortType(i)->BaseType()),
+		    sc, pos, oi, ob);
+    }
+    else if (TypeFactory::isBoolType (d->getPortType(i))) {
+      v[*pos].v = sc->getBool (*ob);
+      *ob = *ob + 1;
+      *pos = (*pos) + 1;
+    }
+    else if (TypeFactory::isIntType (d->getPortType(i))) {
+      v[*pos].v = sc->getInt (*oi);
+      *oi = *oi + 1;
+      *pos = *pos + 1;
+    }
+  }
+}
+
+void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
+{
+  int pos = 0;
+  _fill_helper (d, sc, &pos, &off_i, &off_b);
 }
