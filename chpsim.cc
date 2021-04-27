@@ -1190,7 +1190,12 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
     res = exprEval (c->u.assign.e);
     /* bit-width conversion */
     if (res.width > x->width) {
-      x->v = res.v & ((1UL << x->width)-1);
+      if (x->width < 64) {
+	x->v = res.v & ((1UL << x->width)-1);
+      }
+      else {
+	x->v = res.v;
+      }
     }
     else {
       x->v = res.v;
