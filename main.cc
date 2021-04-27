@@ -486,6 +486,24 @@ int process_get (int argc, char **argv)
   return 1;
 }
 
+int process_logfile (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return 0;
+  }
+
+  actsim_close_log ();
+  
+  FILE *fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[1]);
+    return 0;
+  }
+  actsim_set_log (fp);
+  return 1;
+}
+
 
 
 struct LispCliCommand Cmds[] = {
@@ -501,6 +519,8 @@ struct LispCliCommand Cmds[] = {
 
 
   { NULL, "Statistics", NULL },
+
+  { "logfile", "<file> - dump actsim output to a log file <file>", process_logfile },
   
   { "procinfo", "[<inst-name>] - show the program counter for a process", process_procinfo },
   { "energy", "[<inst-name>] - show energy usage", process_getenergy }

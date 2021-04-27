@@ -719,13 +719,13 @@ void ChpSim::Step (int ev_type)
 
   case CHPSIM_FUNC:
     _energy_cost += stmt->energy_cost;
-    printf ("[%8lu t#:%d] <", CurTimeLo(), pc);
-    name->Print (stdout);
-    printf ("> ");
+    actsim_log ("[%8lu t#:%d] <", CurTimeLo(), pc);
+    name->Print (actsim_log_fp());
+    actsim_log ("> ");
     for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
       act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
       if (arg->isstring) {
-	printf ("%s", string_char (arg->u.s));
+	actsim_log ("%s", string_char (arg->u.s));
       }
       else {
 	v = exprEval (arg->u.e);
@@ -733,10 +733,11 @@ void ChpSim::Step (int ev_type)
 	  v.v = v.v << (64-v.width);
 	  v.v = v.v >> (64-v.width);
 	}
-	printf (ACT_EXPR_RES_PRINTF, v.v);
+	actsim_log (ACT_EXPR_RES_PRINTF, v.v);
       }
     }
-    printf ("\n");
+    actsim_log ("\n");
+    actsim_log_flush ();
     pc = _updatepc (pc);
     break;
 

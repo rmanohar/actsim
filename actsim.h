@@ -337,5 +337,10 @@ private:
 };
 
 void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id);
+void actsim_close_log (void);
+void actsim_set_log (FILE *fp);
+void actsim_log (const char *s, ...);
+void actsim_log_flush (void);
+FILE *actsim_log_fp (void);
 
 #endif /* __ACT_SIM_H__ */

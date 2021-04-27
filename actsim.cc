@@ -1214,3 +1214,46 @@ void ActSim::runInit ()
     }
   }
 }
+
+
+
+/*-------------------------------------------------------------------------
+ * Logging
+ *-----------------------------------------------------------------------*/
+static FILE *alog_fp = NULL;
+
+FILE *actsim_log_fp (void)
+{
+  return alog_fp ? alog_fp : stdout;
+}
+
+void actsim_log (const char *s, ...)
+{
+  va_list ap;
+
+  va_start (ap, s);
+  vfprintf (actsim_log_fp(), s, ap);
+  va_end (ap);
+  if (alog_fp) {
+    fflush (alog_fp);
+  }
+}
+
+void actsim_close_log (void)
+{
+  if (alog_fp) {
+    fclose (alog_fp);
+  }
+  alog_fp = NULL;
+}
+
+void actsim_set_log (FILE *fp)
+{
+  actsim_close_log ();
+  alog_fp = fp;
+}
+
+void actsim_log_flush (void)
+{
+  fflush (actsim_log_fp ());
+}
