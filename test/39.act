@@ -1,0 +1,25 @@
+function foo (int<64> a, b) : int<64>
+{
+  int<64> x;
+  chp {
+    self := a + b
+  }
+}
+
+defproc test()
+{
+  int<64> a, b;
+
+  int<64> res;
+
+  chp {
+    a := 1;
+    b := 2;
+
+    res := foo (a, b);
+
+    log ("res ", res)
+  }
+}
+
+test t;
