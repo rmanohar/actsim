@@ -232,6 +232,8 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_UMINUS:
   case E_COMPLEMENT:
   case E_NOT:
+  case E_BUILTIN_BOOL:
+  case E_BUILTIN_INT:
     ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
@@ -352,13 +354,19 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       }
     }
     break;
+    
+  case E_FUNCTION:
+    {
+      Expr *tmp;
 
-  case E_BUILTIN_BOOL:
-  case E_BUILTIN_INT:
-    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
+      tmp = e->u.fn.r;
+      while (tmp) {
+	ret = ret | _collect_sharedvars (tmp->u.e.l, pc, undo);
+	tmp = tmp->u.e.r;
+      }
+    }
     break;
 
-  case E_FUNCTION:
   case E_SELF:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
@@ -2056,6 +2064,8 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
   case E_NOT:
   case E_UMINUS:
   case E_COMPLEMENT:
+  case E_BUILTIN_BOOL:
+  case E_BUILTIN_INT:
     _compute_used_variables_helper (e->u.e.l);
     break;
 
