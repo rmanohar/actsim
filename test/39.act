@@ -1,24 +1,23 @@
-function foo (int<64> a, b) : int<64>
-{
-  int<64> x;
-  chp {
-    self := a + b
-  }
+deftype struct (int a, b) { }
+
+function foo (int x) : struct
+{ 
+   struct p;
+   chp {
+     p.a := x;
+     p.b := x+1;
+     self := p
+   }
 }
+
 
 defproc test()
 {
-  int<64> a, b;
-
-  int<64> res;
+  struct w;
 
   chp {
-    a := 1;
-    b := 2;
-
-    res := foo (a, b);
-
-    log ("res ", res)
+    w := foo(4);
+    log ("got: ", w.a, " and ", w.b)
   }
 }
 

@@ -453,6 +453,10 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     }
     break;
 
+  case CHPSIM_ASSIGN_STRUCT:
+    fprintf (fp, "assign-struct: ");
+    break;
+
   case CHPSIM_ASSIGN:
     fprintf (fp, "assign: ");
     if (!p) break;
@@ -471,6 +475,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     break;
 
   case CHPSIM_SEND:
+  case CHPSIM_SEND_STRUCT:
     fprintf (fp, "send: ");
     if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 3, &dy);
@@ -486,6 +491,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     break;
 
   case CHPSIM_RECV:
+  case CHPSIM_RECV_STRUCT:
     fprintf (fp, "recv: ");
     if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 2, &dy);
@@ -527,6 +533,7 @@ void ChpSim::Step (int ev_type)
   int forceret = 0;
   int joined;
   expr_res v;
+  expr_multires vs;
   int off;
 
   Assert (0 <= pc && pc < _pcused, "What?");
@@ -634,13 +641,19 @@ void ChpSim::Step (int ev_type)
     break;
 
   case CHPSIM_SEND:
+  case CHPSIM_SEND_STRUCT:
     if (!flag) {
       /*-- this is the first time we are at the send, so evaluate the
            expression being sent over the channel --*/
       
       listitem_t *li;
       if (stmt->u.sendrecv.e) {
-	v = exprEval (stmt->u.sendrecv.e);
+	if (stmt->type == CHPSIM_SEND_STRUCT) {
+	  vs = exprStruct (stmt->u.sendrecv.e);
+	}
+	else {
+	  v = exprEval (stmt->u.sendrecv.e);
+	}
       }
       else {
 	/* data-less */
@@ -653,7 +666,12 @@ void ChpSim::Step (int ev_type)
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
       otherwise we have to wait for the receiver --*/
-    if (varSend (pc, flag, stmt->u.sendrecv.chvar, v)) {
+    int rv;
+    if (stmt->type == CHPSIM_SEND) {
+      vs.setSingle (v);
+    }
+    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, vs);
+    if (rv) {
       /* blocked */
       forceret = 1;
 #ifdef DUMP_ALL      
@@ -670,6 +688,7 @@ void ChpSim::Step (int ev_type)
     }
     break;
 
+  case CHPSIM_RECV_STRUCT:
   case CHPSIM_RECV:
     {
       listitem_t *li;
@@ -677,6 +696,7 @@ void ChpSim::Step (int ev_type)
       int id;
       int type;
       int width;
+      int rv;
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
 	d = stmt->u.sendrecv.d;
@@ -687,8 +707,12 @@ void ChpSim::Step (int ev_type)
 	type = -1;
       }
 
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &vs);
+      if (!rv && vs.nvals > 0) {
+	v = vs.v[0];
+      }
       /*-- attempt to receive value --*/
-      if (varRecv (pc, flag, stmt->u.sendrecv.chvar, &v)) {
+      if (rv) {
 	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
@@ -701,22 +725,27 @@ void ChpSim::Step (int ev_type)
 	printf ("recv got %lu!", v.v);
 #endif	
 	if (type != -1) {
-	  if (type == 0) {
-	    off = getGlobalOffset (id, 0);
+	  if (stmt->type == CHPSIM_RECV) {
+	    if (type == 0) {
+	      off = getGlobalOffset (id, 0);
 #if 0	    
-	    printf (" [glob=%d]", off);
+	      printf (" [glob=%d]", off);
 #endif	    
-	    _sc->setBool (off, v.v);
+	      _sc->setBool (off, v.v);
+	    }
+	    else {
+	      off = getGlobalOffset (id, 1);
+#if 0	    
+	      printf (" [glob=%d]", off);
+#endif
+	      if (width < 64) {
+		v.v = ((unsigned long)v.v) & ((1UL << width)-1);
+	      }
+	      _sc->setInt (off, v.v);
+	    }
 	  }
 	  else {
-	    off = getGlobalOffset (id, 1);
-#if 0	    
-	    printf (" [glob=%d]", off);
-#endif
-	    if (width < 64) {
-	      v.v = ((unsigned long)v.v) & ((1UL << width)-1);
-	    }
-	    _sc->setInt (off, v.v);
+	    fatal_error ("recv!\n");
 	  }
 	}
 	pc = _updatepc (pc);
@@ -818,13 +847,10 @@ void ChpSim::Step (int ev_type)
     }
     break;
 
-  case CHPSIM_SEND_STRUCT:
-  case CHPSIM_RECV_STRUCT:
-    fatal_error ("chpsim-struct send/recv not working yet");
-    
   case CHPSIM_ASSIGN_STRUCT:
-    
-
+    vs = exprStruct (stmt->u.assign.e);
+    _structure_assign (&stmt->u.assign.d, &vs);
+    pc = _updatepc (pc);
     break;
     
   default:
@@ -847,7 +873,7 @@ void ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
+int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
@@ -860,7 +886,6 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
       c->ufrag_st = 0;
     case 1:
       /* send */
-      
 
       break;
     case 2:
@@ -896,7 +921,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
     printf (" [waiting-recv %d]", pc);
 #endif    
     // blocked receive, because there was no data
-    c->data = v.v;
+    c->data = v.v[0].v;
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
     if (c->send_here != 0) {
@@ -928,7 +953,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
       c->receiver_probe = 0;
     }
     // we need to wait for the receive to show up
-    c->data2 = v.v;
+    c->data2 = v.v[0].v;
     if (c->send_here != 0) {
       act_connection *x;
       int dy;
@@ -951,7 +976,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_res v)
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
+int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
@@ -968,8 +993,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
   if (wakeup) {
 #ifdef DUMP_ALL    
     printf (" [recv-wakeup %d]", pc);
-#endif    
-    v->v = c->data;
+#endif
+    //v->v[0].v = c->data;
+    v->setSingle (c->data);
     if (c->recv_here != 0) {
       act_connection *x;
       int dy;
@@ -990,7 +1016,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_res *v)
 #ifdef DUMP_ALL    
     printf (" [waiting-send %d]", pc);
 #endif    
-    v->v = c->data2;
+    v->setSingle (c->data2);
     c->w->Notify (c->send_here-1);
     c->send_here = 0;
     Assert (c->recv_here == 0 && c->receiver_probe == 0 &&
@@ -1081,21 +1107,23 @@ expr_res ChpSim::varEval (int id, int type)
   return r;
 }
 
-void ChpSim::_run_chp (act_chp_lang_t *c)
+void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 {
   listitem_t *li;
   hash_bucket_t *b;
   expr_res *x, res;
+  expr_multires *xm, resm;
   act_chp_gc_t *gc;
   int rep;
   struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+  InstType *xit;
   
   if (!c) return;
   switch (c->type) {
   case ACT_CHP_SEMI:
   case ACT_CHP_COMMA:
     for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
-      _run_chp ((act_chp_lang_t *) list_value (li));
+      _run_chp (f, (act_chp_lang_t *) list_value (li));
     }
     break;
 
@@ -1107,12 +1135,12 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
     }
     while (gc) {
       if (!gc->g) {
-	_run_chp (gc->s);
+	_run_chp (f, gc->s);
 	return;
       }
       res = exprEval (gc->g);
       if (res.v) {
-	_run_chp (gc->s);
+	_run_chp (f, gc->s);
 	return;
       }
       gc = gc->next;
@@ -1129,12 +1157,12 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
       gc = c->u.gc;
       while (gc) {
 	if (!gc->g) {
-	  _run_chp (gc->s);
+	  _run_chp (f, gc->s);
 	  break;
 	}
 	res = exprEval (gc->g);
 	if (res.v) {
-	  _run_chp (gc->s);
+	  _run_chp (f, gc->s);
 	  break;
 	}
 	gc = gc->next;
@@ -1152,7 +1180,7 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
     }
     Assert (gc->next == NULL, "What?");
     do {
-      _run_chp (gc->s);
+      _run_chp (f, gc->s);
       res = exprEval (gc->g);
     } while (res.v);
     break;
@@ -1187,26 +1215,46 @@ void ChpSim::_run_chp (act_chp_lang_t *c)
     break;
     
   case ACT_CHP_ASSIGN:
+#if 0
     if (c->u.assign.id->Rest()) {
       fatal_error ("Dots not permitted in functions!");
     }
+#endif    
     b = hash_lookup (state, c->u.assign.id->getName());
     if (!b) {
       fatal_error ("Variable `%s' not found?!", c->u.assign.id->getName());
     }
-    x = (expr_res *) b->v;
-    res = exprEval (c->u.assign.e);
-    /* bit-width conversion */
-    if (res.width > x->width) {
-      if (x->width < 64) {
-	x->v = res.v & ((1UL << x->width)-1);
+    xit = f->CurScope()->Lookup (c->u.assign.id->getName());
+    if (TypeFactory::isStructure (xit)) {
+      /* this is either a structure or a part of structure assignment */
+      xm = (expr_multires *)b->v;
+
+      /* check if this is a structure! */
+      xit = f->CurScope()->FullLookup (c->u.assign.id, NULL);
+      if (TypeFactory::isStructure (xit)) {
+	resm = exprStruct (c->u.assign.e);
+	xm->setField (c->u.assign.id->Rest(), &resm);
+      }
+      else {
+	res = exprEval (c->u.assign.e);
+	xm->setField (c->u.assign.id->Rest(), &res);
+      }
+    }
+    else {
+      x = (expr_res *) b->v;
+      res = exprEval (c->u.assign.e);
+      /* bit-width conversion */
+      if (res.width > x->width) {
+	if (x->width < 64) {
+	  x->v = res.v & ((1UL << x->width)-1);
+	}
+	else {
+	  x->v = res.v;
+	}
       }
       else {
 	x->v = res.v;
       }
-    }
-    else {
-      x->v = res.v;
     }
     break;
 
@@ -1293,7 +1341,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
   
   act_chp *c = f->getlang()->getchp();
   stack_push (_statestk, lstate);
-  _run_chp (c->c);
+  _run_chp (f, c->c);
   stack_pop (_statestk);
 
   /* -- return result -- */
@@ -1738,10 +1786,14 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
     }
     
     b = hash_add (lstate, vx->getName());
-    if (strcmp (vx->getName(), "self") == 0) {
+    if (TypeFactory::isStructure (vx->t)) {
       expr_multires *x2;
-      x2 = new expr_multires (d);
+      Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
+      x2 = new expr_multires (xd);
       b->v = x2;
+
+      //printf ("allocated struct (%s), nvals = %d, ptr = %p\n",
+      //vx->getName(), x2->nvals, x2->v);
     }
     else {
       NEW (x, expr_res);
@@ -1773,17 +1825,27 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
   
   act_chp *c = f->getlang()->getchp();
   stack_push (_statestk, lstate);
-  _run_chp (c->c);
+  _run_chp (f, c->c);
   stack_pop (_statestk);
 
   /* -- return result -- */
   b = hash_lookup (lstate, "self");
   ret = *((expr_multires *)b->v);
-  
-  hash_iter_init (lstate, &iter);
-  while ((b = hash_iter_next (lstate, &iter))) {
-    if (strcmp (b->key, "self") == 0) {
-      delete ((expr_multires *)b->v);
+
+  //printf ("ret: %d, %p\n", ret.nvals, ret.v);
+
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+    if (TypeFactory::isParamType (vx->t)) continue;
+
+    if (vx->t->arrayInfo()) {
+      warning ("Ignoring arrays for now...");
+    }
+    
+    b = hash_lookup (lstate, vx->getName());
+    if (TypeFactory::isStructure (vx->t)) {
+      expr_multires *x2 = (expr_multires *)b->v;
+      delete x2;
     }
     else {
       FREE (b->v);
@@ -1814,7 +1876,9 @@ expr_multires ChpSim::exprStruct (Expr *e)
       Assert (state, "what?");
       hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
       Assert (b, "what?");
+      //printf ("looked up state: %s\n", ((ActId *)e->u.e.l)->getName());
       res = *((expr_multires *)b->v);
+      //printf ("res = %d (%p)\n", res.nvals, res.v);
     }
     break;
 
@@ -2315,7 +2379,9 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
 }
 
 static void _add_deref_struct (ActSimCore *sc,
-			       ActId *id, Data *d, struct chpsimderef *ds)
+			       ActId *id, Data *d,
+			       struct chpsimderef *ds
+			       )
 {
   ActId *tmp, *tail;
 	    
@@ -2342,7 +2408,38 @@ static void _add_deref_struct (ActSimCore *sc,
     delete tmp;
   }
 }
-  
+
+static void _add_deref_struct2 (Data *d,
+				int *idx,
+				int *off_i,
+				int *off_b,
+				int *off)
+{
+  for (int i=0; i < d->getNumPorts(); i++) {
+    InstType *it = d->getPortType (i);
+    if (TypeFactory::isStructure (it)) {
+      Data *x = dynamic_cast<Data *> (it->BaseType());
+      Assert (x, "What?");
+      _add_deref_struct2 (x, idx, off_i, off_b, off);
+    }
+    else if (TypeFactory::isIntType (it)) {
+      idx[*off] = *off_i;
+      idx[*off+1] = 1;
+      idx[*off+2] = TypeFactory::bitWidth (it);
+      *off_i = *off_i + 1;
+      *off += 3;
+    }
+    else {
+      Assert (TypeFactory::isBoolType (it), "Hmm");
+      idx[*off] = *off_b;
+      idx[*off+1] = 0;
+      idx[*off+2] = 1;
+      *off_b = *off_b + 1;
+      *off += 3;
+    }
+  }
+}
+
 
 static struct chpsimderef *
 _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
@@ -3539,6 +3636,7 @@ void expr_multires::_init_helper (Data *d, int *pos)
 void expr_multires::_init (Data *d)
 {
   if (!d) return;
+  _d = d;
   nvals = _count (d);
   MALLOC (v, expr_res, nvals);
   int pos = 0;
@@ -3571,4 +3669,124 @@ void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
 {
   int pos = 0;
   _fill_helper (d, sc, &pos, &off_i, &off_b);
+}
+
+
+void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
+{
+  Assert (d && v, "Hmm");
+  int *struct_info;
+  int struct_len;
+
+  state_counts ts;
+  ActStatePass::getStructCount (d->d, &ts);
+  
+  if (d->range) {
+    /* array deref */
+    for (int i=0; i < d->range->nDims(); i++) {
+      expr_res res = exprEval (d->chp_idx[i]);
+      d->idx[i] = res.v;
+    }
+    int x = d->range->Offset (d->idx);
+    if (x == -1) {
+      fprintf (stderr, "In: ");
+      getName()->Print (stderr);
+      fprintf (stderr, "  [ %s ]\n", _proc ? _proc->getName() : "-global-");
+      fprintf (stderr, "\tAccessing index ");
+      for (int i=0; i < d->range->nDims(); i++) {
+	fprintf (stderr, "[%d]", d->idx[i]);
+      }
+      fprintf (stderr, " from ");
+      d->cx->toid()->Print (stderr);
+      fprintf (stderr, "\n");
+      fatal_error ("Array out of bounds!");
+    }
+    int off_i, off_b, off;
+    MALLOC (struct_info, int, 3*(ts.numInts() + ts.numBools()));
+    off_i = d->offset + x*ts.numInts();
+    off_b = d->width + x*ts.numBools();
+    off = 0;
+    _add_deref_struct2 (d->d, struct_info, &off_i, &off_b, &off);
+  }
+  else {
+    struct_info = d->idx;
+    struct_len = 3*(ts.numInts() + ts.numBools());
+  }
+  for (int i=0; i < struct_len/3; i++) {
+#if 0    
+    printf ("%d (%d:w=%d) := %lu (w=%d)\n",
+	    struct_info[3*i], struct_info[3*i+1],
+	    struct_info[3*i+2], v->v[i].v, v->v[i].width);
+#endif
+    if (struct_info[3*i+1] == 1) {
+      /* int */
+      _sc->setInt (struct_info[3*i], v->v[i].v);
+    }
+    else {
+      Assert (struct_info[3*i+1] == 0, "What?");
+      _sc->setBool (struct_info[3*i], v->v[i].v);
+    }
+  }
+
+  if (struct_info != d->idx) {
+    FREE (struct_info);
+  }
+}
+
+
+int expr_multires::_find_offset (ActId *x, Data *d)
+{
+  if (!d) return -1;
+  if (!x) return 0;
+
+  for (int i=0; i < d->getNumPorts(); i++) {
+    if (strcmp (x->getName(), d->getPortName (i)) == 0) {
+      if (!x->Rest()) {
+	return i;
+      }
+      else {
+	InstType *it = d->getPortType (i);
+	Assert (TypeFactory::isStructure (it), "Hmm");
+	d = dynamic_cast<Data *>(it->BaseType());
+	return i + _find_offset (x->Rest(), d);
+      }
+    }
+  }
+  return -1;
+}
+
+
+void expr_multires::setField (ActId *x, expr_res *val)
+{
+  Assert (x, "setField with scalar called with NULL ID value");
+  int off = _find_offset (x, _d);
+  Assert (0 <= off && off < nvals, "Hmm");
+
+  v[off] = *val;
+}
+
+void expr_multires::setField (ActId *x, expr_multires *m)
+{
+  if (!x) {
+    //m->Print (stdout);
+    //printf ("\n");
+    *this = *m;
+  }
+  else {
+    int off = _find_offset (x, _d);
+    Assert (0 <= off && off < nvals, "Hmm");
+    Assert (off + m->nvals <= nvals, "What?");
+    for (int i=0; i < m->nvals; i++) {
+      v[off + i] = m->v[i];
+    }
+  }
+}
+
+
+void expr_multires::Print (FILE *fp)
+{
+  fprintf (fp, "v:%d;", nvals);
+  for (int i=0; i < nvals; i++) {
+    fprintf (fp, " %d(w=%d):%lu", i, v[i].width, v[i].v);
+  }
 }

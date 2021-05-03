@@ -174,12 +174,14 @@ class ChpSim : public ActSimObj {
   expr_multires exprStruct (Expr *e);
   expr_multires funcStruct (Function *, int, expr_res *);
   expr_multires varStruct (struct chpsimderef *);
+
+  void _structure_assign (struct chpsimderef *, expr_multires *);
   
-  void _run_chp (act_chp_lang_t *);
+  void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */
 
-  int varSend (int pc, int wakeup, int id, expr_res v);
-  int varRecv (int pc, int wakeup, int id, expr_res *v);
+  int varSend (int pc, int wakeup, int id, expr_multires &v);
+  int varRecv (int pc, int wakeup, int id, expr_multires *v);
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);

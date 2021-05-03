@@ -38,27 +38,57 @@ class ActSimCore;
 
 class expr_multires {
  public:
-  expr_multires(Data *d = NULL) { nvals = 0; v = NULL; _init (d); }
-  ~expr_multires() { if (v) { FREE (v); } }
+  expr_multires(Data *d = NULL) { _d = NULL; nvals = 0; v = NULL; _init (d); }
+  ~expr_multires() { if (nvals > 0) { FREE (v); } nvals = 0; v = NULL; }
+
+  void setSingle (expr_res &x) {
+    if (nvals > 0) {
+      FREE (v);
+    }
+    _d = NULL;
+    nvals = 1;
+    NEW (v, expr_res);
+    *v = x;
+  }
+
+  void setSingle (unsigned long val) {
+    if (nvals > 0) {
+      FREE (v);
+    }
+    _d = NULL;
+    nvals = 1;
+    NEW (v, expr_res);
+    v->v = val;
+    v->width = 64;
+  }
 
   expr_multires (expr_multires &&m) {
     v = m.v;
     nvals = m.nvals;
+    m.nvals = 0;
+    m.v = NULL;
+    _d = m._d;
   }
+  
   expr_multires (expr_multires &m) {
     nvals = m.nvals;
     if (nvals > 0) {
       MALLOC (v, expr_res, nvals);
       bcopy (m.v, v, sizeof (expr_res)*nvals);
     }
+    _d = m._d;
   }
 
+  void Print (FILE *fp);
+  
   expr_multires &operator=(expr_multires &&m) {
     if (nvals > 0) {
       FREE (v);
     }
     v = m.v;
     nvals = m.nvals;
+    m.nvals = 0;
+    _d = m._d;
     return *this;
   }
   
@@ -71,11 +101,14 @@ class expr_multires {
       MALLOC (v, expr_res, nvals);
       bcopy (m.v, v, sizeof (expr_res)*nvals);
     }
+    _d = m._d;
     return *this;
   }
 
   void fillValue (Data *d, ActSimCore *sc, int off_i, int off_b);
-  
+
+  void setField (ActId *field, expr_res *v);
+  void setField (ActId *field, expr_multires *v);
 
   expr_res *v;
   int nvals;
@@ -85,6 +118,8 @@ private:
   void _init_helper (Data *d, int *pos);
   void _init (Data *d);
   void _fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob);
+  Data *_d;
+  int _find_offset (ActId *x, Data *d);
   
 };
 
