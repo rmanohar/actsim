@@ -1,0 +1,13 @@
+deftype struct (int<4> a; int<2> b) { }
+
+defproc test()
+{
+   struct w, u;
+   chp {
+     u.a := 3; u.b := 2;
+     w := u;
+     log ("got ", w.a, " ", w.b)
+   }
+} 
+
+test t;
