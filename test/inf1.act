@@ -1,0 +1,28 @@
+deftype struct (int<2> a, b) { }
+
+defproc src(chan(struct)! X)
+{
+  struct x;
+  int<2> tmp;
+  chp {
+     x.a := 0;
+     x.b := 1;
+     *[ X!x; tmp:=x.a; x.a := x.b; x.b := tmp ]
+  }
+}
+
+defproc sink(chan(struct)? X)
+{
+  struct y;
+  chp {
+   *[ X?y; log("got: ", y.a, " ", y.b) ]
+  }
+}
+
+defproc test()
+{
+  src s;
+  sink t(s.X); 
+}
+
+test t;

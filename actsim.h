@@ -83,7 +83,7 @@ struct act_channel_state {
 
   
   int len;
-  long data, data2;
+  expr_multires data, data2;
   WaitForOne *w;
   WaitForOne *probe;		// probe wake-up
 };

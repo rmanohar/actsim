@@ -51,6 +51,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
 
   nchans = chantot;
   if (nchans > 0) {
+    expr_multires vinit;
     MALLOC (chans, act_channel_state, nchans);
     for (int i=0; i < nchans; i++) {
       chans[i].send_here = 0;
@@ -58,8 +59,10 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].sender_probe = 0;
       chans[i].receiver_probe = 0;
       chans[i].len = 0;
-      chans[i].data = 0;
-      chans[i].data2 = 0;
+      chans[i].data.nvals = 0;
+      chans[i].data2.nvals = 0;
+      chans[i].data = vinit;
+      chans[i].data2 = vinit;
       chans[i].w = new WaitForOne(0);
       chans[i].probe = NULL;
       chans[i].fragmented = 0;

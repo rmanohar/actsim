@@ -745,7 +745,7 @@ void ChpSim::Step (int ev_type)
 	    }
 	  }
 	  else {
-	    fatal_error ("recv!\n");
+	    _structure_assign (stmt->u.sendrecv.d, &vs);
 	  }
 	}
 	pc = _updatepc (pc);
@@ -921,7 +921,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v)
     printf (" [waiting-recv %d]", pc);
 #endif    
     // blocked receive, because there was no data
-    c->data = v.v[0].v;
+    c->data = v;
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
     if (c->send_here != 0) {
@@ -953,7 +953,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v)
       c->receiver_probe = 0;
     }
     // we need to wait for the receive to show up
-    c->data2 = v.v[0].v;
+    c->data2 = v;
     if (c->send_here != 0) {
       act_connection *x;
       int dy;
@@ -995,7 +995,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v)
     printf (" [recv-wakeup %d]", pc);
 #endif
     //v->v[0].v = c->data;
-    v->setSingle (c->data);
+    *v = c->data;
     if (c->recv_here != 0) {
       act_connection *x;
       int dy;
@@ -1016,7 +1016,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v)
 #ifdef DUMP_ALL    
     printf (" [waiting-send %d]", pc);
 #endif    
-    v->setSingle (c->data2);
+    *v = c->data2;
     c->w->Notify (c->send_here-1);
     c->send_here = 0;
     Assert (c->recv_here == 0 && c->receiver_probe == 0 &&
@@ -1083,8 +1083,8 @@ expr_res ChpSim::varEval (int id, int type)
   else if (type == 2) {
     act_channel_state *c = _sc->getChan (off);
     if (WAITING_SENDER (c)) {
-      r.width = 32;
-      r.v = c->data2;
+      Assert (c->data2.nvals == 1, "structure probes not supported!");
+      r = c->data2.v[0];
     }
     else {
       /* value probe */
@@ -2543,6 +2543,8 @@ static void _free_chp_expr (Expr *e)
 
   case E_CHP_VARBOOL_DEREF:
   case E_CHP_VARINT_DEREF:
+  case E_CHP_VARSTRUCT:
+  case E_CHP_VARSTRUCT_DEREF:
     {
       struct chpsimderef *d = (struct chpsimderef *)e->u.e.l;
       _free_deref (d);
@@ -2578,6 +2580,8 @@ static void _free_chp_expr (Expr *e)
     _free_chp_expr (e->u.e.l);
     _free_chp_expr (e->u.e.r);
     break;
+
+
 
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
@@ -3552,10 +3556,13 @@ ChpSimGraph::~ChpSimGraph ()
       break;
       
     case CHPSIM_ASSIGN:
+    case CHPSIM_ASSIGN_STRUCT:
       _free_deref (&stmt->u.assign.d);
       _free_chp_expr (stmt->u.assign.e);
       break;
-      
+
+    case CHPSIM_SEND_STRUCT:
+    case CHPSIM_RECV_STRUCT:
     case CHPSIM_RECV:
     case CHPSIM_SEND:
       if (stmt->u.sendrecv.e) {

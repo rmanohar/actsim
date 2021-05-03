@@ -42,22 +42,26 @@ class expr_multires {
   ~expr_multires() { if (nvals > 0) { FREE (v); } nvals = 0; v = NULL; }
 
   void setSingle (expr_res &x) {
-    if (nvals > 0) {
-      FREE (v);
-    }
     _d = NULL;
-    nvals = 1;
-    NEW (v, expr_res);
+    if (nvals != 1) {
+      if (nvals > 0) {
+	FREE (v);
+      }
+      nvals = 1;
+      NEW (v, expr_res);
+    }
     *v = x;
   }
 
   void setSingle (unsigned long val) {
-    if (nvals > 0) {
-      FREE (v);
-    }
     _d = NULL;
-    nvals = 1;
-    NEW (v, expr_res);
+    if (nvals != 1) {
+      if (nvals > 0) {
+	FREE (v);
+      }
+      nvals = 1;
+      NEW (v, expr_res);
+    }
     v->v = val;
     v->width = 64;
   }
@@ -93,12 +97,16 @@ class expr_multires {
   }
   
   expr_multires &operator=(expr_multires &m) {
-    if (nvals > 0) {
-      FREE (v);
+    if (nvals != m.nvals) {
+      if (nvals > 0) {
+	FREE (v);
+      }
+      if (m.nvals > 0) {
+	MALLOC (v, expr_res, m.nvals);
+      }
     }
     nvals = m.nvals;
     if (nvals > 0) {
-      MALLOC (v, expr_res, nvals);
       bcopy (m.v, v, sizeof (expr_res)*nvals);
     }
     _d = m._d;
