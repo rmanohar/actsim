@@ -22,6 +22,7 @@
 #ifndef __ACTSIM__EXT_H__
 #define __ACTSIM__EXT_H__
 
+#include <act/act.h>
 #include <common/misc.h>
 
 
