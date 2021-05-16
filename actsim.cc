@@ -271,7 +271,7 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
 
 ActSimObj *ActSimCore::_add_dflow (act_dataflow *d)
 {
-  printf ("add-dflow-inst: ");
+  printf ("add-dflow-inst (not currently supported): ");
   if (_curinst) {
     _curinst->Print (stdout);
   }
@@ -426,7 +426,8 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     }
     else if ((l->getdflow() || l->getchp()) &&
 	     (lev == ACT_MODEL_PRS || lev == ACT_MODEL_HSE)) {
-      if (l->getdflow()) {
+      if (l->getdflow() && !l->getchp() /* XXX: currently we don't
+					   directly simulate dataflow */) {
 	if (Act::lang_subst) {
 	  warning ("%s: substituting dataflow model (requested %s, not found)", _curproc ? _curproc->getName() : "-top-", act_model_names[lev]);
 	}
