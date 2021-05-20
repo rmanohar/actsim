@@ -120,6 +120,7 @@ class expr_multires {
 
   void setField (ActId *field, expr_res *v);
   void setField (ActId *field, expr_multires *v);
+  expr_res *getField (ActId *x);
 
   expr_res *v;
   int nvals;

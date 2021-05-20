@@ -81,6 +81,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _leakage_cost = 0.0;
   _area_cost = 0;
   _statestk = NULL;
+  _cureval = NULL;
 
   if (p) {
     snprintf (buf, 1024, "sim.chp.%s.leakage", p->getName());
@@ -1290,10 +1291,19 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     }
 
     b = hash_add (lstate, vx->getName());
-    NEW (x, expr_res);
-    x->v = 0;
-    x->width = TypeFactory::bitWidth (vx->t);
-    b->v = x;
+
+    if (TypeFactory::isStructure (vx->t)) {
+      expr_multires *x2;
+      Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
+      x2 = new expr_multires (xd);
+      b->v = x2;
+    }
+    else {
+      NEW (x, expr_res);
+      x->v = 0;
+      x->width = TypeFactory::bitWidth (vx->t);
+      b->v = x;
+    }
   }
 
   if (nargs != f->getNumPorts()) {
@@ -1340,8 +1350,11 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
   }
   
   act_chp *c = f->getlang()->getchp();
+  Scope *_tmp = _cureval;
   stack_push (_statestk, lstate);
+  _cureval = f->CurScope();
   _run_chp (f, c->c);
+  _cureval = _tmp;
   stack_pop (_statestk);
 
   /* -- return result -- */
@@ -1629,13 +1642,26 @@ expr_res ChpSim::exprEval (Expr *e)
 
   case E_VAR:
     {
+      ActId *xid = (ActId *) e->u.e.l;
       Assert (!list_isempty (_statestk), "What?");
       struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
       Assert (state,"what?");
-      hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
+      hash_bucket_t *b = hash_lookup (state, xid->getName());
       Assert (b, "what?");
-      l = *((expr_res *)b->v);
+      Assert (_cureval, "What?");
+      InstType *xit = _cureval->Lookup (xid->getName());
+      if (TypeFactory::isStructure (xit)) {
+	expr_multires *x2 = (expr_multires *)b->v;
+	l = *(x2->getField (xid->Rest()));
+      }
+      else {
+	l = *((expr_res *)b->v);
+      }
     }
+    break;
+
+  case E_CHP_VARSTRUCT:
+    fatal_error ("fixme");
     break;
 
   case E_BITFIELD:
@@ -1824,8 +1850,11 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
   }
   
   act_chp *c = f->getlang()->getchp();
+  Scope *_tmp = _cureval;
   stack_push (_statestk, lstate);
+  _cureval = f->CurScope();
   _run_chp (f, c->c);
+  _cureval = _tmp;
   stack_pop (_statestk);
 
   /* -- return result -- */
@@ -3720,18 +3749,19 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     struct_len = 3*(ts.numInts() + ts.numBools());
   }
   for (int i=0; i < struct_len/3; i++) {
-#if 0    
+#if 0
     printf ("%d (%d:w=%d) := %lu (w=%d)\n",
 	    struct_info[3*i], struct_info[3*i+1],
 	    struct_info[3*i+2], v->v[i].v, v->v[i].width);
 #endif
+    int off = getGlobalOffset (struct_info[3*i], struct_info[3*i+1]);
     if (struct_info[3*i+1] == 1) {
       /* int */
-      _sc->setInt (struct_info[3*i], v->v[i].v);
+      _sc->setInt (off, v->v[i].v);
     }
     else {
       Assert (struct_info[3*i+1] == 0, "What?");
-      _sc->setBool (struct_info[3*i], v->v[i].v);
+      _sc->setBool (off, v->v[i].v);
     }
   }
 
@@ -3762,6 +3792,13 @@ int expr_multires::_find_offset (ActId *x, Data *d)
   return -1;
 }
 
+expr_res *expr_multires::getField (ActId *x)
+{
+  Assert (x, "setField with scalar called with NULL ID value");
+  int off = _find_offset (x, _d);
+  Assert (0 <= off && off < nvals, "Hmm");
+  return &v[off];
+}
 
 void expr_multires::setField (ActId *x, expr_res *val)
 {
