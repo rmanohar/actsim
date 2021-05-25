@@ -1601,7 +1601,14 @@ expr_res ChpSim::exprEval (Expr *e)
       l.width = ((struct chpsimderef *)e->u.e.l)->width;
 
       if (hi >= l.width) {
-	warning ("Bit-width is less than the width specifier");
+	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.width, hi, lo);
+	if (((struct chpsimderef *)e->u.e.l)->cx) {
+	  ActId *tmp = (((struct chpsimderef *)e->u.e.l)->cx)->toid();
+	  fprintf (stderr, "   id: ");
+	  tmp->Print (stderr);
+	  delete tmp;
+	  fprintf (stderr, "\n");
+	}
       }
       l.width = hi - lo + 1;
       l.v = l.v >> lo;
@@ -1684,7 +1691,8 @@ expr_res ChpSim::exprEval (Expr *e)
       }
 
       if (hi >= l.width) {
-	warning ("Bit-width is less than the width specifier");
+	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.width, hi, lo);
+	fprintf (stderr, "   id: %s\n", b->key);
       }
       l.width = hi - lo + 1;
       l.v = l.v >> lo;
