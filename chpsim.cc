@@ -64,7 +64,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   }
   else {
     // default energy is 0
-    stmt->energy_cost = 0;
+    stmt->energy_cost = config_get_int ("sim.chp.default_energy");
   }
 }
 
@@ -88,9 +88,15 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     if (config_exists (buf)) {
       _leakage_cost = config_get_real (buf);
     }
+    else {
+      _leakage_cost = config_get_real ("sim.chp.default_leakage");
+    }
     snprintf (buf, 1024, "sim.chp.%s.area", p->getName());
     if (config_exists (buf)) {
       _area_cost = config_get_int (buf);
+    }
+    else {
+      _area_cost = config_get_int ("sim.chp.default_area");
     }
   }
   

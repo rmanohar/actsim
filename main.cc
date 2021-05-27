@@ -531,6 +531,9 @@ int main (int argc, char **argv)
   char *proc;
 
   config_set_default_int ("sim.chp.default_delay", 10);
+  config_set_default_int ("sim.chp.default_energy", 10);
+  config_set_default_real ("sim.chp.default_leakage", 1e-9);
+  config_set_default_int ("sim.chp.default_area", 1);
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
