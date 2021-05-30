@@ -2060,6 +2060,12 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
   it = _sc->cursi()->bnl->cur->FullLookup (id, NULL);
 
   if (ActBooleanizePass::isDynamicRef (_sc->cursi()->bnl, id)) {
+    
+    /* -- we can ignore this for fanout tables, since dynamic arrays
+       are entirely contained within a single process! -- */
+
+    return;
+    
     /* mark the entire array as used */
     ValueIdx *vx = id->rootVx (_sc->cursi()->bnl->cur);
     int sz;
