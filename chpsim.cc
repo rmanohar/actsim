@@ -1546,6 +1546,9 @@ expr_res ChpSim::exprEval (Expr *e)
   case E_NOT:
     l = exprEval (e->u.e.l);
     l.v = ~l.v;
+    if (l.width < 64) {
+      l.v = l.v & ((1UL << l.width)-1);
+    }
     break;
     
   case E_UMINUS:
