@@ -3153,7 +3153,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	struct chpsimderef *d;
 
 	/*-- if this is a structure, unravel the structure! --*/
-
 	if (TypeFactory::isStructure (ch->datatype())) {
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref_struct (id, sc);
@@ -3163,6 +3162,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    Data *x = dynamic_cast<Data *> (ch->datatype()->BaseType());
 	    Assert (x, "Hmm");
 	    d = _mk_std_deref_struct (id, x, sc);
+	    type = 1;
 	  }
 	}
 	else {
