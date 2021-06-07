@@ -1,5 +1,5 @@
-In expanding src
-In expanding test
+In expanding src (21.act:5)
+In expanding test (21.act:31)
 In expanding ::<Global>
 In CHP, fragmented access `w.x' to base identifier `w'
 FATAL: Cannot access channel/integer fragments in CHP!

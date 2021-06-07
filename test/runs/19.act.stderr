@@ -1,5 +1,5 @@
-In expanding mem<32>
-In expanding test
+In expanding mem<32> (19.act:5)
+In expanding test (19.act:21)
 In expanding ::<Global>
 In CHP, fragmented access `i.rd.d0' to base identifier `i.rd'
 FATAL: Cannot access channel/integer fragments in CHP!
