@@ -46,9 +46,24 @@ int ChpSimGraph::max_pending_count = 0;
 static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 {
   char buf[1024];
+  const char *nsname;
+ 
+  if (si->bnl->p->getns() != ActNamespace::Global()) {
+    nsname = si->bnl->p->getns()->getName();
+  }
+  else {
+    nsname = NULL;
+  }
+  char tmpbuf[900];
 
-  snprintf (buf, 1024, "sim.chp.%s.%s.D", si->bnl->p->getName(),
-	    id->getName());
+  if (nsname) {
+    snprintf (tmpbuf, 900, "%s::%s", nsname, si->bnl->p->getName());
+  }
+  else {
+    snprintf (tmpbuf, 900, "%s", si->bnl->p->getName());
+  }
+
+  snprintf (buf, 1024, "sim.chp.%s.%s.D", tmpbuf, id->getName());
   if (config_exists (buf)) {
     stmt->delay_cost = config_get_int (buf);
   }
@@ -57,8 +72,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     stmt->delay_cost = config_get_int ("sim.chp.default_delay");
   }
 
-  snprintf (buf, 1024, "sim.chp.%s.%s.E", si->bnl->p->getName(),
-	    id->getName());
+  snprintf (buf, 1024, "sim.chp.%s.%s.E", tmpbuf, id->getName());
   if (config_exists (buf)) {
     stmt->energy_cost = config_get_int (buf);
   }
