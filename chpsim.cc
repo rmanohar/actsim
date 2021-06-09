@@ -3807,32 +3807,10 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
   }
 }
 
-
-int expr_multires::_find_offset (ActId *x, Data *d)
-{
-  if (!d) return -1;
-  if (!x) return 0;
-
-  for (int i=0; i < d->getNumPorts(); i++) {
-    if (strcmp (x->getName(), d->getPortName (i)) == 0) {
-      if (!x->Rest()) {
-	return i;
-      }
-      else {
-	InstType *it = d->getPortType (i);
-	Assert (TypeFactory::isStructure (it), "Hmm");
-	d = dynamic_cast<Data *>(it->BaseType());
-	return i + _find_offset (x->Rest(), d);
-      }
-    }
-  }
-  return -1;
-}
-
 expr_res *expr_multires::getField (ActId *x)
 {
   Assert (x, "setField with scalar called with NULL ID value");
-  int off = _find_offset (x, _d);
+  int off = _d->getStructOffset (x);
   Assert (0 <= off && off < nvals, "Hmm");
   return &v[off];
 }
@@ -3840,7 +3818,7 @@ expr_res *expr_multires::getField (ActId *x)
 void expr_multires::setField (ActId *x, expr_res *val)
 {
   Assert (x, "setField with scalar called with NULL ID value");
-  int off = _find_offset (x, _d);
+  int off = _d->getStructOffset (x);
   Assert (0 <= off && off < nvals, "Hmm");
 
   v[off] = *val;
@@ -3854,7 +3832,7 @@ void expr_multires::setField (ActId *x, expr_multires *m)
     *this = *m;
   }
   else {
-    int off = _find_offset (x, _d);
+    int off = _d->getStructOffset (x);
     Assert (0 <= off && off < nvals, "Hmm");
     Assert (off + m->nvals <= nvals, "What?");
     for (int i=0; i < m->nvals; i++) {

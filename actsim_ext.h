@@ -131,8 +131,6 @@ private:
   void _init (Data *d);
   void _fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob);
   Data *_d;
-  int _find_offset (ActId *x, Data *d);
-  
 };
 
 #endif
