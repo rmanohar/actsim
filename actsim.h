@@ -93,7 +93,7 @@ struct extra_state_alloc {
   int sz;
 };
 
-#define MAX_LOCAL_PCS 1024
+#define MAX_LOCAL_PCS (SIM_EV_MAX+1)
 
 
 class ActSimState {
