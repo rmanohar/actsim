@@ -1501,7 +1501,7 @@ expr_res ChpSim::exprEval (Expr *e)
     r = exprEval (e->u.e.r);
     if ((l.v >> (l.width-1)) & 1) {
       l.v = l.v >> r.v;
-      l.v = l.v | (((1U << r.v)-1) << (l.width-r.v));
+      l.v = l.v | (((1UL << r.v)-1) << (l.width-r.v));
     }
     else {
       l.v = l.v >> r.v;
