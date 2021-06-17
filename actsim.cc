@@ -892,7 +892,7 @@ act_connection *ActSim::runSim (act_connection **cause)
   return NULL;
 }
 
-act_connection *ActSim::Step (int nsteps)
+act_connection *ActSim::Step (long nsteps)
 {
   Event *ret;
   if (SimDES::isEmpty()) {
@@ -905,7 +905,7 @@ act_connection *ActSim::Step (int nsteps)
   return NULL;
 }
 
-act_connection *ActSim::Advance (int delay)
+act_connection *ActSim::Advance (long delay)
 {
   Event *ret;
   if (SimDES::isEmpty()) {

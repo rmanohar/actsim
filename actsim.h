@@ -317,8 +317,8 @@ public:
   void clrBp (act_connection *c); // clear breakpoint
 
   act_connection *runSim (act_connection **cause);
-  act_connection *Step (int nsteps);
-  act_connection *Advance (int delay);
+  act_connection *Step (long nsteps);
+  act_connection *Advance (long delay);
 
   void runInit (void);		// run initialization block. This runs
 				// all the actions upto the final

@@ -58,59 +58,59 @@ int process_cycle (int argc, char **argv)
 {
   if (argc != 1) {
     fprintf (stderr, "Usage: %s\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   glob_sim->runSim (NULL);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_step (int argc, char **argv)
 {
-  int nsteps;
+  long nsteps;
   if (argc != 1 && argc != 2) {
     fprintf (stderr, "Usage: %s [num]\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (argc == 1) {
     nsteps = 1;
   }
   else {
-    nsteps = atoi (argv[1]);
+    sscanf (argv[1], "%ld", &nsteps);
     if (nsteps <= 0) {
       fprintf (stderr, "%s: zero/negative steps?\n", argv[0]);
-      return 0;
+      return LISP_RET_ERROR;
     }
   }
   glob_sim->Step (nsteps);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_advance (int argc, char **argv)
 {
-  int nsteps;
+  long nsteps;
   if (argc != 2) {
-    fprintf (stderr, "Usage: %s [num]\n", argv[0]);
-    return 0;
+    fprintf (stderr, "Usage: %s <delay>\n", argv[0]);
+    return LISP_RET_ERROR;
   }
-  nsteps = atoi (argv[1]);
+  sscanf (argv[1], "%ld", &nsteps);
   if (nsteps <= 0) {
     fprintf (stderr, "%s: zero/negative delay?\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   glob_sim->Advance (nsteps);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_initialize (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <process>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   Process *p = glob_act->findProcess (argv[1]);
   if (!p) {
     fprintf (stderr, "%s: could not find process %s\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (glob_sim) {
     delete glob_sim;
@@ -121,7 +121,7 @@ int process_initialize (int argc, char **argv)
   glob_sp->run (p);
   glob_sim = new ActSim (p);
   glob_sim->runInit ();
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 static void dump_state (ActInstTable *x)
@@ -259,7 +259,7 @@ int process_procinfo (int argc, char **argv)
   ActId *id;
   if (argc != 2 && argc != 1) {
     fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (argc == 1) {
     /* all */
@@ -270,7 +270,7 @@ int process_procinfo (int argc, char **argv)
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
 	       argv[1]);
-      return 0;
+      return LISP_RET_ERROR;
     }
   }
 
@@ -285,7 +285,7 @@ int process_procinfo (int argc, char **argv)
     delete id;
   }
   
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_getenergy (int argc, char **argv)
@@ -296,7 +296,7 @@ int process_getenergy (int argc, char **argv)
     
   if (argc != 2 && argc != 1) {
     fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   if (argc == 1) {
     /* all */
@@ -307,7 +307,7 @@ int process_getenergy (int argc, char **argv)
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
 	       argv[1]);
-      return 0;
+      return LISP_RET_ERROR;
     }
   }
 
@@ -323,7 +323,7 @@ int process_getenergy (int argc, char **argv)
     printf ("  (%g W); area: %lu\n", lk, area);
     delete id;
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
@@ -390,18 +390,18 @@ int process_set (int argc, char **argv)
 {
   if (argc != 3) {
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   int type, offset;
 
   if (!id_to_siminfo (argv[1], &type, &offset)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (type == 2 || type == 3) {
     printf ("'%s' is a channel; not currently supported!\n", argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   int val;
@@ -418,7 +418,7 @@ int process_set (int argc, char **argv)
     }
     else {
       fprintf (stderr, "Boolean must be set to either 0, 1, or X\n");
-      return 0;
+      return LISP_RET_ERROR;
     }
     glob_sim->setBool (offset, val);
   }
@@ -426,7 +426,7 @@ int process_set (int argc, char **argv)
     val = atoi (argv[2]);
     if (val < 0) {
       fprintf (stderr, "Integers are unsigned.\n");
-      return 0;
+      return LISP_RET_ERROR;
     }
     glob_sim->setInt (offset, val);
   }
@@ -441,25 +441,25 @@ int process_set (int argc, char **argv)
     Assert (p, "Hmm?");
     p->propagate ();
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_get (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <name>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   int type, offset;
 
   if (!id_to_siminfo (argv[1], &type, &offset)) {
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   if (type == 2 || type == 3) {
     printf ("'%s' is a channel; not currently supported!\n", argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   
@@ -483,14 +483,14 @@ int process_get (int argc, char **argv)
   else {
     fatal_error ("Should not be here");
   }
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 int process_logfile (int argc, char **argv)
 {
   if (argc != 2) {
     fprintf (stderr, "Usage: %s <file>\n", argv[0]);
-    return 0;
+    return LISP_RET_ERROR;
   }
 
   actsim_close_log ();
@@ -498,10 +498,10 @@ int process_logfile (int argc, char **argv)
   FILE *fp = fopen (argv[1], "w");
   if (!fp) {
     fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[1]);
-    return 0;
+    return LISP_RET_ERROR;
   }
   actsim_set_log (fp);
-  return 1;
+  return LISP_RET_TRUE;
 }
 
 
