@@ -82,7 +82,12 @@ int process_step (int argc, char **argv)
     }
   }
   glob_sim->Step (nsteps);
-  return LISP_RET_TRUE;
+  if (SimDES::hasPendingEvent()) {
+    return LISP_RET_TRUE;
+  }
+  else {
+    return LISP_RET_FALSE;
+  }
 }
 
 int process_advance (int argc, char **argv)
@@ -98,7 +103,12 @@ int process_advance (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   glob_sim->Advance (nsteps);
-  return LISP_RET_TRUE;
+  if (SimDES::hasPendingEvent()) {
+    return LISP_RET_TRUE;
+  }
+  else {
+    return LISP_RET_FALSE;
+  }
 }
 
 int process_initialize (int argc, char **argv)
