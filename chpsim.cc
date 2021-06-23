@@ -129,9 +129,12 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
 
     _pc = (ChpSimGraph **)
       sim->getState()->allocState (sizeof (ChpSimGraph *)*_npc);
+    _holes = (int *) sim->getState()->allocState (sizeof (int)*_npc);
     for (int i=0; i < _npc; i++) {
       _pc[i] = NULL;
+      _holes[i] = i;
     }
+    _holes[0] = -1;
 
     if (max_cnt > 0) {
       _tot = (int *)sim->getState()->allocState (sizeof (int)*max_cnt);
@@ -198,21 +201,39 @@ int ChpSim::_updatepc (int pc)
   int joined;
   
   _pc[pc] = _pc[pc]->completed(pc, _tot, &joined);
+
+  if (!_pc[pc]) {
+#ifdef DUMP_ALL    
+    printf (" [released slot %d (pcused now: %d)]", pc, _pcused-1);
+#endif    
+    Assert (_pcused > 0, "What?");
+    _holes[_pcused-1] = pc;
+    _pcused--;
+  }
+  
   if (joined) {
 #ifdef DUMP_ALL
     printf (" [joined #%d / %d %d]", pc, _pcused, _pc[pc]->wait);
-#endif    
-    _pcused = _pcused - (_pc[pc]->wait - 1);
+#endif
   }
+#if 0  
   if (pc >= _pcused) {
     ChpSimGraph *tmp = _pc[pc];
     _pc[pc] = NULL;
-    pc = _pcused - 1;
-    _pc[pc] = tmp;
+    for (int i=_pcused-1; i >= 0; i--) {
+      if (!_pc[i]) {
+	pc = i;
+	_pc[pc] = tmp;
+	tmp = NULL;
+	break;
+      }
+    }
+    Assert (tmp == NULL, "What?");
 #ifdef DUMP_ALL
     printf (" [pc-adjust %d]", pc);
-#endif    
+#endif
   }
+#endif  
   return pc;
 }
 
@@ -557,12 +578,13 @@ void ChpSim::Step (int ev_type)
   expr_multires vs;
   int off;
 
-  Assert (0 <= pc && pc < _pcused, "What?");
-
   if (pc == MAX_LOCAL_PCS) {
     pc = _stalled_pc;
     _stalled_pc = -1;
   }
+
+  //Assert (0 <= pc && pc < _pcused, "What?");
+  Assert (0 <= pc && pc < _npc, "What?");
 
   if (!_pc[pc]) {
     return;
@@ -603,7 +625,9 @@ void ChpSim::Step (int ev_type)
 	  first = 0;
 	}
 	else {
-	  idx = count + _pcused;
+	  Assert (_pcused < _npc, "What?");
+	  idx = _holes[_pcused++];
+	  _holes[_pcused-1] = -1;
 	  count++;
 	}
 	_pc[idx] = g->all[i];
@@ -613,8 +637,13 @@ void ChpSim::Step (int ev_type)
 #endif
 	  _nextEvent (idx);
 	}
+	else {
+	  Assert (_pcused > 0, "What?");
+	  _holes[_pcused-1] = idx;
+	  _pcused--;
+	}
       }
-      _pcused += stmt->u.fork - 1;
+      //_pcused += stmt->u.fork - 1;
 #ifdef DUMP_ALL
       printf (" _used:%d", _pcused);
 #endif      
@@ -834,8 +863,13 @@ void ChpSim::Step (int ev_type)
 	if (!gc->g || res.v) {
 #ifdef DUMP_ALL	  
 	  printf (" gd#%d true", cnt);
-#endif	  
+#endif
 	  _pc[pc] = _pc[pc]->all[cnt];
+	  if (!_pc[pc]) {
+	    Assert (_pcused > 0, "What?");
+	    _holes[_pcused-1] = pc;
+	    _pcused--;
+	  }
 	  break;
 	}
 	cnt++;

@@ -146,6 +146,7 @@ class ChpSim : public ActSimObj {
  private:
   int _npc;			/* # of program counters */
   ChpSimGraph **_pc;		/* current PC state of simulation */
+  int *_holes;			/* available slots in the _pc array */
   int *_tot;			/* current pending concurrent count */
 
   int _pcused;			/* # of _pc[] slots currently being
