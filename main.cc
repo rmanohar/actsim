@@ -373,17 +373,44 @@ int id_to_siminfo (char *s, int *ptype, int *poffset)
 	     s, obj->getProc()->getName());
     delete id;
     return 0;
-  }    
+  }
+
+  if (!tmp->validateDeref (si->bnl->cur)) {
+    fprintf (stderr, "Array index is out of bounds!\n");
+    return 0;
+  }
 
   c = tmp->Canonical (si->bnl->cur);
   Assert (c, "What?");
 
   res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
   if (!res) {
-    fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-	     s, obj->getProc()->getName());
-    delete id;
-    return 0;
+    /* it is possible that it is an array reference */
+    Array *ta = NULL;
+    ActId *tid;
+    tid = tmp;
+    while (tmp->Rest()) {
+      tmp = tmp->Rest();
+    }
+    ta = tmp->arrayInfo();
+    if (ta) {
+      tmp->setArray (NULL);
+      c = tmp->Canonical (si->bnl->cur);
+      Assert (c, "Hmm...");
+      res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+      if (res) {
+	InstType *it = si->bnl->cur->FullLookup (tmp, NULL);
+	Assert (it->arrayInfo(), "What?");
+	offset += it->arrayInfo()->Offset (ta);
+      }
+      tmp->setArray (ta);
+    }
+    if (!res) {
+      fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+	       s, obj->getProc()->getName());
+      delete id;
+      return 0;
+    }
   }
   
   offset = obj->getGlobalOffset (offset, type);
