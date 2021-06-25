@@ -806,26 +806,31 @@ void ChpSim::Step (int ev_type)
 
   case CHPSIM_FUNC:
     _energy_cost += stmt->energy_cost;
-    actsim_log ("[%8lu t#:%d] <", CurTimeLo(), pc);
-    name->Print (actsim_log_fp());
-    actsim_log ("> ");
-    for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
-      act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
-      if (arg->isstring) {
-	actsim_log ("%s", string_char (arg->u.s));
-      }
-      else {
-	v = exprEval (arg->u.e);
-	if (v.width < 64) {
-	  v.v = v.v << (64-v.width);
-	  v.v = v.v >> (64-v.width);
+    {
+      char buf[10240];
+      buf[0] = '\0';
+      name->sPrint (buf, 10240);
+      if (_sc->isFiltered (buf)) {
+	actsim_log ("[%8lu t#:%d] <%s> ", CurTimeLo(), pc, buf);
+	for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
+	  act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+	  if (arg->isstring) {
+	    actsim_log ("%s", string_char (arg->u.s));
+	  }
+	  else {
+	    v = exprEval (arg->u.e);
+	    if (v.width < 64) {
+	      v.v = v.v << (64-v.width);
+	      v.v = v.v >> (64-v.width);
+	    }
+	    actsim_log (ACT_EXPR_RES_PRINTF, v.v);
+	  }
 	}
-	actsim_log (ACT_EXPR_RES_PRINTF, v.v);
+	actsim_log ("\n");
+	actsim_log_flush ();
       }
+      pc = _updatepc (pc);
     }
-    actsim_log ("\n");
-    actsim_log_flush ();
-    pc = _updatepc (pc);
     break;
 
   case CHPSIM_COND:

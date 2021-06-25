@@ -514,6 +514,20 @@ int process_logfile (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_filter (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <regexp>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  glob_sim->logFilter (argv[1]);
+
+  return LISP_RET_TRUE;
+}
+
+
+
 
 
 struct LispCliCommand Cmds[] = {
@@ -527,7 +541,8 @@ struct LispCliCommand Cmds[] = {
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "get", "<name> - get value of a variable", process_get },
 
-
+  { "filter", "<regexp> - only show log messages that match regexp", process_filter },
+  
   { NULL, "Statistics", NULL },
 
   { "logfile", "<file> - dump actsim output to a log file <file>", process_logfile },

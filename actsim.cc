@@ -50,6 +50,8 @@ struct chpsimgraph_info {
 
 ActSimCore::ActSimCore (Process *p)
 {
+  _have_filter = 0;
+  
   if (!p) {
     root_is_ns = 1;
     root_lang = ActNamespace::Global()->getlang();
@@ -1216,6 +1218,34 @@ void ActSim::runInit ()
   }
 }
 
+void ActSimCore::logFilter (const char *s)
+{
+  if (s[0] == '\0') {
+    _have_filter = 0;
+  }
+  else {
+    _have_filter = 1;
+    if (regcomp (&match, s, REG_EXTENDED) != 0) {
+      _have_filter = 0;
+      warning ("Regular expression `%s' didn't compile; skipped.", s);
+    }
+  }
+}
+
+int ActSimCore::isFiltered (const char *s)
+{
+  if (!_have_filter) {
+    return 1;
+  }
+  else {
+    if (regexec (&match, s, 0, NULL, 0) == 0) {
+      return 1;
+    }
+    else {
+      return 0;
+    }
+  }
+}
 
 
 /*-------------------------------------------------------------------------

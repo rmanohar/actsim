@@ -27,6 +27,7 @@
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
+#include <regex.h>
 #include "actsim_ext.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
@@ -246,6 +247,8 @@ class ActSimCore {
 }
   SimDES **getFO (int off, int type) { if (type == 0) { return fo[off]; } else { return fo[off+nint_start]; } }
     
+  void logFilter (const char *s);
+  int isFiltered (const char *s);
 
 protected:
   Act *a;
@@ -305,6 +308,9 @@ protected:
   int _getlevel ();
 
   void _initSim ();	      /* create simulation */
+
+  int _have_filter;
+  regex_t match;
 };
 
 
