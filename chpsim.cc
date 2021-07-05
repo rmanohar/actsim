@@ -63,6 +63,10 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     snprintf (tmpbuf, 900, "%s", si->bnl->p->getName());
   }
 
+  if (debug_metrics) {
+    fprintf (stderr, "Looking for metrics for: %s\n", tmpbuf);
+  }
+
   snprintf (buf, 1024, "sim.chp.%s.%s.D", tmpbuf, id->getName());
   if (config_exists (buf)) {
     stmt->delay_cost = config_get_int (buf);

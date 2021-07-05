@@ -349,4 +349,6 @@ void actsim_log (const char *s, ...);
 void actsim_log_flush (void);
 FILE *actsim_log_fp (void);
 
+extern int debug_metrics;
+
 #endif /* __ACT_SIM_H__ */

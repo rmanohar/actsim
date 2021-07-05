@@ -578,6 +578,9 @@ struct LispCliCommand Cmds[] = {
   { "energy", "[<inst-name>] - show energy usage", process_getenergy }
 };
 
+
+int debug_metrics;
+
 int main (int argc, char **argv)
 {
   char *proc;
@@ -586,10 +589,12 @@ int main (int argc, char **argv)
   config_set_default_int ("sim.chp.default_energy", 0);
   config_set_default_real ("sim.chp.default_leakage", 0);
   config_set_default_int ("sim.chp.default_area", 0);
+  config_set_default_int ("sim.chp.debug_metrics", 0);
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
 
+  debug_metrics = config_get_int ("sim.chp.debug_metrics");
 
   /* some usage check */
   if (argc != 3) {
