@@ -134,7 +134,7 @@ int process_initialize (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-static void dump_state (ActInstTable *x)
+static void dump_state (FILE *fp, ActInstTable *x)
 {
   if (!x) {
     warning ("Didn't find info; is this a valid instance?");
@@ -142,7 +142,7 @@ static void dump_state (ActInstTable *x)
   }
   
   if (x->obj) {
-    x->obj->dumpState (stdout);
+    x->obj->dumpState (fp);
   }
   if (x->H) {
     hash_bucket_t *b;
@@ -150,12 +150,13 @@ static void dump_state (ActInstTable *x)
     hash_iter_init (x->H, &i);
     while ((b = hash_iter_next (x->H, &i))) {
       ActInstTable *tmp = (ActInstTable *) b->v;
-      dump_state (tmp);
+      dump_state (fp, tmp);
     }
   }
 }
 
-static unsigned long _get_energy (ActInstTable *x, double *lk,
+static unsigned long _get_energy (FILE *fp,
+				  ActInstTable *x, double *lk,
 				  unsigned long *area,
 				  int ts = 0)
 {
@@ -181,11 +182,11 @@ static unsigned long _get_energy (ActInstTable *x, double *lk,
 
     if (tot > 0 || totl > 0 || tota > 0) {
       for (int i=0; i < ts; i++) {
-	printf ("  ");
+	fprintf (fp, "  ");
       }
-      printf (" - ");
-      x->obj->getName()->Print (stdout);
-      printf (" %lu  (%g W); area: %lu\n", tot, totl, tota);
+      fprintf (fp, " - ");
+      x->obj->getName()->Print (fp);
+      fprintf (fp, " %lu  (%g W); area: %lu\n", tot, totl, tota);
     }
   }
   sub = tot;
@@ -199,16 +200,16 @@ static unsigned long _get_energy (ActInstTable *x, double *lk,
     hash_iter_init (x->H, &i);
     while ((b = hash_iter_next (x->H, &i))) {
       ActInstTable *tmp = (ActInstTable *) b->v;
-      tot += _get_energy (tmp, &tmpl, &tmpa, ts+1);
+      tot += _get_energy (fp, tmp, &tmpl, &tmpa, ts+1);
       totl += tmpl;
       tota += tmpa;
     }
     if ((tot - sub) > 0 || ((totl - subl) > 0) || ((tota - suba) > 0)) {
       for (int i=0; i < ts; i++) {
-	printf ("  ");
+	fprintf (fp, "  ");
       }
-      printf (" ---:subtree %lu (%g W); area: %lu\n", tot - sub, totl - subl,
-	      tota - suba);
+      fprintf (fp, " ---:subtree %lu (%g W); area: %lu\n",
+	       tot - sub, totl - subl, tota - suba);
     }
   }
   *lk = totl;
@@ -267,11 +268,25 @@ ActSimObj *find_object (ActId **id, ActInstTable *x)
 int process_procinfo (int argc, char **argv)
 {
   ActId *id;
-  if (argc != 2 && argc != 1) {
-    fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
+  FILE *fp;
+  if (argc != 2 && argc != 3) {
+    fprintf (stderr, "Usage: %s <filename> [<instance-name>]\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  if (argc == 1) {
+
+  if (strcmp (argv[1], "-") == 0) {
+    fp = stdout;
+  }
+  else {
+    fp = fopen (argv[1], "w");
+    if (!fp) {
+      fprintf (stderr, "%s: could not open file `%s' for writing\n",
+	       argv[0], argv[1]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  if (argc == 2) {
     /* all */
     id = NULL;
   }
@@ -286,13 +301,17 @@ int process_procinfo (int argc, char **argv)
 
   if (!id) {
     /*-- print state of each process --*/
-    dump_state (glob_sim->getInstTable ());
+    dump_state (fp, glob_sim->getInstTable ());
   }
   else {
     /*-- find this process --*/
     ActInstTable *inst = find_table (id, glob_sim->getInstTable());
-    dump_state (inst);
+    dump_state (fp, inst);
     delete id;
+  }
+
+  if (fp != stdout) {
+    fclose (fp);
   }
   
   return LISP_RET_TRUE;
@@ -303,35 +322,53 @@ int process_getenergy (int argc, char **argv)
   ActId *id;
   double lk;
   unsigned long area;
+  FILE *fp;
     
-  if (argc != 2 && argc != 1) {
-    fprintf (stderr, "Usage: %s [<instance-name>]\n", argv[0]);
+  if (argc != 2 && argc != 3) {
+    fprintf (stderr, "Usage: %s <filename> [<instance-name>]\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  if (argc == 1) {
+
+  if (strcmp (argv[1], "-") == 0) {
+    fp = stdout;
+  }
+  else {
+    fp = fopen (argv[1], "w");
+    if (!fp) {
+      fprintf (stderr, "%s: could not open file `%s' for writing\n",
+	       argv[0], argv[1]);
+      return LISP_RET_ERROR;
+    }
+  }
+  
+  if (argc == 2) {
     /* all */
     id = NULL;
   }
   else {
-    id = ActId::parseId (argv[1]);
+    id = ActId::parseId (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[1]);
+	       argv[2]);
       return LISP_RET_ERROR;
     }
   }
 
   if (!id) {
     /*-- print state of each process --*/
-    printf ("Total: %lu", _get_energy (glob_sim->getInstTable (), &lk, &area));
-    printf ("  (%g W); area: %lu\n", lk, area);
+    fprintf (fp, "Total: %lu", _get_energy (fp,
+				       glob_sim->getInstTable (), &lk, &area));
+    fprintf (fp, "  (%g W); area: %lu\n", lk, area);
   }
   else {
     /*-- find this process --*/
     ActInstTable *inst = find_table (id, glob_sim->getInstTable());
-    printf ("Total: %lu", _get_energy (inst, &lk, &area));
-    printf ("  (%g W); area: %lu\n", lk, area);
+    fprintf (fp, "Total: %lu", _get_energy (fp, inst, &lk, &area));
+    fprintf (fp, "  (%g W); area: %lu\n", lk, area);
     delete id;
+  }
+  if (fp != stdout) {
+    fclose (fp);
   }
   return LISP_RET_TRUE;
 }
@@ -574,8 +611,8 @@ struct LispCliCommand Cmds[] = {
 
   { "logfile", "<file> - dump actsim output to a log file <file>", process_logfile },
   
-  { "procinfo", "[<inst-name>] - show the program counter for a process", process_procinfo },
-  { "energy", "[<inst-name>] - show energy usage", process_getenergy }
+  { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
+  { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy }
 };
 
 
