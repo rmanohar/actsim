@@ -102,14 +102,31 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _cureval = NULL;
 
   if (p) {
-    snprintf (buf, 1024, "sim.chp.%s.leakage", p->getName());
+    const char *nsname;
+ 
+    if (p->getns() != ActNamespace::Global()) {
+      nsname = p->getns()->getName();
+    }
+    else {
+      nsname = NULL;
+    }
+    char tmpbuf[900];
+
+    if (nsname) {
+      snprintf (tmpbuf, 900, "%s::%s", nsname, p->getName());
+    }
+    else {
+      snprintf (tmpbuf, 900, "%s", p->getName());
+    }
+
+    snprintf (buf, 1024, "sim.chp.%s.leakage", tmpbuf);
     if (config_exists (buf)) {
       _leakage_cost = config_get_real (buf);
     }
     else {
       _leakage_cost = config_get_real ("sim.chp.default_leakage");
     }
-    snprintf (buf, 1024, "sim.chp.%s.area", p->getName());
+    snprintf (buf, 1024, "sim.chp.%s.area", tmpbuf);
     if (config_exists (buf)) {
       _area_cost = config_get_int (buf);
     }
