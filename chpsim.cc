@@ -2990,6 +2990,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
   switch (c->type) {
   case ACT_CHP_SEMI:
+    count = cur_pending_count;
     if (list_length (c->u.semi_comma.cmd)== 1) {
       return _buildChpSimGraph
 	(sc,
@@ -2997,6 +2998,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     }
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
+      cur_pending_count = count;
       act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
       ChpSimGraph *tmp = _buildChpSimGraph (sc, t, &tmp2);
       if (tmp) {
@@ -3050,7 +3052,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       (*stop)->wait = count;
       (*stop)->totidx = tmp;
     }
-    //cur_pending_count--;
     break;
 
   case ACT_CHP_SELECT:
