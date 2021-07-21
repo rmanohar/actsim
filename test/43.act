@@ -1,0 +1,29 @@
+defproc recv(chan?(int) X)
+{
+  int i;
+  chp {
+     i := 0;
+    *[ i < 100 -> X?; i := i + 1 ]
+   }
+}
+
+defproc mytest(chan!(int) A, B)
+{
+  chp {
+    *[ A!0,B!1 ]
+   }
+}
+
+defproc test()
+{
+  chan(int) A, B, C, D;
+  int a, b, c, d;
+
+  recv R0(A),R1(B),R2(C),R3(D);
+
+  chp { 
+    *[ A!0,B!1 ] , *[ C!1,D!2 ]
+  }
+}
+
+test t;

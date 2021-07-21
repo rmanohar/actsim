@@ -3050,7 +3050,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       (*stop)->wait = count;
       (*stop)->totidx = tmp;
     }
-    cur_pending_count--;
+    //cur_pending_count--;
     break;
 
   case ACT_CHP_SELECT:
