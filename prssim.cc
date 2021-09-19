@@ -527,6 +527,7 @@ void OnePrsSim::Step (int ev_type)
 {
   int u_state, d_state;
   int t = SIM_EV_TYPE (ev_type);
+  const char *nm;
 
   /*-- fire rule --*/
   switch (_me->type) {
@@ -667,6 +668,15 @@ void PrsSim::setBool (int lid, int v)
 {
   int off = getGlobalOffset (lid, 0);
   SimDES **arr;
+  const char *nm;
+
+  if ((nm = isWatched (0, off))) {
+    int oval = _sc->getBool (off);
+    if (oval != v) {
+      msgPrefix ();
+      printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
+    }
+  }
   _sc->setBool (off, v);
 
   arr = _sc->getFO (off, 0);

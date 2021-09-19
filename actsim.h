@@ -173,6 +173,11 @@ public:
   virtual void propagate ();
   virtual void computeFanout() { printf ("should not be here\n"); }
 
+  void addWatchPoint (int type, int idx, const char *name);
+  void delWatchPoint (int type, int idx);
+  inline const char *isWatched (int type, int idx);
+  void msgPrefix ();
+
 protected:
   state_counts _o;		/* my state offsets for all local
 				   state */
@@ -180,6 +185,8 @@ protected:
 
   ActId *name;
   Process *_proc;
+
+  struct iHashtable *_W;		/* watchpoints */
   
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
@@ -350,5 +357,24 @@ void actsim_log_flush (void);
 FILE *actsim_log_fp (void);
 
 extern int debug_metrics;
+
+inline const char *ActSimObj::isWatched (int type, int offset)
+{
+  if (!_W) return 0;
+
+  ihash_bucket_t *b;
+  
+  if (type == 3) {
+    type = 2;
+  }
+  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
+  if (b) {
+    return (const char *)b->v;
+  }
+  else {
+    return NULL;
+  }
+}
+
 
 #endif /* __ACT_SIM_H__ */

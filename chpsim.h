@@ -182,8 +182,8 @@ class ChpSim : public ActSimObj {
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */
 
-  int varSend (int pc, int wakeup, int id, expr_multires &v);
-  int varRecv (int pc, int wakeup, int id, expr_multires *v);
+  int varSend (int pc, int wakeup, int id, int *poff, expr_multires &v);
+  int varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v);
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);

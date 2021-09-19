@@ -373,8 +373,7 @@ int process_getenergy (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-
-int id_to_siminfo (char *s, int *ptype, int *poffset)
+static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
   ActId *id = ActId::parseId (s);
   if (!id) {
@@ -449,12 +448,18 @@ int id_to_siminfo (char *s, int *ptype, int *poffset)
       return 0;
     }
   }
-  
+
+  if (type == 3) {
+    type = 2;
+  }
+
   offset = obj->getGlobalOffset (offset, type);
 
   *ptype = type;
   *poffset = offset;
-
+  if (pobj) {
+    *pobj = obj;
+  }
   delete id;
   return 1;
 }
@@ -469,7 +474,7 @@ int process_set (int argc, char **argv)
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset)) {
+  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -520,14 +525,14 @@ int process_set (int argc, char **argv)
 
 int process_get (int argc, char **argv)
 {
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+  if (argc != 2 && argc != 3) {
+    fprintf (stderr, "Usage: %s <name> [#f]\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset)) {
+  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -536,29 +541,75 @@ int process_get (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  
+
   unsigned long val;
   if (type == 0) {
     val = glob_sim->getBool (offset);
-    if (val == 0) {
-      printf ("%s: 0\n", argv[1]);
-    }
-    else if (val == 1) {
-      printf ("%s: 1\n", argv[1]);
-    }
-    else {
-      printf ("%s: X\n", argv[1]);
+    LispSetReturnInt (val);
+    if (argc == 2) {
+      if (val == 0) {
+	printf ("%s: 0\n", argv[1]);
+      }
+      else if (val == 1) {
+	printf ("%s: 1\n", argv[1]);
+      }
+      else {
+	printf ("%s: X\n", argv[1]);
+      }
     }
   }
   else if (type == 1) {
     val = glob_sim->getInt (offset);
-    printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);
+    LispSetReturnInt (val);
+    if (argc == 2) {
+      printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);
+    }
   }
   else {
     fatal_error ("Should not be here");
+    return LISP_RET_TRUE;
   }
+  return LISP_RET_INT;
+}
+
+int process_watch (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+
+  obj->addWatchPoint (type, offset, argv[1]);
+
   return LISP_RET_TRUE;
 }
+
+int process_unwatch (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+
+  obj->delWatchPoint (type, offset);
+
+  return LISP_RET_TRUE;
+}
+
 
 int process_logfile (int argc, char **argv)
 {
@@ -590,12 +641,41 @@ int process_filter (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_error (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <str>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  fprintf (stderr, "ERROR: %s\n", argv[1]);
 
+  return LISP_RET_ERROR;
+}
 
-
+int process_echo (int argc, char **argv)
+{
+  int nl = 1;
+  if (argc > 1 && strcmp (argv[1], "-n") == 0) {
+      nl = 0;
+  }
+  for (int i=2-nl; i < argc; i++) {
+    printf ("%s", argv[i]);
+    if (i != argc-1) {
+      printf (" ");
+    }
+  }
+  if (nl) {
+    printf ("\n");
+  }
+  return LISP_RET_TRUE;
+}
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
+
+  { "echo", "[-n] args - display to screen", process_echo },
+  { "error", "<str> - report error and abort execution", process_error },
+  
   { "initialize", "<proc> - initialize simulation for <proc>",
     process_initialize },
 
@@ -616,14 +696,17 @@ struct LispCliCommand Cmds[] = {
   { "advance", "<delay> - run for <delay> time", process_advance },
   { "cycle", "- run until simulation stops", process_cycle },
 
-#if 0
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
+
+  { "watch", "<n> - add watchpoint for <n>", process_watch },
+  { "unwatch", "<n> - delete watchpoint for <n>", process_unwatch },
+
+#if 0
   { "status", "0|1|X - list all nodes with specified value", process_status },
   { "send", "<chan> <val> - send a value on a channel", process_send },
   { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
   
-  { "watch", "<n> - add watchpoint for <n>", process_watch },
   { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },

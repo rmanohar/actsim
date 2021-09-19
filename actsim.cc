@@ -1014,6 +1014,7 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
   _abs_port_bool = NULL;
   _abs_port_int = NULL;
   _abs_port_chan = NULL;
+  _W = NULL;
   name = NULL;
 }
 
@@ -1141,9 +1142,55 @@ ActSimObj::~ActSimObj()
   if (_abs_port_chan) {
     FREE (_abs_port_chan);
   }
+  if (_W) {
+    ihash_free (_W);
+  }
   delete name;
 }
 
+
+void ActSimObj::addWatchPoint (int type, int offset, const char *name)
+{
+  ihash_bucket_t *b;
+  
+  if (type == 3) {
+    type = 2;
+  }
+
+  if (!_W) {
+    _W = ihash_new (4);
+  }
+  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
+  if (!b) {
+    b = ihash_add (_W, (unsigned long)type | ((unsigned long)offset << 2));
+    b->v = Strdup (name);
+  }
+}
+
+void ActSimObj::delWatchPoint (int type, int offset)
+{
+  ihash_bucket_t *b;
+  
+  if (type == 3) {
+    type = 2;
+  }
+
+  if (!_W) {
+    return;
+  }
+  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
+  if (b) {
+    ihash_delete (_W, (unsigned long)type | ((unsigned long)offset << 2));
+    FREE (b->v);
+  }
+}
+
+void ActSimObj::msgPrefix ()
+{
+  printf ("[%8lu] <", CurTimeLo());
+  name->Print (stdout);
+  printf (">  ");
+}
 
 void ActSim::runInit ()
 {
@@ -1217,6 +1264,7 @@ void ActSim::runInit ()
     }
   }
 }
+
 
 void ActSimCore::logFilter (const char *s)
 {

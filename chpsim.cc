@@ -598,6 +598,7 @@ void ChpSim::Step (int ev_type)
   expr_res v;
   expr_multires vs;
   int off;
+  const char *nm;
 
   if (pc == MAX_LOCAL_PCS) {
     pc = _stalled_pc;
@@ -686,7 +687,14 @@ void ChpSim::Step (int ev_type)
       off = getGlobalOffset (off, 0);
 #if 0      
       printf (" [glob=%d]", off);
-#endif      
+#endif
+      if ((nm = isWatched (0, off))) {
+	int oval = _sc->getBool (off);
+	if (oval != v.v) {
+	  msgPrefix ();
+	  printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+	}
+      }
       _sc->setBool (off, v.v);
 
       SimDES **arr;
@@ -705,6 +713,13 @@ void ChpSim::Step (int ev_type)
       if (v.width > stmt->u.assign.isint) {
 	if (stmt->u.assign.isint < 64) {
 	  v.v = ((unsigned long)v.v & ((1UL << stmt->u.assign.isint)-1));
+	}
+      }
+      if ((nm = isWatched (1, off))) {
+	unsigned long oval =  _sc->getInt (off);
+	if (oval != v.v) {
+	  msgPrefix ();
+	  printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
 	}
       }
       _sc->setInt (off, v.v);
@@ -737,11 +752,11 @@ void ChpSim::Step (int ev_type)
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
       otherwise we have to wait for the receiver --*/
-    int rv;
+    int rv, poff;
     if (stmt->type == CHPSIM_SEND) {
       vs.setSingle (v);
     }
-    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, vs);
+    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, &poff, vs);
     if (rv) {
       /* blocked */
       forceret = 1;
@@ -756,6 +771,20 @@ void ChpSim::Step (int ev_type)
       printf ("send done");
 #endif      
       _energy_cost += stmt->energy_cost;
+    }
+    if ((nm = isWatched (2, poff))) {
+      msgPrefix ();
+      if (rv) {
+	printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
+      }
+      else {
+	if (!flag) {
+	  printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+	}
+	else {
+	  printf ("%s : send complete\n", nm);
+	}
+      }
     }
     break;
 
@@ -777,8 +806,8 @@ void ChpSim::Step (int ev_type)
       else {
 	type = -1;
       }
-
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &vs);
+      int poff;
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &poff, &vs);
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
@@ -801,7 +830,14 @@ void ChpSim::Step (int ev_type)
 	      off = getGlobalOffset (id, 0);
 #if 0	    
 	      printf (" [glob=%d]", off);
-#endif	    
+#endif
+	      if ((nm = isWatched (0, off))) {
+		int oval = _sc->getBool (off);
+		if (oval != v.v) {
+		  msgPrefix ();
+		  printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+		}
+	      }
 	      _sc->setBool (off, v.v);
 	    }
 	    else {
@@ -812,6 +848,14 @@ void ChpSim::Step (int ev_type)
 	      if (width < 64) {
 		v.v = ((unsigned long)v.v) & ((1UL << width)-1);
 	      }
+
+	      if ((nm = isWatched (0, off))) {
+		unsigned long oval = _sc->getInt (off);
+		if (oval != v.v) {
+		  msgPrefix ();
+		  printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+		}
+	      }
 	      _sc->setInt (off, v.v);
 	    }
 	  }
@@ -821,6 +865,15 @@ void ChpSim::Step (int ev_type)
 	}
 	pc = _updatepc (pc);
 	_energy_cost += stmt->energy_cost;
+      }
+      if ((nm = isWatched (2, poff))) {
+	msgPrefix ();
+	if (rv) {
+	  printf ("%s : recv-blocked\n", nm);
+	}
+	else {
+	  printf ("%s : recv value: %lu (0x%lx)\n", nm, v.v, v.v);
+	}
       }
     }
     break;
@@ -954,10 +1007,11 @@ void ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v)
+int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
+  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {
@@ -1057,10 +1111,11 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v)
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v)
+int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
+  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {
