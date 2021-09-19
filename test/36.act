@@ -41,5 +41,3 @@ defproc test()
   test_signed t;
   src_check chk(t.X,t.Y);
 }
-
-test x;

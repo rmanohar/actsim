@@ -12,6 +12,3 @@ defproc test (bool? i; bool! o)
     }
 */
 }
-
-test t;
-

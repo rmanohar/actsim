@@ -33,5 +33,3 @@ defproc test()
      log("got ", x)
    }
 }
-   
-test t;

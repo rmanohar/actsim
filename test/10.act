@@ -35,5 +35,3 @@ defproc test()
     dendrites dn;
     drive dv(dn.W, dn.Vi, dn.tick, dn.Vo);
 }
-
-test t;

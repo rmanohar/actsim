@@ -15,5 +15,3 @@ defproc test()
 	log ("emm2_high: ", emm2{63..32}, " emm2_low: ", emm2{31..0} )
   }
 }
-
-test t;

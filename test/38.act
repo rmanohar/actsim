@@ -9,5 +9,3 @@ defproc test()
     C!1, (C?x; log("got ", x))
   }
 }
-
-test t;

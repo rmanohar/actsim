@@ -36,5 +36,3 @@ defproc test()
 
   (i:N-1: b[i].r = b[i+1].l;)
 }
-
-test t;

@@ -32,4 +32,3 @@ defproc test()
   sink bucket(m.r);
 }
 
-test t;

@@ -39,5 +39,3 @@ defproc test()
   merge m(s1.x,s2.x);
   sink bucket(m.r);
 }
-
-test t;

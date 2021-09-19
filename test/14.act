@@ -9,5 +9,3 @@ defproc test()
      log ("x{4} is now ", x{4}, " x{2} is ", x{2}, " x{5} is ", x{5})
    }
 }
-   
-test t;

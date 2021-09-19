@@ -9,5 +9,3 @@ defproc test()
      log ("got ", w.a, " ", w.b)
    }
 } 
-
-test t;

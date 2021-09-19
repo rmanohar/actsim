@@ -12,5 +12,3 @@ defproc test ()
 		log("A = ",a);log("B = ",b);log("C = ",c);log("C_up = ", c{63..32});log("C_dn = ", c{31..0})
 	}
 }
-
-test t;

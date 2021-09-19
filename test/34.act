@@ -31,5 +31,3 @@ defproc test ()
 
   x.port = r.port;
 }
-
-test t;

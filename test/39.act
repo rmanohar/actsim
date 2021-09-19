@@ -20,5 +20,3 @@ defproc test()
     log ("got: ", w.a, " and ", w.b)
   }
 }
-
-test t;

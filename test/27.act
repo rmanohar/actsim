@@ -31,9 +31,6 @@ defproc test()
     }
 }
 
-test t;
-
-
 /*  with latest version
 $ actsim test_concat.act "test<>"
 WARNING: test<>: substituting chp model (requested prs, not found)

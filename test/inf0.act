@@ -22,5 +22,3 @@ Initialize {
   actions { Reset+ };
   actions { Reset- }
 }
-  
-test t;    

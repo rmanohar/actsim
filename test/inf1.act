@@ -24,5 +24,3 @@ defproc test()
   src s;
   sink t(s.X); 
 }
-
-test t;

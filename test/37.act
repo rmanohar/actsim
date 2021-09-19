@@ -25,5 +25,3 @@ defproc test ()
 	}
 
 }
-
-test t;

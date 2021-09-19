@@ -595,21 +595,52 @@ int process_filter (int argc, char **argv)
 
 
 struct LispCliCommand Cmds[] = {
-  { NULL, "Running a simulation", NULL },
+  { NULL, "Initialization and setup", NULL },
   { "initialize", "<proc> - initialize simulation for <proc>",
     process_initialize },
-  { "cycle", "- run until simulation stops", process_cycle },
+
+#if 0
+  { "mode", "reset|run - set running mode", process_mode },
+  { "rand_init", "- randomly set signals that are X for rand_init signals",
+    process_rand_init },
+  { "random", "[min max] - randomize timings", process_random },
+  { "random_seed", "seed - set random number seed", process_random_seed },
+  { "norandom", "- deterministic timing", process_norandom },
+  { "random_choice", "on|off - randomize non-deterministic choices", process_random_choice },
+  { "dumptc", "<file> - dump transition counts to a file", process_dumptc },
+#endif
+
+  { NULL, "Running simulation", NULL },
+
   { "step", "[n] - run the next [n] events", process_step },
   { "advance", "<delay> - run for <delay> time", process_advance },
+  { "cycle", "- run until simulation stops", process_cycle },
 
+#if 0
   { "set", "<name> <val> - set a variable to a value", process_set },
-  { "get", "<name> - get value of a variable", process_get },
+  { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
+  { "status", "0|1|X - list all nodes with specified value", process_status },
+  { "send", "<chan> <val> - send a value on a channel", process_send },
+  { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
+  
+  { "watch", "<n> - add watchpoint for <n>", process_watch },
+  { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
+  { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
+  { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
+  { "pending", "- dump pending events", process_pending },
+
+  { NULL, "Production rule tracing", NULL },
+
+  { "fanin", "<n> - list fanin for <n>", process_fanin },
+  { "fanin-get", "<n> - list fanin with values for <n>", process_fanin_get },
+  { "fanout", "<n> - list fanout for <n>", process_fanout },
+  
+#endif  
+
+  { NULL, "Process and CHP commands", NULL },
 
   { "filter", "<regexp> - only show log messages that match regexp", process_filter },
-  
-  { NULL, "Statistics", NULL },
-
-  { "logfile", "<file> - dump actsim output to a log file <file>", process_logfile },
+  { "logfile", "<file> - dump actsim log output to a log file <file>", process_logfile },
   
   { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
   { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy }
@@ -653,6 +684,10 @@ int main (int argc, char **argv)
 
   if (!p) {
     fatal_error ("Could not find process `%s' in file `%s'", argv[2], argv[1]);
+  }
+
+  if (!p->isExpanded()) {
+    p = p->Expand (ActNamespace::Global(), p->CurScope(), 0, NULL);
   }
 
   if (!p->isExpanded()) {

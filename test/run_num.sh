@@ -56,7 +56,7 @@ do
         else
 	   myecho ".[$bname]"
         fi
-	$ACTTOOL $i 'test<>'  > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
+	$ACTTOOL $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 cycle
 EOF
 	ok=1

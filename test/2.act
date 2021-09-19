@@ -31,5 +31,3 @@ defproc test()
   src src2(a.b);
   sink bucket(a.r);
 }
-
-test t;

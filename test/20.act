@@ -8,5 +8,3 @@ defproc test(){
 		i := mem[i]{7..0}
 	}
 }
-
-test test;

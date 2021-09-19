@@ -17,5 +17,3 @@ defproc test()
   bool q;
   test2 u(q);
 }
-  
-test t;    

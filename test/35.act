@@ -24,5 +24,3 @@ Initialize {
   actions { Reset+;qe+ };
   actions { Reset- }
 }
-  
-test t;    

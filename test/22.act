@@ -32,5 +32,3 @@ defproc test ()
    x.a = y.p;
    x.b = y.q;
 }
-
-test t;

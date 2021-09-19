@@ -7,5 +7,3 @@ defproc test()
      x[x[0]+10] := 1
    }
 }
-
-test t;
