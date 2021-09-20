@@ -110,6 +110,7 @@ class PrsSim : public ActSimObj {
   int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
     
   void setBool (int lid, int v);
+  void printName (FILE *fp, int lid);
 
   void dumpState (FILE *fp);
 

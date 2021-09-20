@@ -1199,7 +1199,7 @@ void ActSimObj::delWatchPoint (int type, int offset)
 
 void ActSimObj::msgPrefix ()
 {
-  printf ("[%8lu] <", CurTimeLo());
+  printf ("[%20lu] <", CurTimeLo());
   name->Print (stdout);
   printf (">  ");
 }

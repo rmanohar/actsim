@@ -586,10 +586,16 @@ void OnePrsSim::propagate ()
     /* -- check for unstable rules -- */
     if (flags == PENDING_1 && u_state != 1) {
       if (u_state == 2) {
-	warning ("Weak-unstable");
+	_proc->msgPrefix();
+	printf ("WARNING: weak-unstable transition `");
+	_proc->printName (stdout, _me->vid);
+	printf ("+'\n");
       }
       else {
-	warning ("Unstable");
+	_proc->msgPrefix();
+	printf ("WARNING: unstable transition `");
+	_proc->printName (stdout, _me->vid);
+	printf ("+'\n");
       }
       _pending->Remove();
       _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
@@ -598,10 +604,16 @@ void OnePrsSim::propagate ()
 
     if (flags == PENDING_0 && d_state != 1) {
       if (d_state == 2) {
-	warning ("Weak-unstable");
+	_proc->msgPrefix();
+	printf ("WARNING: weak-unstable transition `");
+	_proc->printName (stdout, _me->vid);
+	printf ("-'\n");
       }
       else {
-	warning ("Unstable");
+	_proc->msgPrefix();
+	printf ("WARNING: unstable transition `");
+	_proc->printName (stdout, _me->vid);
+	printf ("-'\n");
       }
       _pending->Remove();
       _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
@@ -631,7 +643,17 @@ void OnePrsSim::propagate ()
 
       case 1:
 	/* interference */
-      
+	_proc->msgPrefix();
+	printf ("WARNING: interference on `");
+	_proc->printName (stdout, _me->vid);
+	printf ("\n");
+	if (flags != PENDING_X) {
+	  if (_pending) {
+	    _pending->Remove ();
+	  }
+	  flags = PENDING_X;
+	  _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	}
 	break;
       }
     }
@@ -649,8 +671,14 @@ void OnePrsSim::propagate ()
 
       case 2:
 	/* set to X */
-	warning ("Weak interference");
+	_proc->msgPrefix();
+	printf ("WARNING: weak-interference on `");
+	_proc->printName (stdout, _me->vid);
+	printf ("\n");
 	if (flags != PENDING_X) {
+	  if (_pending) {
+	    _pending->Remove ();
+	  }
 	  flags = PENDING_X;
 	  _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
 	}
@@ -664,6 +692,25 @@ void OnePrsSim::propagate ()
     break;
   }
 }
+
+void PrsSim::printName (FILE *fp, int lid)
+{
+  act_connection *c;
+  int dx;
+  c = _sc->getConnFromOffset (_proc, lid, 0, &dx);
+  if (!c) {
+    fprintf (fp, "-?-");
+  }
+  else {
+    ActId *tmp = c->toid();
+    tmp->Print (fp);
+    delete tmp;
+    if (dx != -1) {
+      fprintf (fp, "[%d]", dx);
+    }
+  }
+}
+
 
 void PrsSim::setBool (int lid, int v)
 {
