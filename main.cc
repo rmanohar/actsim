@@ -775,6 +775,47 @@ int process_resume_on_warn (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+static void _compute_status (ActInstTable *tab, int val)
+{
+  if (tab->obj) {
+    tab->obj->printStatus (val);
+  }
+  if (tab->H) {
+    hash_iter_t it;
+    hash_bucket_t *b;
+    hash_iter_init (tab->H, &it);
+    while ((b = hash_iter_next (tab->H, &it))) {
+      _compute_status ((ActInstTable *)b->v, val);
+    }
+  }
+}
+
+int process_status (int argc, char **argv)
+{
+  int val;
+  
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s 0|1|X\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (strcmp (argv[1], "0") == 0) {
+    val = 0;
+  }
+  else if (strcmp (argv[1], "1") == 0) {
+    val = 1;
+  }
+  else if (strcmp (argv[1], "X") == 0 || strcmp (argv[1], "U") == 0) {
+    val = 2;
+  }
+  else {
+    fprintf (stderr, "Usage: %s 0|1|X\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  _compute_status (glob_sim->getInstTable(), val);
+  return LISP_RET_TRUE;
+}
+  
+
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
@@ -814,8 +855,9 @@ struct LispCliCommand Cmds[] = {
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
   { "resume-on-warn", "- like break-on-warn, but exit", process_resume_on_warn },
 
-#if 0
   { "status", "0|1|X - list all nodes with specified value", process_status },
+  
+#if 0
   { "send", "<chan> <val> - send a value on a channel", process_send },
   { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
   

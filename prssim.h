@@ -119,6 +119,8 @@ class PrsSim : public ActSimObj {
   inline int getDelay (int delay) { return _sc->getDelay (delay); }
   inline int isResetMode() { return _sc->isResetMode (); }
   inline int onWarning() { return _sc->onWarning(); }
+
+  void printStatus (int val);
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
@@ -139,13 +141,14 @@ private:
   PrsSim *_proc;		// process core [maps, etc]
   struct prssim_stmt *_me;	// the rule
   Event *_pending;
-  
   int eval (prssim_expr *);
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
   int Step (int ev_type);
   void propagate ();
+  void printName ();
+  int matches (int val);
 };
 
 

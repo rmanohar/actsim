@@ -112,7 +112,7 @@ ActSimCore::ActSimCore (Process *p)
 			   globals.numChans());
 
   nfo_len = si->ports.numAllBools() + si->all.numAllBools()
-    + globals.numAllBools() +  si->ports.numInts() + si->all.numInts()
+    + globals.numAllBools() + si->ports.numInts() + si->all.numInts()
     + globals.numInts();
 
   nint_start = si->ports.numAllBools() + si->all.numAllBools()

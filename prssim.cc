@@ -47,6 +47,29 @@ int PrsSim::Step (int ev_type)
   return 1;
 }
 
+void PrsSim::printStatus (int val)
+{
+  listitem_t *li;
+  int emit_name = 0;
+  
+  for (li = list_first (_sim); li; li = list_next (li)) {
+    if (((OnePrsSim *)list_value (li))->matches (val)) {
+      if (!emit_name) {
+	name->Print (stdout);
+	printf (" { ");
+	emit_name = 1;
+      }
+      else {
+	printf (" ");
+      }
+      ((OnePrsSim *)list_value (li))->printName ();
+    }
+  }
+  if (emit_name) {
+    printf (" }\n");
+  }
+}
+
 
 void PrsSim::_computeFanout (prssim_expr *e, SimDES *s)
 {
@@ -571,6 +594,22 @@ int OnePrsSim::Step (int ev_type)
   }
   return 1-_breakpt;
 }
+
+void OnePrsSim::printName ()
+{
+  _proc->printName (stdout, _me->vid);
+}
+
+int OnePrsSim::matches (int val)
+{
+  if (_proc->getBool (_me->vid) == val) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
 
 #define DO_SET_VAL(x)						\
   do {								\
