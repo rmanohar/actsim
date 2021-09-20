@@ -586,10 +586,12 @@ void OnePrsSim::propagate ()
     /* -- check for unstable rules -- */
     if (flags == PENDING_1 && u_state != 1) {
       if (u_state == 2) {
-	_proc->msgPrefix();
-	printf ("WARNING: weak-unstable transition `");
-	_proc->printName (stdout, _me->vid);
-	printf ("+'\n");
+	if (!_proc->isResetMode()) {
+	  _proc->msgPrefix();
+	  printf ("WARNING: weak-unstable transition `");
+	  _proc->printName (stdout, _me->vid);
+	  printf ("+'\n");
+	}
       }
       else {
 	_proc->msgPrefix();
@@ -604,10 +606,12 @@ void OnePrsSim::propagate ()
 
     if (flags == PENDING_0 && d_state != 1) {
       if (d_state == 2) {
-	_proc->msgPrefix();
-	printf ("WARNING: weak-unstable transition `");
-	_proc->printName (stdout, _me->vid);
-	printf ("-'\n");
+	if (!_proc->isResetMode()) {
+	  _proc->msgPrefix();
+	  printf ("WARNING: weak-unstable transition `");
+	  _proc->printName (stdout, _me->vid);
+	  printf ("-'\n");
+	}
       }
       else {
 	_proc->msgPrefix();
@@ -671,10 +675,12 @@ void OnePrsSim::propagate ()
 
       case 2:
 	/* set to X */
-	_proc->msgPrefix();
-	printf ("WARNING: weak-interference on `");
-	_proc->printName (stdout, _me->vid);
-	printf ("\n");
+	if (!_proc->isResetMode()) {
+	  _proc->msgPrefix();
+	  printf ("WARNING: weak-interference on `");
+	  _proc->printName (stdout, _me->vid);
+	  printf ("\n");
+	}
 	if (flags != PENDING_X) {
 	  if (_pending) {
 	    _pending->Remove ();

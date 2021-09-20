@@ -115,6 +115,7 @@ class PrsSim : public ActSimObj {
   void dumpState (FILE *fp);
 
   inline int getDelay (int delay) { return _sc->getDelay (delay); }
+  inline int isResetMode() { return _sc->isResetMode (); }
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);

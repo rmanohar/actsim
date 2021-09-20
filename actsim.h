@@ -267,6 +267,7 @@ class ActSimCore {
   }
   void setRandomSeed (unsigned seed) { _seed = seed; }
   void setRandomChoice (int v) { _sim_rand_excl = v; }
+  int isResetMode() { return _prs_sim_mode; }
 
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
