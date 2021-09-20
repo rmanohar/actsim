@@ -28,6 +28,8 @@
 #include <act/act.h>
 #include <act/passes.h>
 #include <regex.h>
+#include <stdlib.h>
+#include <math.h>
 #include "actsim_ext.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
@@ -257,6 +259,37 @@ class ActSimCore {
   void logFilter (const char *s);
   int isFiltered (const char *s);
 
+  void setMode (int mode) { _prs_sim_mode = mode; }
+  void setRandom () { _sim_rand = 1; }
+  void setNoRandom() { _sim_rand = 0; }
+  void setRandom (int min, int max) {
+    _sim_rand = 2; _rand_min = min; _rand_max = max;
+  }
+  void setRandomSeed (unsigned seed) { _seed = seed; }
+  void setRandomChoice (int v) { _sim_rand_excl = v; }
+
+
+#define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
+
+  inline int getDelay (int delay) {
+    double d;
+    unsigned long val;
+
+    if (_sim_rand == 0) {
+      return delay;
+    }
+    else if (_sim_rand == 1) {
+      d = (0.0 + rand_r (&_seed))/RAND_MAX;
+      val = exp(d*LN_MAX_VAL)-1;
+    }
+    else if (_sim_rand == 2) {
+      d = (0.0 + rand_r (&_seed))/RAND_MAX;
+      val = _rand_min + d*(_rand_max - _rand_min);
+    }
+    if (val == 0) { val = 1; }
+    return val;
+  }
+
 protected:
   Act *a;
 
@@ -318,6 +351,16 @@ protected:
 
   int _have_filter;
   regex_t match;
+
+  unsigned int _prs_sim_mode:1;	 /* 0 = normal, 1 = reset */
+  unsigned int _sim_rand:2;	 /* 0 = normal, 1 = random, 2 = rand
+				    range */
+  
+  unsigned int _sim_rand_excl:1; /* 0 = normal, 1 = random excl */
+
+  unsigned int _rand_min, _rand_max;
+  
+  unsigned _seed;		 /* random seed, if used */
 };
 
 

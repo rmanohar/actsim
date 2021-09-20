@@ -670,6 +670,81 @@ int process_echo (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_mode (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s reset|run\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (strcmp (argv[1], "reset") == 0) {
+    glob_sim->setMode (1);
+  }
+  else if (strcmp (argv[1], "run") == 0) {
+    glob_sim->setMode (0);
+  }
+  else {
+    fprintf (stderr, "%s: unknown mode\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
+int process_random (int argc, char **argv)
+{
+  if (argc == 1) {
+    glob_sim->setRandom();
+  }
+  else if (argc == 3) {
+    glob_sim->setRandom (atoi (argv[1]), atoi(argv[2]));
+  }
+  else {
+    fprintf (stderr, "Usage: %s [min max]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
+int process_norandom (int argc, char **argv)
+{
+  if (argc == 1) {
+    glob_sim->setNoRandom();
+  }
+  else {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
+int process_random_seed (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <val>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  glob_sim->setRandomSeed (atoi (argv[1]));
+  return LISP_RET_TRUE;
+}
+
+int process_random_choice (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s on|off\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (strcmp (argv[1], "on") == 0) {
+    glob_sim->setRandomChoice (1);
+  }
+  else if (strcmp (argv[1], "off") == 0) {
+    glob_sim->setRandomChoice (0);
+  }
+  else {
+    fprintf (stderr, "Usage: %s on|off\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
 
@@ -679,14 +754,16 @@ struct LispCliCommand Cmds[] = {
   { "initialize", "<proc> - initialize simulation for <proc>",
     process_initialize },
 
-#if 0
   { "mode", "reset|run - set running mode", process_mode },
-  { "rand_init", "- randomly set signals that are X for rand_init signals",
-    process_rand_init },
+  
   { "random", "[min max] - randomize timings", process_random },
-  { "random_seed", "seed - set random number seed", process_random_seed },
+  { "random_seed", "<val> - set random number seed", process_random_seed },
   { "norandom", "- deterministic timing", process_norandom },
   { "random_choice", "on|off - randomize non-deterministic choices", process_random_choice },
+
+#if 0
+  { "rand_init", "- randomly set signals that are X for rand_init signals",
+    process_rand_init },
   { "dumptc", "<file> - dump transition counts to a file", process_dumptc },
 #endif
 

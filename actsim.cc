@@ -131,6 +131,13 @@ ActSimCore::ActSimCore (Process *p)
     fo = NULL;
   }
   hfo = NULL;
+
+  _seed = 0;
+  _rand_min = 1;
+  _rand_max = 100;
+  _sim_rand_excl = 0;
+  _sim_rand = 0;
+  _prs_sim_mode = 0;
   
   _rootsi = si;
   _initSim();
@@ -1182,6 +1189,11 @@ void ActSimObj::delWatchPoint (int type, int offset)
   if (b) {
     ihash_delete (_W, (unsigned long)type | ((unsigned long)offset << 2));
     FREE (b->v);
+
+    if (_W->n == 0) {
+      ihash_free (_W);
+      _W = NULL;
+    }
   }
 }
 

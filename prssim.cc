@@ -550,14 +550,15 @@ void OnePrsSim::Step (int ev_type)
   }
 }
 
-#define DO_SET_VAL(x)							\
-  do {									\
-    if (_proc->getBool (_me->vid) != (x)) {				\
-      if (flags != (1 + (x))) {						\
-	flags = (1 + (x));						\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), 10);	\
-      }									\
-    }									\
+#define DO_SET_VAL(x)						\
+  do {								\
+    if (_proc->getBool (_me->vid) != (x)) {			\
+      if (flags != (1 + (x))) {					\
+	flags = (1 + (x));					\
+	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
+			      _proc->getDelay (10));		\
+      }								\
+    }								\
   } while (0)
 
 void OnePrsSim::propagate ()

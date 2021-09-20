@@ -112,6 +112,8 @@ class PrsSim : public ActSimObj {
   void setBool (int lid, int v);
 
   void dumpState (FILE *fp);
+
+  inline int getDelay (int delay) { return _sc->getDelay (delay); }
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);

@@ -204,7 +204,8 @@ int ChpSim::_nextEvent (int pc)
     pc = _updatepc (pc);
   }
   if (_pc[pc]) {
-    new Event (this, SIM_EV_MKTYPE (pc,0) /* pc */, _pc[pc]->stmt->delay_cost);
+    new Event (this, SIM_EV_MKTYPE (pc,0) /* pc */,
+	       _sc->getDelay (_pc[pc]->stmt->delay_cost));
     return 1;
   }
   return 0;
