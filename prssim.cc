@@ -825,13 +825,28 @@ void PrsSim::setBool (int lid, int v)
 {
   int off = getGlobalOffset (lid, 0);
   SimDES **arr;
-  const char *nm;
+  const char *nm, *nm2;
+  int verb;
 
+  verb = 0;
   if ((nm = isWatched (0, off))) {
+    verb = 1;
+  }
+  if ((nm2 = isBreakPt (0, off))) {
+    verb |= 2;
+  }
+  if (verb) {
     int oval = _sc->getBool (off);
     if (oval != v) {
-      msgPrefix ();
-      printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
+      if (verb & 1) {
+	msgPrefix ();
+	printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
+      }
+      if (verb & 2) {
+	msgPrefix ();
+	printf ("*** breakpoint %s\n", nm2);
+	_breakpt = 1;
+      }
     }
   }
   _sc->setBool (off, v);

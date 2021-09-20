@@ -178,7 +178,9 @@ public:
 
   void addWatchPoint (int type, int idx, const char *name);
   void delWatchPoint (int type, int idx);
+  void toggleBreakPt (int type, int idx, const char *name);
   inline const char *isWatched (int type, int idx);
+  inline const char *isBreakPt (int type, int idx);
   void msgPrefix (FILE *fp = NULL);
 
 protected:
@@ -190,6 +192,7 @@ protected:
   Process *_proc;
 
   struct iHashtable *_W;		/* watchpoints */
+  struct iHashtable *_B;		/* breakpoints */
   
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
@@ -417,6 +420,24 @@ inline const char *ActSimObj::isWatched (int type, int offset)
     type = 2;
   }
   b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
+  if (b) {
+    return (const char *)b->v;
+  }
+  else {
+    return NULL;
+  }
+}
+
+inline const char *ActSimObj::isBreakPt (int type, int offset)
+{
+  if (!_B) return 0;
+
+  ihash_bucket_t *b;
+  
+  if (type == 3) {
+    type = 2;
+  }
+  b = ihash_lookup (_B, (unsigned long)type | ((unsigned long)offset << 2));
   if (b) {
     return (const char *)b->v;
   }

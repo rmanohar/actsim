@@ -591,6 +591,26 @@ int process_watch (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_breakpt (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+
+  obj->toggleBreakPt (type, offset, argv[1]);
+
+  return LISP_RET_TRUE;
+}
+
+
 int process_unwatch (int argc, char **argv)
 {
   if (argc != 2) {
@@ -850,6 +870,7 @@ struct LispCliCommand Cmds[] = {
 
   { "watch", "<n> - add watchpoint for <n>", process_watch },
   { "unwatch", "<n> - delete watchpoint for <n>", process_unwatch },
+  { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
@@ -861,7 +882,6 @@ struct LispCliCommand Cmds[] = {
   { "send", "<chan> <val> - send a value on a channel", process_send },
   { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
   
-  { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
   { "pending", "- dump pending events", process_pending },
 
   { NULL, "Production rule tracing", NULL },

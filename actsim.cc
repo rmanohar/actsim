@@ -1023,6 +1023,7 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
   _abs_port_int = NULL;
   _abs_port_chan = NULL;
   _W = NULL;
+  _B = NULL;
   name = NULL;
 }
 
@@ -1174,6 +1175,29 @@ void ActSimObj::addWatchPoint (int type, int offset, const char *name)
     b->v = Strdup (name);
   }
 }
+
+void ActSimObj::toggleBreakPt (int type, int offset, const char *name)
+{
+  ihash_bucket_t *b;
+  
+  if (type == 3) {
+    type = 2;
+  }
+
+  if (!_B) {
+    _B = ihash_new (4);
+  }
+  b = ihash_lookup (_B, (unsigned long)type | ((unsigned long)offset << 2));
+  if (!b) {
+    b = ihash_add (_B, (unsigned long)type | ((unsigned long)offset << 2));
+    b->v = Strdup (name);
+  }
+  else {
+    FREE (b->v);
+    ihash_delete (_B, (unsigned long)type | ((unsigned long)offset << 2));
+  }
+}
+
 
 void ActSimObj::delWatchPoint (int type, int offset)
 {

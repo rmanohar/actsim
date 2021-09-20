@@ -599,7 +599,9 @@ int ChpSim::Step (int ev_type)
   expr_res v;
   expr_multires vs;
   int off;
-  const char *nm;
+  const char *nm, *nm2;
+  int _breakpt = 0;
+  int verb;
 
   if (pc == MAX_LOCAL_PCS) {
     pc = _stalled_pc;
@@ -689,11 +691,25 @@ int ChpSim::Step (int ev_type)
 #if 0      
       printf (" [glob=%d]", off);
 #endif
+      verb = 0;
       if ((nm = isWatched (0, off))) {
+	verb = 1;
+      }
+      if ((nm2 = isBreakPt (0, off))) {
+	verb |= 2;
+      }
+      if (verb) {
 	int oval = _sc->getBool (off);
 	if (oval != v.v) {
-	  msgPrefix ();
-	  printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+	  if (verb & 1) {
+	    msgPrefix ();
+	    printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+	  }
+	  if (verb & 2) {
+	    msgPrefix ();
+	    printf ("*** breakpoint %s\n", nm2);
+	    _breakpt = 1;
+	  }
 	}
       }
       _sc->setBool (off, v.v);
@@ -716,11 +732,25 @@ int ChpSim::Step (int ev_type)
 	  v.v = ((unsigned long)v.v & ((1UL << stmt->u.assign.isint)-1));
 	}
       }
-      if ((nm = isWatched (1, off))) {
+      verb = 0;
+      if ((nm = isWatched (0, off))) {
+	verb = 1;
+      }
+      if ((nm2 = isBreakPt (0, off))) {
+	verb |= 2;
+      }
+      if (verb) {
 	unsigned long oval =  _sc->getInt (off);
 	if (oval != v.v) {
-	  msgPrefix ();
-	  printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+	  if (verb & 1) {
+	    msgPrefix ();
+	    printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+	  }
+	  if (verb & 2) {
+	    msgPrefix ();
+	    printf ("*** breakpoint %s\n", nm2);
+	    _breakpt = 1;
+	  }	    
 	}
       }
       _sc->setInt (off, v.v);
@@ -773,18 +803,32 @@ int ChpSim::Step (int ev_type)
 #endif      
       _energy_cost += stmt->energy_cost;
     }
-    if ((nm = isWatched (2, poff))) {
-      msgPrefix ();
-      if (rv) {
-	printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
-      }
-      else {
-	if (!flag) {
-	  printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+    verb = 0;
+    if ((nm = isWatched (0, off))) {
+      verb = 1;
+    }
+    if ((nm2 = isBreakPt (0, off))) {
+      verb |= 2;
+    }
+    if (verb) {
+      if (verb & 1) {
+	msgPrefix ();
+	if (rv) {
+	  printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
 	}
 	else {
-	  printf ("%s : send complete\n", nm);
+	  if (!flag) {
+	    printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+	  }
+	  else {
+	    printf ("%s : send complete\n", nm);
+	  }
 	}
+      }
+      if (verb & 2) {
+	msgPrefix ();
+	printf ("*** breakpoint %s\n", nm2);
+	_breakpt = 1;
       }
     }
     break;
@@ -832,11 +876,25 @@ int ChpSim::Step (int ev_type)
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
+	      verb = 0;
 	      if ((nm = isWatched (0, off))) {
+		verb = 1;
+	      }
+	      if ((nm2 = isBreakPt (0, off))) {
+		verb |= 2;
+	      }
+	      if (verb) {
 		int oval = _sc->getBool (off);
 		if (oval != v.v) {
-		  msgPrefix ();
-		  printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+		  if (verb & 1) {
+		    msgPrefix ();
+		    printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+		  }
+		  if (verb & 2) {
+		    msgPrefix ();
+		    printf ("*** breakpoint %s\n", nm2);
+		    _breakpt = 1;
+		  }
 		}
 	      }
 	      _sc->setBool (off, v.v);
@@ -849,12 +907,25 @@ int ChpSim::Step (int ev_type)
 	      if (width < 64) {
 		v.v = ((unsigned long)v.v) & ((1UL << width)-1);
 	      }
-
+	      verb = 0;
 	      if ((nm = isWatched (0, off))) {
+		verb = 1;
+	      }
+	      if ((nm2 = isBreakPt (0, off))) {
+		verb |= 2;
+	      }
+	      if (verb) {
 		unsigned long oval = _sc->getInt (off);
 		if (oval != v.v) {
-		  msgPrefix ();
-		  printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+		  if (verb & 1) {
+		    msgPrefix ();
+		    printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+		  }
+		  if (verb & 2) {
+		    msgPrefix ();
+		    printf ("*** breakpoint %s\n", nm2);
+		    _breakpt = 1;
+		  }
 		}
 	      }
 	      _sc->setInt (off, v.v);
@@ -867,13 +938,27 @@ int ChpSim::Step (int ev_type)
 	pc = _updatepc (pc);
 	_energy_cost += stmt->energy_cost;
       }
-      if ((nm = isWatched (2, poff))) {
-	msgPrefix ();
-	if (rv) {
-	  printf ("%s : recv-blocked\n", nm);
+      verb = 0;
+      if ((nm = isWatched (0, off))) {
+	verb = 1;
+      }
+      if ((nm2 = isBreakPt (0, off))) {
+	verb |= 2;
+      }
+      if (verb) {
+	if (verb & 1) {
+	  msgPrefix ();
+	  if (rv) {
+	    printf ("%s : recv-blocked\n", nm);
+	  }
+	  else {
+	    printf ("%s : recv value: %lu (0x%lx)\n", nm, v.v, v.v);
+	  }
 	}
-	else {
-	  printf ("%s : recv value: %lu (0x%lx)\n", nm, v.v, v.v);
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
 	}
       }
     }
@@ -996,7 +1081,7 @@ int ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL  
   printf (" [f-ret %d]\n", forceret);
 #endif
-    return 1;
+    return 1 - _breakpt;
   }
   else {
 #ifdef DUMP_ALL  
@@ -1004,7 +1089,7 @@ int ChpSim::Step (int ev_type)
 #endif
     _nextEvent (pc);
   }
-  return 1;
+  return 1 - _breakpt;
 }
 
 
