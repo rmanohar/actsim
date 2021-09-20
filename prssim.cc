@@ -605,7 +605,7 @@ void OnePrsSim::propagate ()
     /* -- check for unstable rules -- */
     if (flags == PENDING_1 && u_state != 1) {
       if (u_state == 2) {
-	if (!_proc->isResetMode()) {
+	if (!_proc->isResetMode() && !_me->unstab) {
 	  _proc->msgPrefix();
 	  printf ("WARNING: weak-unstable transition `");
 	  _proc->printName (stdout, _me->vid);
@@ -613,10 +613,12 @@ void OnePrsSim::propagate ()
 	}
       }
       else {
-	_proc->msgPrefix();
-	printf ("WARNING: unstable transition `");
-	_proc->printName (stdout, _me->vid);
-	printf ("+'\n");
+	if (!_me->unstab) {
+	  _proc->msgPrefix();
+	  printf ("WARNING: unstable transition `");
+	  _proc->printName (stdout, _me->vid);
+	  printf ("+'\n");
+	}
       }
       _pending->Remove();
       _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
@@ -625,7 +627,7 @@ void OnePrsSim::propagate ()
 
     if (flags == PENDING_0 && d_state != 1) {
       if (d_state == 2) {
-	if (!_proc->isResetMode()) {
+	if (!_proc->isResetMode() && !_me->unstab) {
 	  _proc->msgPrefix();
 	  printf ("WARNING: weak-unstable transition `");
 	  _proc->printName (stdout, _me->vid);
@@ -633,10 +635,12 @@ void OnePrsSim::propagate ()
 	}
       }
       else {
-	_proc->msgPrefix();
-	printf ("WARNING: unstable transition `");
-	_proc->printName (stdout, _me->vid);
-	printf ("-'\n");
+	if (!_me->unstab) {
+	  _proc->msgPrefix();
+	  printf ("WARNING: unstable transition `");
+	  _proc->printName (stdout, _me->vid);
+	  printf ("-'\n");
+	}
       }
       _pending->Remove();
       _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
