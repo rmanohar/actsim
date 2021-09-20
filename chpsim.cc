@@ -886,7 +886,7 @@ void ChpSim::Step (int ev_type)
       buf[0] = '\0';
       name->sPrint (buf, 10240);
       if (_sc->isFiltered (buf)) {
-	actsim_log ("[%8lu t#:%d] <%s> ", CurTimeLo(), pc, buf);
+	msgPrefix (actsim_log_fp());
 	for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
 	  act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
 	  if (arg->isstring) {

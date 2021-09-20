@@ -1,4 +1,4 @@
-[       0 t#:0] <> test bitfield
-[      10 t#:0] <> x was 100
-[      10 t#:0] <> x{4} is now 0 x{2} is 1 x{5} is 1
-[      10 t#:0] <>  combo is 6
+[                   0] <>  test bitfield
+[                  10] <>  x was 100
+[                  10] <>  x{4} is now 0 x{2} is 1 x{5} is 1
+[                  10] <>   combo is 6

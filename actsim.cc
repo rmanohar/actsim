@@ -1197,11 +1197,14 @@ void ActSimObj::delWatchPoint (int type, int offset)
   }
 }
 
-void ActSimObj::msgPrefix ()
+void ActSimObj::msgPrefix (FILE *fp)
 {
-  printf ("[%20lu] <", CurTimeLo());
-  name->Print (stdout);
-  printf (">  ");
+  if (fp == NULL) {
+    fp = stdout;
+  }
+  fprintf (fp, "[%20lu] <", CurTimeLo());
+  name->Print (fp);
+  fprintf (fp, ">  ");
 }
 
 void ActSim::runInit ()

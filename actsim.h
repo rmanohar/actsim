@@ -178,7 +178,7 @@ public:
   void addWatchPoint (int type, int idx, const char *name);
   void delWatchPoint (int type, int idx);
   inline const char *isWatched (int type, int idx);
-  void msgPrefix ();
+  void msgPrefix (FILE *fp = NULL);
 
 protected:
   state_counts _o;		/* my state offsets for all local

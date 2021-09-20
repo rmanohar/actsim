@@ -1,3 +1,3 @@
-[       0 t#:0] <r> send: 0
-[      10 t#:0] <x> av: got 0
-[      20 t#:0] <r> rv got: 2
+[                   0] <r>  send: 0
+[                  10] <x>  av: got 0
+[                  20] <r>  rv got: 2
