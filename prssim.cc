@@ -111,20 +111,16 @@ void PrsSim::computeFanout ()
   }
 }
 
-static int _attr_check_weak (act_attr_t *attr)
+static int _attr_check (const char *nm, act_attr_t *attr)
 {
   while (attr) {
-    if (strcmp (attr->attr, "weak") == 0) {
+    if (strcmp (attr->attr, nm) == 0) {
       Assert (attr->e->type == E_INT, "What?");
-      if (attr->e->u.v) {
-	return 1;
-      }
-      else {
-	return 0;
-      }
+      return attr->e->u.v;
     }
+    attr = attr->next;
   }
-  return 0;
+  return -1;
 }
 
 static struct Hashtable *at_table;
@@ -284,6 +280,9 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     s->type = PRSSIM_RULE;
     s->vid = rhs;
     s->c = rhsc;
+    s->unstab = 0;
+    s->delay_up = 10;
+    s->delay_dn = 10;
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -291,13 +290,17 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     q_ins (_rules, _tail, s);
   }
 
-  int weak;
-  if (_attr_check_weak (p->u.one.attr)) {
+  int weak, delay;
+  if (_attr_check ("weak", p->u.one.attr) == 1) {
     weak = PRSSIM_WEAK;
   }
   else {
     weak = PRSSIM_NORM;
   }
+  if (_attr_check ("unstab", p->u.one.attr) == 1) {
+    s->unstab = 1;
+  }
+  delay = _attr_check ("after", p->u.one.attr);
 
   /*-- now handle the rule --*/
 
@@ -307,9 +310,15 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     /* normal arrow */
     if (p->u.one.dir) {
       _merge_prs (sc, &s->up[weak], p->u.one.e, 0);
+      if (delay >= 0) {
+	s->delay_up = delay;
+      }
     }
     else {
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
+      if (delay >= 0) {
+	s->delay_dn = delay;
+      }
     }
     break;
 
@@ -323,6 +332,10 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       _merge_prs (sc, &s->up[weak], p->u.one.e, 1);
     }
+    if (delay >= 0) {
+      s->delay_up = delay;
+      s->delay_dn = delay;
+    }
     break;
     
   case 2:
@@ -334,6 +347,10 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     else {
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       _merge_prs (sc, &s->up[weak], p->u.one.e, 2);
+    }
+    if (delay >= 0) {
+      s->delay_up = delay;
+      s->delay_dn = delay;
     }
     break;
     
@@ -556,7 +573,9 @@ void OnePrsSim::Step (int ev_type)
       if (flags != (1 + (x))) {					\
 	flags = (1 + (x));					\
 	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
-			      _proc->getDelay (10));		\
+			      _proc->getDelay ((x) == 0 ?	\
+					       _me->delay_dn :	\
+					       _me->delay_up));	\
       }								\
     }								\
   } while (0)

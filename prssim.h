@@ -58,7 +58,9 @@ struct prssim_expr {
 
 struct prssim_stmt {
   unsigned int type:2; /* RULE, P, N, TRANSGATE */
+  unsigned int unstab:1; /* is unstable? */
   struct prssim_stmt *next;
+  int delay_up, delay_dn;
   union {
     struct {
       prssim_expr *up[2], *dn[2];
