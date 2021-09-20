@@ -41,9 +41,10 @@ PrsSim::~PrsSim()
   list_free (_sim);
 }
 
-void PrsSim::Step (int ev_type)
+int PrsSim::Step (int ev_type)
 {
   fatal_error ("This should never be called!");
+  return 1;
 }
 
 
@@ -539,12 +540,15 @@ int OnePrsSim::eval (prssim_expr *x)
   return 0;
 }
 
+static int _breakpt;
 
-void OnePrsSim::Step (int ev_type)
+int OnePrsSim::Step (int ev_type)
 {
   int u_state, d_state;
   int t = SIM_EV_TYPE (ev_type);
   const char *nm;
+
+  _breakpt = 0;
 
   /*-- fire rule --*/
   switch (_me->type) {
@@ -565,6 +569,7 @@ void OnePrsSim::Step (int ev_type)
     fatal_error ("What?");
     break;
   }
+  return 1-_breakpt;
 }
 
 #define DO_SET_VAL(x)						\
@@ -610,6 +615,12 @@ void OnePrsSim::propagate ()
 	  printf ("WARNING: weak-unstable transition `");
 	  _proc->printName (stdout, _me->vid);
 	  printf ("+'\n");
+	  if (_proc->onWarning() == 2) {
+	    exit (1);
+	  }
+	  else if (_proc->onWarning() == 1) {
+	    _breakpt = 1;
+	  }
 	}
       }
       else {
@@ -618,6 +629,12 @@ void OnePrsSim::propagate ()
 	  printf ("WARNING: unstable transition `");
 	  _proc->printName (stdout, _me->vid);
 	  printf ("+'\n");
+	  if (_proc->onWarning() == 2) {
+	    exit (1);
+	  }
+	  else if (_proc->onWarning() == 1) {
+	    _breakpt = 1;
+	  }
 	}
       }
       _pending->Remove();
@@ -632,6 +649,12 @@ void OnePrsSim::propagate ()
 	  printf ("WARNING: weak-unstable transition `");
 	  _proc->printName (stdout, _me->vid);
 	  printf ("-'\n");
+	  if (_proc->onWarning() == 2) {
+	    exit (1);
+	  }
+	  else if (_proc->onWarning() == 1) {
+	    _breakpt = 1;
+	  }
 	}
       }
       else {
@@ -640,6 +663,12 @@ void OnePrsSim::propagate ()
 	  printf ("WARNING: unstable transition `");
 	  _proc->printName (stdout, _me->vid);
 	  printf ("-'\n");
+	  if (_proc->onWarning() == 2) {
+	    exit (1);
+	  }
+	  else if (_proc->onWarning() == 1) {
+	    _breakpt = 1;
+	  }
 	}
       }
       _pending->Remove();
@@ -674,6 +703,12 @@ void OnePrsSim::propagate ()
 	printf ("WARNING: interference on `");
 	_proc->printName (stdout, _me->vid);
 	printf ("\n");
+	if (_proc->onWarning() == 2) {
+	  exit (1);
+	}
+	else if (_proc->onWarning() == 1) {
+	  _breakpt = 1;
+	}
 	if (flags != PENDING_X) {
 	  if (_pending) {
 	    _pending->Remove ();
@@ -703,6 +738,12 @@ void OnePrsSim::propagate ()
 	  printf ("WARNING: weak-interference on `");
 	  _proc->printName (stdout, _me->vid);
 	  printf ("\n");
+	  if (_proc->onWarning() == 2) {
+	    exit (1);
+	  }
+	  else if (_proc->onWarning() == 1) {
+	    _breakpt = 1;
+	  }
 	}
 	if (flags != PENDING_X) {
 	  if (_pending) {

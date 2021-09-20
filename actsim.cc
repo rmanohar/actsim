@@ -138,6 +138,7 @@ ActSimCore::ActSimCore (Process *p)
   _sim_rand_excl = 0;
   _sim_rand = 0;
   _prs_sim_mode = 0;
+  _on_warning = 0;
   
   _rootsi = si;
   _initSim();

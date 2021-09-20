@@ -745,6 +745,37 @@ int process_random_choice (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_break_on_warn (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  glob_sim->setWarning (1);
+  return LISP_RET_TRUE;
+}
+
+int process_exit_on_warn (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  glob_sim->setWarning (2);
+  return LISP_RET_TRUE;
+}
+
+int process_resume_on_warn (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  glob_sim->setWarning (0);
+  return LISP_RET_TRUE;
+}
+
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
 
@@ -779,14 +810,16 @@ struct LispCliCommand Cmds[] = {
   { "watch", "<n> - add watchpoint for <n>", process_watch },
   { "unwatch", "<n> - delete watchpoint for <n>", process_unwatch },
 
+  { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
+  { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
+  { "resume-on-warn", "- like break-on-warn, but exit", process_resume_on_warn },
+
 #if 0
   { "status", "0|1|X - list all nodes with specified value", process_status },
   { "send", "<chan> <val> - send a value on a channel", process_send },
   { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
   
   { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
-  { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
-  { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
   { "pending", "- dump pending events", process_pending },
 
   { NULL, "Production rule tracing", NULL },

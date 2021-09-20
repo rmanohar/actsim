@@ -105,7 +105,7 @@ class PrsSim : public ActSimObj {
      /* initialize simulation, and create initial event */
   ~PrsSim ();
 
-  void Step (int ev_type);	/* run a step of the simulation */
+  int Step (int ev_type);	/* run a step of the simulation */
 
   void computeFanout ();
 
@@ -118,6 +118,7 @@ class PrsSim : public ActSimObj {
 
   inline int getDelay (int delay) { return _sc->getDelay (delay); }
   inline int isResetMode() { return _sc->isResetMode (); }
+  inline int onWarning() { return _sc->onWarning(); }
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
@@ -143,7 +144,7 @@ private:
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
-  void Step (int ev_type);
+  int Step (int ev_type);
   void propagate ();
 };
 

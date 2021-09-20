@@ -590,7 +590,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 }
 
 
-void ChpSim::Step (int ev_type)
+int ChpSim::Step (int ev_type)
 {
   int pc = SIM_EV_TYPE (ev_type);
   int flag = SIM_EV_FLAGS (ev_type);
@@ -610,7 +610,7 @@ void ChpSim::Step (int ev_type)
   Assert (0 <= pc && pc < _npc, "What?");
 
   if (!_pc[pc]) {
-    return;
+    return 1;
   }
 
   /*-- go forward through sim graph until there's some work --*/
@@ -619,7 +619,7 @@ void ChpSim::Step (int ev_type)
     /* if you go forward, then you're not waking up any more */
     flag = 0;
   }
-  if (!_pc[pc]) return;
+  if (!_pc[pc]) return 1;
 
   chpsimstmt *stmt = _pc[pc]->stmt;
 
@@ -996,7 +996,7 @@ void ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL  
   printf (" [f-ret %d]\n", forceret);
 #endif
-    return;
+    return 1;
   }
   else {
 #ifdef DUMP_ALL  
@@ -1004,6 +1004,7 @@ void ChpSim::Step (int ev_type)
 #endif
     _nextEvent (pc);
   }
+  return 1;
 }
 
 

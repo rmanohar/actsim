@@ -268,6 +268,8 @@ class ActSimCore {
   void setRandomSeed (unsigned seed) { _seed = seed; }
   void setRandomChoice (int v) { _sim_rand_excl = v; }
   int isResetMode() { return _prs_sim_mode; }
+  void setWarning (int v) { _on_warning = v; }
+  inline int onWarning() { return _on_warning; }
 
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
@@ -358,6 +360,8 @@ protected:
 				    range */
   
   unsigned int _sim_rand_excl:1; /* 0 = normal, 1 = random excl */
+
+  unsigned int _on_warning:2;	/* 0 = nothing, 1 = break, 2 = exit */
 
   unsigned int _rand_min, _rand_max;
   
