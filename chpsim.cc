@@ -1992,7 +1992,7 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
   }
   if (l.width <= 0) {
-    warning ("Negative width?");
+    warning ("Negative width? Width=%d", l.width);
     l.width = 1;
     l.v = 0;
   }
