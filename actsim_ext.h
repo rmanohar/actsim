@@ -33,7 +33,7 @@ struct expr_res {
   int width;			/* bitwidth */
 };
 
-#define ACT_EXPR_RES_PRINTF "%lu"
+#define ACT_EXPR_RES_PRINTF "l"
 
 #ifdef __cplusplus
 

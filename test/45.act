@@ -1,0 +1,17 @@
+defproc test()
+{
+  int<64> emm1;
+  chan(int<64>) EMM1;
+  int<64> emm2;
+
+  chp {
+	emm1 := 0x0101010110101010;
+        EMM1!emm1,EMM1?emm2;
+	log ("%xemm2_high: ", emm2{63..32}, " emm2_low: ", emm2{31..0} );
+	log ("%xemm1: ", emm1{63..0});
+	EMM1!emm1{63..0}, EMM1?emm2;
+	log ("%xemm2_high: ", emm2{63..32}, " emm2_low: ", emm2{31..0} );
+	EMM1!{emm1{63},emm1{62..0}}, EMM1?emm2;
+	log ("%xemm2_high: ", emm2{63..32}, " emm2_low: ", emm2{31..0} )
+  }
+}

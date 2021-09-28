@@ -188,6 +188,7 @@ void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id)
     if (!ch->fH) {
       ch->fH = ihash_new (4);
       ch->ct = ct;
+      ch->inst_id = id->Clone();
     }
     for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
       act_chp_lang_t *x = ct->getMethod (i);

@@ -589,6 +589,115 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
   }
 }
 
+static const char *_process_string (const char *s,
+				    int *is_zero,
+				    int *type,
+				    int *width)
+{
+  const char *stmp = s;
+  *is_zero = 0;
+  *type = 0;
+  *width = -1;
+
+  if (*stmp == '%') {
+    int idx = 1;
+    while (stmp[idx] >= '0' && stmp[idx] <= '9' && stmp[idx]) {
+      if (*width == -1) {
+	*width = stmp[idx] - '0';
+      }
+      else {
+	*width *= 10;
+	*width += stmp[idx] - '0';
+      }
+      idx++;
+    }
+    if (idx != 1) {
+      if (stmp[1] == '0') {
+	*is_zero = 1;
+      }
+      else {
+	*is_zero = 0;
+      }
+    }
+    if (stmp[idx]) {
+      if (stmp[idx] == 'x') {
+	*type = 2; /* hex */
+	stmp = stmp + idx + 1;
+      }
+      else if (stmp[idx] == 'd') {
+	*type = 1; /* signed */
+	stmp = stmp + idx + 1;
+      }
+      else if (stmp[idx] == 'u') {
+	*type = 0; /* default */
+	stmp = stmp + idx + 1;
+      }
+      else {
+	*is_zero = 0;
+	*type = 0;
+	*width = -1;
+      }
+    }
+    else {
+      *is_zero = 0;
+      *type = 0;
+      *width = -1;
+    }
+  }
+  else {
+    *is_zero = 0;
+    *type = 0;
+    *width = -1;
+  }
+  return stmp;
+}
+
+static void _process_print_int (unsigned long v,
+				int int_is_zero,
+				int int_type,
+				int int_width)
+{
+  if (int_width == -1) {
+    if (int_type == 0) {
+      actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v);
+    }
+    else if (int_type == 1) {
+      actsim_log ("%" ACT_EXPR_RES_PRINTF "d", v);
+    }
+    else if (int_type == 2) {
+      actsim_log ("%" ACT_EXPR_RES_PRINTF "x", v);
+    }
+  }
+  else {
+    if (int_type == 0) {
+      if (int_is_zero) {
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*u", int_width, v);
+      }
+      else {
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*u", int_width, v);
+      }
+    }
+    else if (int_type == 1) {
+      if (int_is_zero) {
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*d", int_width, v);
+      }
+      else {
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*d", int_width, v);
+      }
+    }
+    else if (int_type == 2) {
+      if (int_is_zero) {
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*x", int_width, v);
+      }
+      else {
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*x", int_width, v);
+      }
+    }
+    else {
+      fatal_error ("What?!");
+    }
+  }
+}
 
 int ChpSim::Step (int ev_type)
 {
@@ -971,11 +1080,18 @@ int ChpSim::Step (int ev_type)
       buf[0] = '\0';
       name->sPrint (buf, 10240);
       if (_sc->isFiltered (buf)) {
+	int int_is_zero = 0;
+	int int_type = 0;
+	int int_width = -1;
 	msgPrefix (actsim_log_fp());
 	for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
 	  act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
 	  if (arg->isstring) {
-	    actsim_log ("%s", string_char (arg->u.s));
+	    const char *stmp = _process_string (string_char (arg->u.s),
+						&int_is_zero,
+						&int_type,
+						&int_width);
+	    actsim_log ("%s", stmp);
 	  }
 	  else {
 	    v = exprEval (arg->u.e);
@@ -983,7 +1099,7 @@ int ChpSim::Step (int ev_type)
 	      v.v = v.v << (64-v.width);
 	      v.v = v.v >> (64-v.width);
 	    }
-	    actsim_log (ACT_EXPR_RES_PRINTF, v.v);
+	    _process_print_int (v.v, int_is_zero, int_type, int_width);
 	  }
 	}
 	actsim_log ("\n");
@@ -1104,8 +1220,11 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
   if (c->fragmented) {
     switch (c->frag_st) {
     case 0:
+      c->data = v;
       c->frag_st = 1;
       c->ufrag_st = 0;
+      /* -- run set method -- */
+      
     case 1:
       /* send */
 
@@ -1423,17 +1542,26 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
     }
     else {
       listitem_t *li;
+      int int_is_zero = 0;
+      int int_type = 0;
+      int int_width = -1;
+      msgPrefix (actsim_log_fp());
       for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
 	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
 	if (tmp->isstring) {
-	  printf ("%s", string_char (tmp->u.s));
+	  const char *stmp = _process_string (string_char (tmp->u.s),
+					      &int_is_zero,
+					      &int_type,
+					      &int_width);
+	  actsim_log ("%s", stmp);
 	}
 	else {
 	  expr_res v = exprEval (tmp->u.e);
-	  printf (ACT_EXPR_RES_PRINTF, v.v);
+	  _process_print_int (v.v, int_is_zero, int_type, int_width);
 	}
       }
-      printf ("\n");
+      actsim_log ("\n");
+      actsim_log_flush ();
     }
     break;
     
@@ -1992,14 +2120,12 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
   }
   if (l.width <= 0) {
-    warning ("Negative width? Width=%d", l.width);
+    warning ("Negative or zero width? Width=%d", l.width);
     l.width = 1;
     l.v = 0;
   }
   return l;
 }
-
-
 
 expr_multires ChpSim::varStruct (struct chpsimderef *d)
 {
@@ -3769,6 +3895,11 @@ double ChpSim::getLeakage (void)
 unsigned long ChpSim::getArea (void)
 {
   return _area_cost;
+}
+
+void ChpSim::propagate (void)
+{
+  ActSimObj::propagate ();
 }
 
 

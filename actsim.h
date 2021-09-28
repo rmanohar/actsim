@@ -83,10 +83,13 @@ struct act_channel_state {
 
   struct iHashtable *fH;	// fragment hash table
   Channel *ct;			// channel type
+  ActId *inst_id;		// instance
 
   
   int len;
-  expr_multires data, data2;
+  expr_multires data, data2;  	// data: used when the receiver is
+				// waiting for sender; data2 used when
+				// sender arrives before receive is posted.
   WaitForOne *w;
   WaitForOne *probe;		// probe wake-up
 };

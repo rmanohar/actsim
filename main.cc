@@ -878,10 +878,7 @@ struct LispCliCommand Cmds[] = {
 
   { "status", "0|1|X - list all nodes with specified value", process_status },
   
-#if 0
-  { "send", "<chan> <val> - send a value on a channel", process_send },
-  { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
-  
+#if 0  
   { "pending", "- dump pending events", process_pending },
 
   { NULL, "Production rule tracing", NULL },
@@ -893,6 +890,11 @@ struct LispCliCommand Cmds[] = {
 #endif  
 
   { NULL, "Process and CHP commands", NULL },
+
+#if 0
+  { "send", "<chan> <val> - send a value on a channel", process_send },
+  { "recv", "<chan> [#f] - receive a value from a channel; optional arg turns off display", process_recv },
+#endif
 
   { "filter", "<regexp> - only show log messages that match regexp", process_filter },
   { "logfile", "<file> - dump actsim log output to a log file <file>", process_logfile },

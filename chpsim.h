@@ -138,6 +138,8 @@ class ChpSim : public ActSimObj {
 
   int computeOffset (struct chpsimderef *d);
 
+  virtual void propagate (void);
+
   void dumpState (FILE *fp);
   unsigned long getEnergy (void);
   double getLeakage (void);
