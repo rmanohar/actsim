@@ -44,19 +44,13 @@ class expr_multires {
     _init (d);
   }
   ~expr_multires() {
-    if (nvals > 0) {
-      FREE (v);
-    }
-    nvals = 0;
-    v = NULL;
+    _delete_objects ();
   }
 
   void setSingle (expr_res &x) {
     _d = NULL;
     if (nvals != 1) {
-      if (nvals > 0) {
-	FREE (v);
-      }
+      _delete_objects ();
       nvals = 1;
       NEW (v, expr_res);
       new (v) BigInt;
@@ -67,9 +61,7 @@ class expr_multires {
   void setSingle (unsigned long val) {
     _d = NULL;
     if (nvals != 1) {
-      if (nvals > 0) {
-	FREE (v);
-      }
+      _delete_objects ();
       nvals = 1;
       NEW (v, expr_res);
       new (v) BigInt;
@@ -113,9 +105,7 @@ class expr_multires {
   
   expr_multires &operator=(expr_multires &m) {
     if (nvals != m.nvals) {
-      if (nvals > 0) {
-	FREE (v);
-      }
+      _delete_objects ();
       if (m.nvals > 0) {
 	MALLOC (v, expr_res, m.nvals);
 	for (int i=0; i < m.nvals; i++) {
@@ -143,6 +133,16 @@ class expr_multires {
   int nvals;
 
 private:
+  void _delete_objects () {
+    if (nvals > 0) {
+      for (int i=0; i < nvals; i++) {
+	v[i].~BigInt();
+      }
+      FREE (v);
+    }
+    v = NULL;
+    nvals = 0;
+  }
   int _count (Data *d);
   void _init_helper (Data *d, int *pos);
   void _init (Data *d);
