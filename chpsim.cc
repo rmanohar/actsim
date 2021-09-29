@@ -477,7 +477,7 @@ int ChpSim::computeOffset (struct chpsimderef *d)
   }
   for (int i=0; i < d->range->nDims(); i++) {
     expr_res res = exprEval (d->chp_idx[i]);
-    d->idx[i] = res.v;
+    d->idx[i] = res.getVal(0);
   }
   int x = d->range->Offset (d->idx);
   if (x == -1) {
@@ -652,45 +652,46 @@ static const char *_process_string (const char *s,
   return stmp;
 }
 
-static void _process_print_int (unsigned long v,
+static void _process_print_int (BigInt &v,
 				int int_is_zero,
 				int int_type,
 				int int_width)
 {
   if (int_width == -1) {
     if (int_type == 0) {
-      actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v);
+      actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v.getVal (0));
     }
     else if (int_type == 1) {
-      actsim_log ("%" ACT_EXPR_RES_PRINTF "d", v);
+      actsim_log ("%" ACT_EXPR_RES_PRINTF "d", v.getVal (0));
     }
     else if (int_type == 2) {
-      actsim_log ("%" ACT_EXPR_RES_PRINTF "x", v);
+      v.hexPrint (actsim_log_fp ());
     }
   }
   else {
     if (int_type == 0) {
       if (int_is_zero) {
-	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*u", int_width, v);
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*u", int_width, v.getVal (0));
       }
       else {
-	actsim_log ("%" ACT_EXPR_RES_PRINTF "*u", int_width, v);
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*u", int_width, v.getVal (0));
       }
     }
     else if (int_type == 1) {
       if (int_is_zero) {
-	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*d", int_width, v);
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*d", int_width, v.getVal (0));
       }
       else {
-	actsim_log ("%" ACT_EXPR_RES_PRINTF "*d", int_width, v);
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*d", int_width, v.getVal (0));
       }
     }
     else if (int_type == 2) {
+      /* XXX fixme */
       if (int_is_zero) {
-	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*x", int_width, v);
+	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*x", int_width, v.getVal (0));
       }
       else {
-	actsim_log ("%" ACT_EXPR_RES_PRINTF "*x", int_width, v);
+	actsim_log ("%" ACT_EXPR_RES_PRINTF "*x", int_width, v.getVal (0));
       }
     }
     else {
@@ -809,10 +810,10 @@ int ChpSim::Step (int ev_type)
       }
       if (verb) {
 	int oval = _sc->getBool (off);
-	if (oval != v.v) {
+	if (oval != v.getVal (0)) {
 	  if (verb & 1) {
 	    msgPrefix ();
-	    printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+	    printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
 	  }
 	  if (verb & 2) {
 	    msgPrefix ();
@@ -821,7 +822,7 @@ int ChpSim::Step (int ev_type)
 	  }
 	}
       }
-      _sc->setBool (off, v.v);
+      _sc->setBool (off, v.getVal (0));
 
       SimDES **arr;
       arr = _sc->getFO (off, 0);
@@ -836,11 +837,7 @@ int ChpSim::Step (int ev_type)
 #if 0      
       printf (" [glob=%d]", off);
 #endif
-      if (v.width > stmt->u.assign.isint) {
-	if (stmt->u.assign.isint < 64) {
-	  v.v = ((unsigned long)v.v & ((1UL << stmt->u.assign.isint)-1));
-	}
-      }
+      v.setWidth (stmt->u.assign.isint);
       verb = 0;
       if ((nm = isWatched (0, off))) {
 	verb = 1;
@@ -849,11 +846,12 @@ int ChpSim::Step (int ev_type)
 	verb |= 2;
       }
       if (verb) {
-	unsigned long oval =  _sc->getInt (off);
-	if (oval != v.v) {
+	BigInt *otmp = _sc->getInt (off);
+	unsigned long oval =  otmp->getVal (0);
+	if (*otmp != v) {
 	  if (verb & 1) {
 	    msgPrefix ();
-	    printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+	    printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
 	  }
 	  if (verb & 2) {
 	    msgPrefix ();
@@ -862,7 +860,7 @@ int ChpSim::Step (int ev_type)
 	  }	    
 	}
       }
-      _sc->setInt (off, v.v);
+      _sc->setInt (off, v);
     }
     break;
 
@@ -883,8 +881,8 @@ int ChpSim::Step (int ev_type)
       }
       else {
 	/* data-less */
-	v.v = 0;
-	v.width = 0;
+	v.setVal (0,0);
+	v.setWidth (0);
       }
 #ifdef DUMP_ALL      
       printf ("send val=%lu", v.v);
@@ -923,11 +921,12 @@ int ChpSim::Step (int ev_type)
       if (verb & 1) {
 	msgPrefix ();
 	if (rv) {
-	  printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
+	  printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal (0),
+		  v.getVal (0));
 	}
 	else {
 	  if (!flag) {
-	    printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+	    printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
 	  }
 	  else {
 	    printf ("%s : send complete\n", nm);
@@ -994,10 +993,11 @@ int ChpSim::Step (int ev_type)
 	      }
 	      if (verb) {
 		int oval = _sc->getBool (off);
-		if (oval != v.v) {
+		if (oval != v.getVal (0)) {
 		  if (verb & 1) {
 		    msgPrefix ();
-		    printf ("%s := %c\n", nm, (v.v == 2 ? 'X' : ((char)v.v + '0')));
+		    printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' :
+					       ((char)v.getVal (0) + '0')));
 		  }
 		  if (verb & 2) {
 		    msgPrefix ();
@@ -1006,16 +1006,13 @@ int ChpSim::Step (int ev_type)
 		  }
 		}
 	      }
-	      _sc->setBool (off, v.v);
+	      _sc->setBool (off, v.getVal (0));
 	    }
 	    else {
 	      off = getGlobalOffset (id, 1);
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
-	      if (width < 64) {
-		v.v = ((unsigned long)v.v) & ((1UL << width)-1);
-	      }
 	      verb = 0;
 	      if ((nm = isWatched (0, off))) {
 		verb = 1;
@@ -1024,11 +1021,13 @@ int ChpSim::Step (int ev_type)
 		verb |= 2;
 	      }
 	      if (verb) {
-		unsigned long oval = _sc->getInt (off);
-		if (oval != v.v) {
+		BigInt *otmp = _sc->getInt (off);
+		unsigned long oval = otmp->getVal (0);
+		if (*otmp != v) {
 		  if (verb & 1) {
 		    msgPrefix ();
-		    printf ("%s := %lu (0x%lx)\n", nm, v.v, v.v);
+		    printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0),
+			    v.getVal (0));
 		  }
 		  if (verb & 2) {
 		    msgPrefix ();
@@ -1037,7 +1036,7 @@ int ChpSim::Step (int ev_type)
 		  }
 		}
 	      }
-	      _sc->setInt (off, v.v);
+	      _sc->setInt (off, v);
 	    }
 	  }
 	  else {
@@ -1061,7 +1060,8 @@ int ChpSim::Step (int ev_type)
 	    printf ("%s : recv-blocked\n", nm);
 	  }
 	  else {
-	    printf ("%s : recv value: %lu (0x%lx)\n", nm, v.v, v.v);
+	    printf ("%s : recv value: %lu (0x%lx)\n", nm, v.getVal (0),
+		    v.getVal (0));
 	  }
 	}
 	if (verb & 2) {
@@ -1095,11 +1095,7 @@ int ChpSim::Step (int ev_type)
 	  }
 	  else {
 	    v = exprEval (arg->u.e);
-	    if (v.width < 64) {
-	      v.v = v.v << (64-v.width);
-	      v.v = v.v >> (64-v.width);
-	    }
-	    _process_print_int (v.v, int_is_zero, int_type, int_width);
+	    _process_print_int (v, int_is_zero, int_type, int_width);
 	  }
 	}
 	actsim_log ("\n");
@@ -1141,7 +1137,7 @@ int ChpSim::Step (int ev_type)
 	if (gc->g) {
 	  res = exprEval (gc->g);
 	}
-	if (!gc->g || res.v) {
+	if (!gc->g || (res.getVal (0) != 0)) {
 #ifdef DUMP_ALL	  
 	  printf (" gd#%d true", cnt);
 #endif
@@ -1407,20 +1403,23 @@ expr_res ChpSim::varEval (int id, int type)
 
   off = getGlobalOffset (id, type == 3 ? 2 : type);
   if (type == 0) {
-    r.width = 1;
-    r.v = _sc->getBool (off);
-    if (r.v == 2) {
+    int val;
+    r.setWidth (1);
+    val = _sc->getBool (off);
+    r.setVal (0, val);
+    if (val == 2) {
 #if 0      
       fprintf (stderr, "[%8lu] <", CurTimeLo());
       name->Print (stderr);
       fprintf (stderr, "> ");
 #endif      
       warning ("Boolean variable is X");
+      r.setWidth (2);
+      r.setVal (0, val);
     }
   }
   else if (type == 1) {
-    r.width = 32; /* XXX: need bit-widths */
-    r.v = _sc->getInt (off);
+    r = *_sc->getInt (off);
   }
   else if (type == 2) {
     act_channel_state *c = _sc->getChan (off);
@@ -1430,22 +1429,23 @@ expr_res ChpSim::varEval (int id, int type)
     }
     else {
       /* value probe */
-      r.width = 1;
-      r.v = 0;
+      r.setWidth (1);
+      r.setVal (0, 0);
     }
   }
   else {
     /* probe */
     act_channel_state *c = _sc->getChan (off);
     if (WAITING_SENDER (c) || WAITING_RECEIVER (c)) {
-      r.width = 1;
-      r.v = 1;
+      r.setWidth (1);
+      r.setVal (0, 1);
     }
     else {
-      r.width = 1;
-      r.v = 0;
+      r.setWidth (1);
+      r.setVal (0, 0);
     }
   }
+  r.toDynamic ();
   return r;
 }
 
@@ -1481,7 +1481,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	return;
       }
       res = exprEval (gc->g);
-      if (res.v) {
+      if (res.getVal (0)) {
 	_run_chp (f, gc->s);
 	return;
       }
@@ -1503,7 +1503,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	  break;
 	}
 	res = exprEval (gc->g);
-	if (res.v) {
+	if (res.getVal (0)) {
 	  _run_chp (f, gc->s);
 	  break;
 	}
@@ -1524,7 +1524,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
     do {
       _run_chp (f, gc->s);
       res = exprEval (gc->g);
-    } while (res.v);
+    } while (res.getVal (0));
     break;
     
   case ACT_CHP_SKIP:
@@ -1557,7 +1557,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	}
 	else {
 	  expr_res v = exprEval (tmp->u.e);
-	  _process_print_int (v.v, int_is_zero, int_type, int_width);
+	  _process_print_int (v, int_is_zero, int_type, int_width);
 	}
       }
       actsim_log ("\n");
@@ -1594,18 +1594,9 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
     else {
       x = (expr_res *) b->v;
       res = exprEval (c->u.assign.e);
-      /* bit-width conversion */
-      if (res.width > x->width) {
-	if (x->width < 64) {
-	  x->v = res.v & ((1UL << x->width)-1);
-	}
-	else {
-	  x->v = res.v;
-	}
-      }
-      else {
-	x->v = res.v;
-      }
+      res.setWidth (x->getWidth());
+      *x = res;
+      x->toStatic ();
     }
     break;
 
@@ -1650,8 +1641,9 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     }
     else {
       NEW (x, expr_res);
-      x->v = 0;
-      x->width = TypeFactory::bitWidth (vx->t);
+      new (x) BigInt;
+      x->setVal (0, 0);
+      x->setWidth (TypeFactory::bitWidth (vx->t));
       b->v = x;
     }
   }
@@ -1661,14 +1653,14 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
   }
 
   for (int i=0; i < f->getNumPorts(); i++) {
+    int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
     x = (expr_res *) b->v;
-
-    x->v = args[i].v;
-    if (args[i].width > x->width) {
-      x->v &= ((1 << x->width) - 1);
-    }
+    w = x->getWidth ();
+    *x = args[i];
+    x->setWidth (w);
+    x->toStatic ();
   }
 
   /* --- run body -- */
@@ -1729,30 +1721,32 @@ expr_res ChpSim::exprEval (Expr *e)
   switch (e->type) {
 
   case E_TRUE:
-    l.v = 1;
-    l.width = 1;
+    l.setWidth (1);
+    l.setVal (0, 1);
     return l;
     break;
     
   case E_FALSE:
-    l.v = 0;
-    l.width = 1;
+    l.setWidth (1);
+    l.setVal (0, 0);
     return l;
     break;
     
   case E_INT:
-    l.v = e->u.v;
     {
       unsigned long x = e->u.v;
-      l.width = 0;
+      int width = 0;
       while (x) {
 	x = x >> 1;
-	l.width++;
+	width++;
       }
-      if (l.width == 0) {
-	l.width = 1;
+      if (width == 0) {
+	width = 1;
       }
+      l.setWidth (width);
     }
+    l.setVal (0, e->u.v);
+    l.toDynamic ();
     return l;
     break;
 
@@ -1765,158 +1759,188 @@ expr_res ChpSim::exprEval (Expr *e)
   case E_AND:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = MAX(l.width, r.width);
-    l.v = l.v & r.v;
+    l = l & r;
     break;
 
   case E_OR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = MAX(l.width, r.width);
-    l.v = l.v | r.v;
+    l = l | r;
     break;
 
   case E_PLUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1 + MAX(l.width, r.width);
-    l.v = l.v + r.v;
+    l = l + r;
     break;
 
   case E_MINUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1 + MAX(l.width, r.width);
-    l.v = l.v - r.v;
+    l = l - r;
     break;
 
   case E_MULT:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = l.width + r.width;
-    l.v = l.v * r.v;
+    l = l * r;
     break;
     
   case E_DIV:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    if (r.v == 0) {
-      warning("Division by zero");
-    }
-    l.v = l.v / r.v;
+    l = l / r;
     break;
       
   case E_MOD:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = r.width;
-    l.v = l.v % r.v;
+    l = l % r;
     break;
     
   case E_LSL:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = l.width + (1 << r.width) - 1;
-    l.v = l.v << r.v;
+    l = l << r;
     break;
     
   case E_LSR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.v = l.v >> r.v;
+    l = l >> r;
     break;
     
   case E_ASR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    if ((l.v >> (l.width-1)) & 1) {
-      l.v = l.v >> r.v;
-      l.v = l.v | (((1UL << r.v)-1) << (l.width-r.v));
-    }
-    else {
-      l.v = l.v >> r.v;
-    }
+    l.toSigned ();
+    l = l >> r;
+    l.toUnsigned ();
     break;
     
   case E_XOR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = MAX(l.width, r.width);
-    l.v = l.v ^ r.v;
+    l = l ^ r;
     break;
     
   case E_LT:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v < r.v) ? 1 : 0;
+    if (l < r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
     
   case E_GT:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v > r.v) ? 1 : 0;
+    if (l > r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
 
   case E_LE:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v <= r.v) ? 1 : 0;
+    if (l <= r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
     
   case E_GE:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v >= r.v) ? 1 : 0;
+    if (l >= r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
     
   case E_EQ:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v == r.v) ? 1 : 0;
+    if (l == r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
     
   case E_NE:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.width = 1;
-    l.v = (l.v != r.v) ? 1 : 0;
+    if (l != r) {
+      l.setWidth (1);
+      l.setVal (0, 1);
+      l.toDynamic ();
+    }
+    else {
+      l.setWidth (1);
+      l.setVal (0, 0);
+      l.toDynamic ();
+    }
     break;
     
   case E_NOT:
     l = exprEval (e->u.e.l);
-    l.v = ~l.v;
-    if (l.width < 64) {
-      l.v = l.v & ((1UL << l.width)-1);
-    }
+    l = ~l;
     break;
     
   case E_UMINUS:
     l = exprEval (e->u.e.l);
-    l.v = (1 << l.width) - l.v;
+    l = -l;
     break;
 
   case E_COMPLEMENT:
     l = exprEval (e->u.e.l);
-    if (l.width < 64) {
-      l.v = ((1UL << l.width)-1) - l.v;
-    }
-    else {
-      l.v = ~l.v;
-    }
+    l = ~l;
     break;
 
   case E_QUERY:
     l = exprEval (e->u.e.l);
-    if (l.v) {
-      l = exprEval (e->u.e.r->u.e.l);
-    }
-    else {
-      l = exprEval (e->u.e.r->u.e.r);
+    {
+      BigInt zero;
+      zero.setWidth (1);
+      zero.setVal (0, 0);
+      if (l != zero) {
+	l = exprEval (e->u.e.r->u.e.l);
+      }
+      else {
+	l = exprEval (e->u.e.r->u.e.r);
+      }
     }
     break;
 
@@ -1926,14 +1950,24 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_CONCAT:
-    l.v = 0;
-    l.width = 0;
-    do {
-      r = exprEval (e->u.e.l);
-      l.width += r.width;
-      l.v = (l.v << r.width) | r.v;
-      e = e->u.e.r;
-    } while (e);
+    {
+      int first = 1;
+      do {
+	r = exprEval (e->u.e.l);
+	if (first) {
+	  l = r;
+	  first = 0;
+	}
+	else {
+	  BigInt tmp;
+	  tmp.setWidth (32);
+	  tmp.setVal (0, r.getWidth());
+	  l = l << tmp;
+	}
+	l = l | r;
+	e = e->u.e.r;
+      } while (e);
+    }
     break;
 
   case E_CHP_BITFIELD:
@@ -1951,10 +1985,10 @@ expr_res ChpSim::exprEval (Expr *e)
 
       /* is an int */
       l = varEval (off, 1);
-      l.width = ((struct chpsimderef *)e->u.e.l)->width;
+      l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
 
-      if (hi >= l.width) {
-	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.width, hi, lo);
+      if (hi >= l.getWidth()) {
+	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.getWidth(), hi, lo);
 	if (((struct chpsimderef *)e->u.e.l)->cx) {
 	  ActId *tmp = (((struct chpsimderef *)e->u.e.l)->cx)->toid();
 	  fprintf (stderr, "   id: ");
@@ -1963,34 +1997,34 @@ expr_res ChpSim::exprEval (Expr *e)
 	  fprintf (stderr, "\n");
 	}
       }
-      l.width = hi - lo + 1;
-      l.v = l.v >> lo;
-      if (l.width < 64) {
-	l.v = l.v & ((1UL << l.width)-1);
-      }
+      BigInt tmp;
+      tmp.setWidth (32);
+      tmp.setVal (0, lo);
+      l = l >> tmp;
+      l.setWidth (hi - lo + 1);
     }
     break;
     
   case E_CHP_VARBOOL:
     l = varEval (e->u.x.val, 0);
-    l.width = 1;
+    l.setWidth (1);
     break;
 
   case E_CHP_VARINT:
     l = varEval (e->u.x.val, 1);
-    l.width = e->u.x.extra;
+    l.setWidth (e->u.x.extra);
     break;
 
   case E_CHP_VARCHAN:
     l = varEval (e->u.x.val, 2);
-    l.width = e->u.x.extra;
+    l.setWidth (e->u.x.extra);
     break;
     
   case E_CHP_VARBOOL_DEREF:
     {
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
       l = varEval (off, 0);
-      l.width = ((struct chpsimderef *)e->u.e.l)->width;
+      l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
     }
     break;
 
@@ -1998,7 +2032,7 @@ expr_res ChpSim::exprEval (Expr *e)
     {
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
       l = varEval (off, 1);
-      l.width = ((struct chpsimderef *)e->u.e.l)->width;
+      l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
     }
     break;
 
@@ -2045,13 +2079,15 @@ expr_res ChpSim::exprEval (Expr *e)
 	lo = hi;
       }
 
-      if (hi >= l.width) {
-	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.width, hi, lo);
+      if (hi >= l.getWidth()) {
+	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.getWidth(), hi, lo);
 	fprintf (stderr, "   id: %s\n", b->key);
       }
-      l.width = hi - lo + 1;
-      l.v = l.v >> lo;
-      l.v = l.v & ((1UL << l.width)-1);
+      BigInt tmp;
+      tmp.setWidth (32);
+      tmp.setVal (0, lo);
+      l = l >> tmp;
+      l.setWidth (hi - lo + 1);
     }
     break;
 
@@ -2064,13 +2100,13 @@ expr_res ChpSim::exprEval (Expr *e)
 
   case E_BUILTIN_BOOL:
     l = exprEval (e->u.e.l);
-    if (l.v) {
-      l.v = 1;
-      l.width = 1;
+    if (l.getVal (0)) {
+      l.setVal (0, 1);
+      l.setWidth (1);
     }
     else {
-      l.v = 0;
-      l.width = 1;
+      l.setVal (0, 0);
+      l.setWidth (1);
     }
     break;
     
@@ -2080,10 +2116,10 @@ expr_res ChpSim::exprEval (Expr *e)
       r = exprEval (e->u.e.r);
     }
     else {
-      r.v = 1;
+      r.setWidth (1);
+      r.setVal (0, 1);
     }
-    l.width = r.v;
-    l.v = l.v & ((1 << r.v) - 1);
+    l.setWidth (r.getVal (0));
     break;
 
   case E_FUNCTION:
@@ -2101,6 +2137,9 @@ expr_res ChpSim::exprEval (Expr *e)
 	tmp = tmp->u.e.r;
       }
       MALLOC (args, expr_res, nargs);
+      for (i=0; i < nargs; i++) {
+	new (&args[i]) BigInt;
+      }
       tmp = e->u.fn.r;
       i = 0;
       while (tmp) {
@@ -2114,15 +2153,10 @@ expr_res ChpSim::exprEval (Expr *e)
 
   case E_SELF:
   default:
-    l.v = 0;
-    l.width = 1;
+    l.setVal (0, 0);
+    l.setWidth (1);
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
-  }
-  if (l.width <= 0) {
-    warning ("Negative or zero width? Width=%d", l.width);
-    l.width = 1;
-    l.v = 0;
   }
   return l;
 }
@@ -2184,8 +2218,10 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
     }
     else {
       NEW (x, expr_res);
-      x->v = 0;
-      x->width = TypeFactory::bitWidth (vx->t);
+      new (x) BigInt;
+      x->setVal (0,0);
+      x->setWidth (TypeFactory::bitWidth (vx->t));
+      x->toStatic ();
       b->v = x;
     }
   }
@@ -2195,14 +2231,14 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
   }
 
   for (int i=0; i < f->getNumPorts(); i++) {
+    int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
     x = (expr_res *) b->v;
-
-    x->v = args[i].v;
-    if (args[i].width > x->width) {
-      x->v &= ((1 << x->width) - 1);
-    }
+    w = x->getWidth ();
+    *x = args[i];
+    x->setWidth (w);
+    x->toStatic ();
   }
 
   /* --- run body -- */
@@ -2287,6 +2323,9 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	tmp = tmp->u.e.r;
       }
       MALLOC (args, expr_res, nargs);
+      for (i=0; i < nargs; i++) {
+	new (&args[i]) BigInt;
+      }
       tmp = e->u.fn.r;
       i = 0;
       while (tmp) {
@@ -4030,13 +4069,14 @@ void expr_multires::_init_helper (Data *d, int *pos)
       _init_helper (dynamic_cast<Data *>(d->getPortType(i)->BaseType()), pos);
     }
     else if (TypeFactory::isBoolType (d->getPortType(i))) {
-      v[*pos].width = 1;
-      v[*pos].v = 0;
+      v[*pos].setWidth (1);
+      v[*pos].setVal (0, 0);
       *pos = (*pos) + 1;
     }
     else if (TypeFactory::isIntType (d->getPortType(i))) {
-      v[*pos].width = TypeFactory::bitWidth (d->getPortType(i));
-      v[*pos].v = 0;
+      v[*pos].setWidth (1);
+      v[*pos].setVal (0, 0);
+      v[*pos].setWidth (TypeFactory::bitWidth (d->getPortType(i)));
       *pos = *pos + 1;
     }
   }
@@ -4048,6 +4088,9 @@ void expr_multires::_init (Data *d)
   _d = d;
   nvals = _count (d);
   MALLOC (v, expr_res, nvals);
+  for (int i=0; i < nvals; i++) {
+    new (&v[i]) BigInt;
+  }
   int pos = 0;
   _init_helper (d, &pos);
   Assert (pos == nvals, "What?");
@@ -4062,12 +4105,17 @@ void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, in
 		    sc, pos, oi, ob);
     }
     else if (TypeFactory::isBoolType (d->getPortType(i))) {
-      v[*pos].v = sc->getBool (*ob);
+      if (sc->getBool (*ob)) {
+	v[*pos].setVal (0, 1);
+      }
+      else {
+	v[*pos].setVal (0, 0);
+      }
       *ob = *ob + 1;
       *pos = (*pos) + 1;
     }
     else if (TypeFactory::isIntType (d->getPortType(i))) {
-      v[*pos].v = sc->getInt (*oi);
+      v[*pos] = *(sc->getInt (*oi));
       *oi = *oi + 1;
       *pos = *pos + 1;
     }
@@ -4094,7 +4142,7 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     /* array deref */
     for (int i=0; i < d->range->nDims(); i++) {
       expr_res res = exprEval (d->chp_idx[i]);
-      d->idx[i] = res.v;
+      d->idx[i] = res.getVal (0);
     }
     int x = d->range->Offset (d->idx);
     if (x == -1) {
@@ -4130,11 +4178,11 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     int off = getGlobalOffset (struct_info[3*i], struct_info[3*i+1]);
     if (struct_info[3*i+1] == 1) {
       /* int */
-      _sc->setInt (off, v->v[i].v);
+      _sc->setInt (off, v->v[i]);
     }
     else {
       Assert (struct_info[3*i+1] == 0, "What?");
-      _sc->setBool (off, v->v[i].v);
+      _sc->setBool (off, v->v[i].getVal (0));
     }
   }
 
@@ -4182,6 +4230,6 @@ void expr_multires::Print (FILE *fp)
 {
   fprintf (fp, "v:%d;", nvals);
   for (int i=0; i < nvals; i++) {
-    fprintf (fp, " %d(w=%d):%lu", i, v[i].width, v[i].v);
+    fprintf (fp, " %d(w=%d):%lu", i, v[i].getWidth(), v[i].getVal (0));
   }
 }

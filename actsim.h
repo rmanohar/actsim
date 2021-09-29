@@ -30,6 +30,7 @@
 #include <regex.h>
 #include <stdlib.h>
 #include <math.h>
+#include <common/int.h>
 #include "actsim_ext.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
@@ -107,8 +108,8 @@ public:
   ActSimState (int bools, int ints, int chans);
   ~ActSimState ();
 
-  long getInt (int x);
-  void setInt (int x, long v);
+  BigInt *getInt (int x);
+  void setInt (int x, BigInt &v);
   int getBool (int x);
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
@@ -123,7 +124,7 @@ private:
   bitset_t *bits;		/* Booleans */
   int nbools;			/* # of Booleans */
   
-  long *ival;			/* integers */
+  BigInt *ival;			/* integers */
   int nints;			/* number of integers */
 
 
@@ -227,8 +228,8 @@ class ActSimCore {
   ActSimState *getState () { return state; }
   void setState (ActSimState *);
 
-  long getInt (int x) { return state->getInt (x); }
-  void setInt (int x, long v) { state->setInt (x, v); }
+  BigInt *getInt (int x) { return state->getInt (x); }
+  void setInt (int x, BigInt &v) { state->setInt (x, v); }
   int getBool (int x) { return state->getBool (x); }
   void setBool (int x, int v) { state->setBool (x, v); }
   act_channel_state *getChan (int x) { return state->getChan (x); }

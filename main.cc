@@ -507,7 +507,8 @@ int process_set (int argc, char **argv)
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
-    glob_sim->setInt (offset, val);
+    BigInt x(64, 0, val);
+    glob_sim->setInt (offset, x);
   }
   else {
     fatal_error ("Should not be here");
@@ -559,7 +560,8 @@ int process_get (int argc, char **argv)
     }
   }
   else if (type == 1) {
-    val = glob_sim->getInt (offset);
+    BigInt *ival = glob_sim->getInt (offset);
+    val = ival->getVal (0);
     LispSetReturnInt (val);
     if (argc == 2) {
       printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);

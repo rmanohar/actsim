@@ -43,7 +43,10 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
 
   nints = ints;
   if (nints > 0) {
-    MALLOC (ival, long, nints);
+    MALLOC (ival, BigInt, nints);
+    for (int i=0; i < nints; i++) {
+      new (&ival[i]) BigInt;
+    }
   }
   else {
     ival = NULL;
@@ -106,13 +109,13 @@ ActSimState::~ActSimState()
   list_free (extra_state);
 }
 		 
-long ActSimState::getInt (int x)
+BigInt *ActSimState::getInt (int x)
 {
   Assert (0 <= x && x < nints, "What");
-  return ival[x];
+  return &ival[x];
 }
 
-void ActSimState::setInt (int x, long v)
+void ActSimState::setInt (int x, BigInt &v)
 {
   Assert (0 <= x && x < nints, "What");
   ival[x] = v;

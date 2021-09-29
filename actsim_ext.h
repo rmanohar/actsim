@@ -27,11 +27,7 @@
 #include <act/act.h>
 #include <common/misc.h>
 
-
-struct expr_res {
-  unsigned long v;		/* value */
-  int width;			/* bitwidth */
-};
+typedef BigInt expr_res;
 
 #define ACT_EXPR_RES_PRINTF "l"
 
@@ -41,8 +37,19 @@ class ActSimCore;
 
 class expr_multires {
  public:
-  expr_multires(Data *d = NULL) { _d = NULL; nvals = 0; v = NULL; _init (d); }
-  ~expr_multires() { if (nvals > 0) { FREE (v); } nvals = 0; v = NULL; }
+  expr_multires(Data *d = NULL) {
+    _d = NULL;
+    nvals = 0;
+    v = NULL;
+    _init (d);
+  }
+  ~expr_multires() {
+    if (nvals > 0) {
+      FREE (v);
+    }
+    nvals = 0;
+    v = NULL;
+  }
 
   void setSingle (expr_res &x) {
     _d = NULL;
@@ -52,6 +59,7 @@ class expr_multires {
       }
       nvals = 1;
       NEW (v, expr_res);
+      new (v) BigInt;
     }
     *v = x;
   }
@@ -64,9 +72,10 @@ class expr_multires {
       }
       nvals = 1;
       NEW (v, expr_res);
+      new (v) BigInt;
     }
-    v->v = val;
-    v->width = 64;
+    v->setWidth (64);
+    v->setVal (0, val);
   }
 
   expr_multires (expr_multires &&m) {
@@ -81,7 +90,10 @@ class expr_multires {
     nvals = m.nvals;
     if (nvals > 0) {
       MALLOC (v, expr_res, nvals);
-      bcopy (m.v, v, sizeof (expr_res)*nvals);
+      for (int i=0; i < nvals; i++) {
+	new (&v[i]) BigInt;
+	v[i] = m.v[i];
+      }
     }
     _d = m._d;
   }
@@ -106,11 +118,16 @@ class expr_multires {
       }
       if (m.nvals > 0) {
 	MALLOC (v, expr_res, m.nvals);
+	for (int i=0; i < m.nvals; i++) {
+	  new (&v[i]) BigInt;
+	}
       }
     }
     nvals = m.nvals;
     if (nvals > 0) {
-      bcopy (m.v, v, sizeof (expr_res)*nvals);
+      for (int i=0; i < nvals; i++) {
+	v[i] = m.v[i];
+      }
     }
     _d = m._d;
     return *this;
