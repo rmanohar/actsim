@@ -838,6 +838,8 @@ int ChpSim::Step (int ev_type)
       printf (" [glob=%d]", off);
 #endif
       v.setWidth (stmt->u.assign.isint);
+      v.toStatic ();
+
       verb = 0;
       if ((nm = isWatched (0, off))) {
 	verb = 1;
@@ -1738,13 +1740,11 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_TRUE:
     l.setWidth (1);
     l.setVal (0, 1);
-    return l;
     break;
     
   case E_FALSE:
     l.setWidth (1);
     l.setVal (0, 0);
-    return l;
     break;
     
   case E_INT:
@@ -1761,8 +1761,6 @@ BigInt ChpSim::exprEval (Expr *e)
       l.setWidth (width);
     }
     l.setVal (0, e->u.v);
-    l.toDynamic ();
-    return l;
     break;
 
   case E_REAL:
@@ -1845,12 +1843,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l < r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
     
@@ -1860,12 +1856,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l > r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
 
@@ -1875,12 +1869,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l <= r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
     
@@ -1890,12 +1882,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l >= r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
     
@@ -1905,12 +1895,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l == r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
     
@@ -1920,12 +1908,10 @@ BigInt ChpSim::exprEval (Expr *e)
     if (l != r) {
       l.setWidth (1);
       l.setVal (0, 1);
-      l.toDynamic ();
     }
     else {
       l.setWidth (1);
       l.setVal (0, 0);
-      l.toDynamic ();
     }
     break;
     
@@ -2173,6 +2159,7 @@ BigInt ChpSim::exprEval (Expr *e)
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
   }
+  l.toDynamic ();
   return l;
 }
 
