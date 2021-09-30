@@ -171,12 +171,12 @@ class ChpSim : public ActSimObj {
   list_t *_statestk;
   Scope *_cureval;
 
-  expr_res exprEval (Expr *e);
-  expr_res funcEval (Function *, int, expr_res *);
-  expr_res varEval (int id, int type);
+  BigInt exprEval (Expr *e);
+  BigInt funcEval (Function *, int, BigInt *);
+  BigInt varEval (int id, int type);
   
   expr_multires exprStruct (Expr *e);
-  expr_multires funcStruct (Function *, int, expr_res *);
+  expr_multires funcStruct (Function *, int, BigInt *);
   expr_multires varStruct (struct chpsimderef *);
 
   void _structure_assign (struct chpsimderef *, expr_multires *);

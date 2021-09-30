@@ -476,7 +476,7 @@ int ChpSim::computeOffset (struct chpsimderef *d)
     return d->offset;
   }
   for (int i=0; i < d->range->nDims(); i++) {
-    expr_res res = exprEval (d->chp_idx[i]);
+    BigInt res = exprEval (d->chp_idx[i]);
     d->idx[i] = res.getVal(0);
   }
   int x = d->range->Offset (d->idx);
@@ -706,7 +706,7 @@ int ChpSim::Step (int ev_type)
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;
   int joined;
-  expr_res v;
+  BigInt v;
   expr_multires vs;
   int off;
   const char *nm, *nm2;
@@ -882,7 +882,7 @@ int ChpSim::Step (int ev_type)
       else {
 	/* data-less */
 	v.setVal (0,0);
-	v.setWidth (0);
+	v.setWidth (1);
       }
 #ifdef DUMP_ALL      
       printf ("send val=%lu", v.v);
@@ -1110,7 +1110,7 @@ int ChpSim::Step (int ev_type)
     {
       chpsimcond *gc;
       int cnt = 0;
-      expr_res res;
+      BigInt res;
 
 #ifdef DUMP_ALL
       if (stmt->type == CHPSIM_COND) {
@@ -1396,9 +1396,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
 }
 
 
-expr_res ChpSim::varEval (int id, int type)
+BigInt ChpSim::varEval (int id, int type)
 {
-  expr_res r;
+  BigInt r;
   int off;
 
   off = getGlobalOffset (id, type == 3 ? 2 : type);
@@ -1453,7 +1453,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 {
   listitem_t *li;
   hash_bucket_t *b;
-  expr_res *x, res;
+  BigInt *x, res;
   expr_multires *xm, resm;
   act_chp_gc_t *gc;
   int rep;
@@ -1556,7 +1556,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	  actsim_log ("%s", stmp);
 	}
 	else {
-	  expr_res v = exprEval (tmp->u.e);
+	  BigInt v = exprEval (tmp->u.e);
 	  _process_print_int (v, int_is_zero, int_type, int_width);
 	}
       }
@@ -1592,7 +1592,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
       }
     }
     else {
-      x = (expr_res *) b->v;
+      x = (BigInt *) b->v;
       res = exprEval (c->u.assign.e);
       res.setWidth (x->getWidth());
       *x = res;
@@ -1610,13 +1610,13 @@ static void *dl_extern_files;
 
 typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
 
-expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
+BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
 {
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
-  expr_res *x;
-  expr_res ret;
+  BigInt *x;
+  BigInt ret;
   ActInstiter it(f->CurScope());
 
 
@@ -1640,7 +1640,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
       b->v = x2;
     }
     else {
-      NEW (x, expr_res);
+      NEW (x, BigInt);
       new (x) BigInt;
       x->setVal (0, 0);
       x->setWidth (TypeFactory::bitWidth (vx->t));
@@ -1656,7 +1656,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
-    x = (expr_res *) b->v;
+    x = (BigInt *) b->v;
     w = x->getWidth ();
     *x = args[i];
     x->setWidth (w);
@@ -1688,7 +1688,22 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
     if (!extcall) {
       fatal_error ("Function `%s' missing chp body as well as external definition.", f->getName());
     }
-    return (*extcall) (nargs, args);
+
+    expr_res *extargs;
+    expr_res extret;
+    if (nargs > 0) {
+      MALLOC (extargs, expr_res, nargs);
+      for (int i=0; i < nargs; i++) {
+	extargs[i].width = args[i].getWidth ();
+	extargs[i].v = args[i].getVal (0);
+      }
+    }
+    extret = (*extcall) (nargs, extargs);
+    FREE (extargs);
+    BigInt tmp;
+    tmp.setWidth (extret.width);
+    tmp.setVal (0, extret.v);
+    return tmp;
   }
   
   act_chp *c = f->getlang()->getchp();
@@ -1701,7 +1716,7 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
 
   /* -- return result -- */
   b = hash_lookup (lstate, "self");
-  x = (expr_res *)b->v;
+  x = (BigInt *)b->v;
   ret = *x;
   
   hash_iter_init (lstate, &iter);
@@ -1713,9 +1728,9 @@ expr_res ChpSim::funcEval (Function *f, int nargs, expr_res *args)
   return ret;
 }
   
-expr_res ChpSim::exprEval (Expr *e)
+BigInt ChpSim::exprEval (Expr *e)
 {
-  expr_res l, r;
+  BigInt l, r;
   Assert (e, "What?!");
 
   switch (e->type) {
@@ -2051,7 +2066,7 @@ expr_res ChpSim::exprEval (Expr *e)
 	l = *(x2->getField (xid->Rest()));
       }
       else {
-	l = *((expr_res *)b->v);
+	l = *((BigInt *)b->v);
       }
     }
     break;
@@ -2069,7 +2084,7 @@ expr_res ChpSim::exprEval (Expr *e)
       Assert (state,"what?");
       hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
       Assert (b, "what?");
-      l = *((expr_res *)b->v);
+      l = *((BigInt *)b->v);
 
       hi = (long)e->u.e.r->u.e.r->u.v;
       if (e->u.e.r->u.e.l) {
@@ -2128,7 +2143,7 @@ expr_res ChpSim::exprEval (Expr *e)
       Expr *tmp = NULL;
       int nargs = 0;
       int i;
-      expr_res *args;
+      BigInt *args;
 
       /* first: evaluate arguments */
       tmp = e->u.fn.r;
@@ -2136,7 +2151,7 @@ expr_res ChpSim::exprEval (Expr *e)
 	nargs++;
 	tmp = tmp->u.e.r;
       }
-      MALLOC (args, expr_res, nargs);
+      MALLOC (args, BigInt, nargs);
       for (i=0; i < nargs; i++) {
 	new (&args[i]) BigInt;
       }
@@ -2181,12 +2196,12 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
   return res;
 }
 
-expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
+expr_multires ChpSim::funcStruct (Function *f, int nargs, BigInt *args)
 {
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
-  expr_res *x;
+  BigInt *x;
   expr_multires ret;
   ActInstiter it(f->CurScope());
   InstType *ret_type = f->getRetType ();
@@ -2217,7 +2232,7 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
       //vx->getName(), x2->nvals, x2->v);
     }
     else {
-      NEW (x, expr_res);
+      NEW (x, BigInt);
       new (x) BigInt;
       x->setVal (0,0);
       x->setWidth (TypeFactory::bitWidth (vx->t));
@@ -2234,7 +2249,7 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, expr_res *args)
     int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
-    x = (expr_res *) b->v;
+    x = (BigInt *) b->v;
     w = x->getWidth ();
     *x = args[i];
     x->setWidth (w);
@@ -2314,7 +2329,7 @@ expr_multires ChpSim::exprStruct (Expr *e)
       Expr *tmp = NULL;
       int nargs = 0;
       int i;
-      expr_res *args;
+      BigInt *args;
 
       /* first: evaluate arguments */
       tmp = e->u.fn.r;
@@ -2322,7 +2337,7 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	nargs++;
 	tmp = tmp->u.e.r;
       }
-      MALLOC (args, expr_res, nargs);
+      MALLOC (args, BigInt, nargs);
       for (i=0; i < nargs; i++) {
 	new (&args[i]) BigInt;
       }
@@ -4087,7 +4102,7 @@ void expr_multires::_init (Data *d)
   if (!d) return;
   _d = d;
   nvals = _count (d);
-  MALLOC (v, expr_res, nvals);
+  MALLOC (v, BigInt, nvals);
   for (int i=0; i < nvals; i++) {
     new (&v[i]) BigInt;
   }
@@ -4141,7 +4156,7 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
   if (d->range) {
     /* array deref */
     for (int i=0; i < d->range->nDims(); i++) {
-      expr_res res = exprEval (d->chp_idx[i]);
+      BigInt res = exprEval (d->chp_idx[i]);
       d->idx[i] = res.getVal (0);
     }
     int x = d->range->Offset (d->idx);
@@ -4191,7 +4206,7 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
   }
 }
 
-expr_res *expr_multires::getField (ActId *x)
+BigInt *expr_multires::getField (ActId *x)
 {
   Assert (x, "setField with scalar called with NULL ID value");
   int off = _d->getStructOffset (x);
@@ -4199,7 +4214,7 @@ expr_res *expr_multires::getField (ActId *x)
   return &v[off];
 }
 
-void expr_multires::setField (ActId *x, expr_res *val)
+void expr_multires::setField (ActId *x, BigInt *val)
 {
   Assert (x, "setField with scalar called with NULL ID value");
   int off = _d->getStructOffset (x);

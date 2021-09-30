@@ -24,14 +24,19 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <act/act.h>
 #include <common/misc.h>
 
-typedef BigInt expr_res;
+typedef struct expr_res {
+  unsigned long v;              /* value */
+  int width;                    /* bitwidth */
+} expr_res;
 
 #define ACT_EXPR_RES_PRINTF "l"
 
 #ifdef __cplusplus
+
+#include <act/act.h>
+#include <common/int.h>
 
 class ActSimCore;
 
@@ -47,12 +52,12 @@ class expr_multires {
     _delete_objects ();
   }
 
-  void setSingle (expr_res &x) {
+  void setSingle (BigInt &x) {
     _d = NULL;
     if (nvals != 1) {
       _delete_objects ();
       nvals = 1;
-      NEW (v, expr_res);
+      NEW (v, BigInt);
       new (v) BigInt;
     }
     *v = x;
@@ -63,7 +68,7 @@ class expr_multires {
     if (nvals != 1) {
       _delete_objects ();
       nvals = 1;
-      NEW (v, expr_res);
+      NEW (v, BigInt);
       new (v) BigInt;
     }
     v->setWidth (64);
@@ -81,7 +86,7 @@ class expr_multires {
   expr_multires (expr_multires &m) {
     nvals = m.nvals;
     if (nvals > 0) {
-      MALLOC (v, expr_res, nvals);
+      MALLOC (v, BigInt, nvals);
       for (int i=0; i < nvals; i++) {
 	new (&v[i]) BigInt;
 	v[i] = m.v[i];
@@ -107,7 +112,7 @@ class expr_multires {
     if (nvals != m.nvals) {
       _delete_objects ();
       if (m.nvals > 0) {
-	MALLOC (v, expr_res, m.nvals);
+	MALLOC (v, BigInt, m.nvals);
 	for (int i=0; i < m.nvals; i++) {
 	  new (&v[i]) BigInt;
 	}
@@ -125,11 +130,11 @@ class expr_multires {
 
   void fillValue (Data *d, ActSimCore *sc, int off_i, int off_b);
 
-  void setField (ActId *field, expr_res *v);
+  void setField (ActId *field, BigInt *v);
   void setField (ActId *field, expr_multires *v);
-  expr_res *getField (ActId *x);
+  BigInt *getField (ActId *x);
 
-  expr_res *v;
+  BigInt *v;
   int nvals;
 
 private:

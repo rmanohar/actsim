@@ -125,9 +125,9 @@ class PrsSim : public ActSimObj {
  private:
   void _computeFanout (prssim_expr *, SimDES *);
   
-  void varSet (int id, int type, expr_res v);
-  int varSend (int pc, int wakeup, int id, expr_res v);
-  int varRecv (int pc, int wakeup, int id, expr_res *v);
+  void varSet (int id, int type, BigInt &v);
+  int varSend (int pc, int wakeup, int id, BigInt &v);
+  int varRecv (int pc, int wakeup, int id, BigInt *v);
 
   ActSimCore *_sc;
   PrsSimGraph *_g;
