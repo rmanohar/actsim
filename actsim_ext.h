@@ -24,18 +24,19 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <act/act.h>
 #include <common/misc.h>
 
 
-struct expr_res {
+typedef struct expr_res {
   unsigned long v;		/* value */
   int width;			/* bitwidth */
-};
+} expr_res;
 
 #define ACT_EXPR_RES_PRINTF "l"
 
 #ifdef __cplusplus
+
+#include <act/act.h>
 
 class ActSimCore;
 
