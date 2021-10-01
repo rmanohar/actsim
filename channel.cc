@@ -392,7 +392,7 @@ int ChanMethods::runMethod (ActSimCore *sim,
     case CHAN_OP_SELF:
       /* expression evaluation!!! */
       r = _dummy->exprEval (_ops[idx].op[from].e);
-      ch->data.v[0] = r;
+      ch->data.setSingle (r);
       from++;
       break;
 
