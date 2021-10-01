@@ -144,7 +144,7 @@ private:
   int eval (prssim_expr *);
 
 public:
-  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
+  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; _pending = NULL; }
   int Step (int ev_type);
   void propagate ();
   void printName ();

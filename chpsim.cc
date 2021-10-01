@@ -706,6 +706,7 @@ int ChpSim::Step (int ev_type)
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;
   int joined;
+  int frag;
   expr_res v;
   expr_multires vs;
   int off;
@@ -890,7 +891,7 @@ int ChpSim::Step (int ev_type)
     if (stmt->type == CHPSIM_SEND) {
       vs.setSingle (v);
     }
-    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, &poff, vs);
+    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, &poff, vs, &frag);
     if (rv) {
       /* blocked */
       forceret = 1;
@@ -917,11 +918,21 @@ int ChpSim::Step (int ev_type)
       if (verb & 1) {
 	msgPrefix ();
 	if (rv) {
-	  printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
+	  if (frag) {
+	    printf ("%s : send-blocked\n", nm);
+	  }
+	  else {
+	    printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.v, v.v);
+	  }
 	}
 	else {
 	  if (!flag) {
-	    printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+	    if (frag) {
+	      printf ("%s : send\n", nm);
+	    }
+	    else {
+	      printf ("%s : send value: %lu (0x%lx)\n", nm, v.v, v.v);
+	    }
 	  }
 	  else {
 	    printf ("%s : send complete\n", nm);
@@ -955,7 +966,7 @@ int ChpSim::Step (int ev_type)
 	type = -1;
       }
       int poff;
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &poff, &vs);
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &poff, &vs, &frag);
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
@@ -1204,7 +1215,8 @@ int ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
+int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
+		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
@@ -1212,6 +1224,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
   c = _sc->getChan (off);
 
   if (c->fragmented) {
+    *frag = 1;
     if (c->frag_st == 0) {
       c->data = v;
       c->frag_st = 1;
@@ -1244,7 +1257,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
 	return 1;
       }
     }
-  }      
+  }
+  *frag = 0;
 
 #ifdef DUMP_ALL  
   printf (" [s=%d]", off);
@@ -1319,7 +1333,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
+int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
+		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
@@ -1327,6 +1342,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
   c = _sc->getChan (off);
 
   if (c->fragmented) {
+    *frag = 1;
     if (c->frag_st == 0) {
       c->frag_st = 1;
       c->ufrag_st = 0;
@@ -1359,7 +1375,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
 	return 1;
       }
     }
-  }      
+  }
+  
+  *frag = 0;
   
 #ifdef DUMP_ALL  
   printf (" [r=%d]", off);
@@ -2057,11 +2075,16 @@ expr_res ChpSim::exprEval (Expr *e)
       else if (_frag_ch) {
 	act_connection *c;
 	ihash_bucket_t *b;
-	c = xid->Canonical (_frag_ch->ct->CurScope());
-	b = ihash_lookup (_frag_ch->fH, (long)c);
-	Assert (b, "Error during channel registration");
-	l.v = _sc->getBool (b->i);
-	l.width = 1;
+	if (strcmp (xid->getName(), "self") == 0) {
+	  l = _frag_ch->data.v[0];
+	}
+	else {
+	  c = xid->Canonical (_frag_ch->ct->CurScope());
+	  b = ihash_lookup (_frag_ch->fH, (long)c);
+	  Assert (b, "Error during channel registration");
+	  l.v = _sc->getBool (b->i);
+	  l.width = 1;
+	}
       }
       else {
 	Assert (0, "E_VAR found without state stack or frag chan hash");
