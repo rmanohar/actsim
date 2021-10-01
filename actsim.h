@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include "actsim_ext.h"
+#include "state.h"
+#include "channel.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
 #define E_CHP_VARINT   (E_NEWEND + 2)
@@ -56,48 +58,6 @@
 
 class ActSimCore;
 
-struct act_channel_state {
-  unsigned int send_here:7;	// if non-zero, this is the "pc" for
-				// the sender to be used to wake-up
-				// the sending process
-
-  unsigned int sender_probe:1;	// 1 if the send_here wait is actually
-				// due to a probe, and not a waiting
-				// sender but a waiting probe
-  
-  unsigned int recv_here:7;	 // if non-zero, this is the "pc" for
-				 // the receiver to be used to wake up
-				 // the receiving process
-  
-  unsigned int receiver_probe:1; // receiver is probing and waiting as
-				 // a result, but not blocked on a
-				 // receive
-
-  unsigned int fragmented:1;	// have to simulate this at a lower
-				// level of abstraction since pieces
-				// of the channel are accessed
-
-  unsigned int frag_st:2;	// send/recv, send_up/recv_up, or
-				// send_rest/recv_rest
-  unsigned int ufrag_st:8;	// micro-state within frag state
-
-  struct iHashtable *fH;	// fragment hash table
-  Channel *ct;			// channel type
-  ActId *inst_id;		// instance
-
-  
-  int len;
-  expr_multires data, data2;  	// data: used when the receiver is
-				// waiting for sender; data2 used when
-				// sender arrives before receive is posted.
-  WaitForOne *w;
-  WaitForOne *probe;		// probe wake-up
-};
-
-struct extra_state_alloc {
-  void *space;
-  int sz;
-};
 
 #define MAX_LOCAL_PCS (SIM_EV_MAX+1)
 
@@ -112,6 +72,7 @@ public:
   int getBool (int x);
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
+  int numChans () { return nchans; }
 
   void gStall (SimDES *s) { gshared->AddObject (s); }
   void gRemove (SimDES *s) { gshared->DelObject (s); }
@@ -278,6 +239,9 @@ class ActSimCore {
   void setWarning (int v) { _on_warning = v; }
   inline int onWarning() { return _on_warning; }
 
+  void registerFragmented (Channel *c);
+  ChanMethods *getFragmented (Channel *c);
+
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
 
@@ -285,7 +249,7 @@ class ActSimCore {
     double d;
     unsigned long val;
 
-    if (_sim_rand == 0) {
+    if (_sim_rand == 0 || delay == 0) {
       return delay;
     }
     else if (_sim_rand == 1) {
@@ -315,6 +279,8 @@ protected:
 				   chpsimgraph */
   struct iHashtable *pmap;	/* map from process pointer to
 				   prssimgraph */
+
+  struct pHashtable *chan;	// compiled channel methods table
 
   ActInstTable I;		/* instance map */
 

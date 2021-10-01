@@ -100,6 +100,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _area_cost = 0;
   _statestk = NULL;
   _cureval = NULL;
+  _frag_ch = NULL;
 
   if (p) {
     const char *nsname;
@@ -822,14 +823,7 @@ int ChpSim::Step (int ev_type)
 	}
       }
       _sc->setBool (off, v.v);
-
-      SimDES **arr;
-      arr = _sc->getFO (off, 0);
-      for (int i=0; i < _sc->numFanout (off, 0); i++) {
-	ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
-	Assert (p, "What?");
-	p->propagate ();
-      }
+      boolProp (off);
     }
     else {
       off = getGlobalOffset (off, 1);
@@ -1218,31 +1212,39 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
   c = _sc->getChan (off);
 
   if (c->fragmented) {
-    switch (c->frag_st) {
-    case 0:
+    if (c->frag_st == 0) {
       c->data = v;
       c->frag_st = 1;
       c->ufrag_st = 0;
-      /* -- run set method -- */
-      
-    case 1:
-      /* send */
-
-      break;
-    case 2:
-      /* send_up */
-
-      break;
-    case 3:
-      /* in send_rest, advance through */
-      break;
-
-    default:
-      fatal_error ("What is this?");
-      break;
     }
-    warning ("Need to implement the fragmented channel protocol");    
-  }
+    while (c->ufrag_st >= 0) {
+      int idx;
+      if (c->frag_st == 1) {
+	idx = ACT_METHOD_SET;
+      }
+      else if (c->frag_st == 2) {
+	idx = ACT_METHOD_SEND_UP;
+      }
+      else if (c->frag_st == 3) {
+	idx = ACT_METHOD_SEND_REST;
+      }
+      else {
+	/* finished protocol */
+	c->frag_st = 0;
+	return 0;
+      }
+      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
+      if (c->ufrag_st == 0xff) { /* -1 */
+	c->frag_st++;
+	c->ufrag_st = 0;
+      }
+      else {
+	_stalled_pc = pc;
+	_sc->gStall (this);
+	return 1;
+      }
+    }
+  }      
 
 #ifdef DUMP_ALL  
   printf (" [s=%d]", off);
@@ -1325,8 +1327,39 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
   c = _sc->getChan (off);
 
   if (c->fragmented) {
-    warning ("Need to implement the fragmented channel protocol");
-  }
+    if (c->frag_st == 0) {
+      c->frag_st = 1;
+      c->ufrag_st = 0;
+    }
+    while (c->ufrag_st >= 0) {
+      int idx;
+      if (c->frag_st == 1) {
+	idx = ACT_METHOD_GET;
+      }
+      else if (c->frag_st == 2) {
+	idx = ACT_METHOD_RECV_UP;
+      }
+      else if (c->frag_st == 3) {
+	idx = ACT_METHOD_RECV_REST;
+      }
+      else {
+	/* finished protocol */
+	c->frag_st = 0;
+	(*v) = c->data;
+	return 0;
+      }
+      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
+      if (c->ufrag_st == 0xff) { /* -1 */
+	c->frag_st++;
+	c->ufrag_st = 0;
+      }
+      else {
+	_stalled_pc = pc;
+	_sc->gStall (this);
+	return 1;
+      }
+    }
+  }      
   
 #ifdef DUMP_ALL  
   printf (" [r=%d]", off);
@@ -2005,19 +2038,33 @@ expr_res ChpSim::exprEval (Expr *e)
   case E_VAR:
     {
       ActId *xid = (ActId *) e->u.e.l;
-      Assert (!list_isempty (_statestk), "What?");
-      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
-      Assert (state,"what?");
-      hash_bucket_t *b = hash_lookup (state, xid->getName());
-      Assert (b, "what?");
-      Assert (_cureval, "What?");
-      InstType *xit = _cureval->Lookup (xid->getName());
-      if (TypeFactory::isStructure (xit)) {
-	expr_multires *x2 = (expr_multires *)b->v;
-	l = *(x2->getField (xid->Rest()));
+
+      if (_statestk) {
+	struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+	Assert (state,"what?");
+	hash_bucket_t *b = hash_lookup (state, xid->getName());
+	Assert (b, "what?");
+	Assert (_cureval, "What?");
+	InstType *xit = _cureval->Lookup (xid->getName());
+	if (TypeFactory::isStructure (xit)) {
+	  expr_multires *x2 = (expr_multires *)b->v;
+	  l = *(x2->getField (xid->Rest()));
+	}
+	else {
+	  l = *((expr_res *)b->v);
+	}
+      }
+      else if (_frag_ch) {
+	act_connection *c;
+	ihash_bucket_t *b;
+	c = xid->Canonical (_frag_ch->ct->CurScope());
+	b = ihash_lookup (_frag_ch->fH, (long)c);
+	Assert (b, "Error during channel registration");
+	l.v = _sc->getBool (b->i);
+	l.width = 1;
       }
       else {
-	l = *((expr_res *)b->v);
+	Assert (0, "E_VAR found without state stack or frag chan hash");
       }
     }
     break;
@@ -2113,6 +2160,16 @@ expr_res ChpSim::exprEval (Expr *e)
     break;
 
   case E_SELF:
+    if (_frag_ch) {
+      l = _frag_ch->data.v[0];
+    }
+    else {
+      Assert (0, "E_SELF used?!");
+      l.v = 0;
+      l.width = 1;
+    }
+    break;
+    
   default:
     l.v = 0;
     l.width = 1;
@@ -3645,7 +3702,17 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
     if (type == 2 || type == 3) {
       loff = c->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
-      ch->fragmented = 1;
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
+      sim_recordChannel (sc, c, tmp);
+      sc->registerFragmented (ch->ct);
+      ch->cm = sc->getFragmented (ch->ct);
     }
     delete tmp;
   }
@@ -4183,5 +4250,17 @@ void expr_multires::Print (FILE *fp)
   fprintf (fp, "v:%d;", nvals);
   for (int i=0; i < nvals; i++) {
     fprintf (fp, " %d(w=%d):%lu", i, v[i].width, v[i].v);
+  }
+}
+
+
+void ChpSim::boolProp (int glob_off)
+{
+  SimDES **arr;
+  arr = _sc->getFO (glob_off, 0);
+  for (int i=0; i < _sc->numFanout (glob_off, 0); i++) {
+    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+    Assert (p, "What?");
+    p->propagate ();
   }
 }

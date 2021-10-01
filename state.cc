@@ -70,6 +70,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].ufrag_st = 0;
       chans[i].ct = NULL;
       chans[i].fH = NULL;
+      chans[i].cm = NULL;
     }
   }
   else {

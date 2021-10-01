@@ -67,6 +67,7 @@ ActSimCore::ActSimCore (Process *p)
   a = ActNamespace::Act();
   map = ihash_new (8);
   pmap = ihash_new (8);
+  chan = NULL;
   I.H = NULL;
   I.obj = NULL;
 
@@ -205,6 +206,17 @@ ActSimCore::~ActSimCore()
       delete g;
     }
     ihash_free (pmap);
+  }
+
+  if (chan) {
+    phash_iter_t iter;
+    phash_bucket_t *b;
+    phash_iter_init (chan, &iter);
+    while ((b = phash_iter_next (chan, &iter))) {
+      ChanMethods *ch = (ChanMethods *)b->v;
+      delete ch;
+    }
+    phash_free (chan);
   }
 
   if (state) {
@@ -1236,7 +1248,33 @@ void ActSim::runInit ()
 {
   ActNamespace *g = ActNamespace::Global();
   act_initialize *x;
-  /* -- we add the initial events -- */
+
+  /*-- reset channels that are fragmented --*/
+  for (int i=0; i < state->numChans(); i++) {
+    act_channel_state *ch = state->getChan (i);
+    if ((ch->fragmented & 0x1) != (ch->fragmented >> 1)) {
+      if (ch->fragmented & 0x1) {
+	/* input fragmented, so do sender reset protocol */
+	if (ch->cm->runMethod (this, ch, ACT_METHOD_SEND_INIT, 0) != -1) {
+	  warning ("Failed to initialize fragmented channel!");
+	  fprintf (stderr, "   Type: %s; inst: `", ch->ct->getName());
+	  ch->inst_id->Print (stderr);
+	  fprintf (stderr, "'\n");
+	}
+      }
+      else {
+	/* output fragmented, so do receiver fragmented protocol */
+	if (ch->cm->runMethod (this, ch, ACT_METHOD_RECV_INIT, 0) != -1) {
+	  warning ("Failed to initialize fragmented channel!");
+	  fprintf (stderr, "   Type: %s; inst: `", ch->ct->getName());
+	  ch->inst_id->Print (stderr);
+	  fprintf (stderr, "'\n");
+	}
+      }
+    }
+  }
+
+  /* -- initialize blocks -- */
   if (!g->getlang() || !g->getlang()->getinit()) {
     return;
   }
@@ -1303,6 +1341,7 @@ void ActSim::runInit ()
       lia[i] = list_next (lia[i]);
     }
   }
+  FREE (lia);
 }
 
 
@@ -1333,6 +1372,36 @@ int ActSimCore::isFiltered (const char *s)
       return 0;
     }
   }
+}
+
+
+void ActSimCore::registerFragmented (Channel *c)
+{
+  phash_bucket_t *b;
+  Assert (c, "Hmm");
+  if (!chan) {
+    chan = phash_new (4);
+  }
+  b = phash_lookup (chan, c);
+  if (b) {
+    return;
+  }
+  b = phash_add (chan, c);
+  b->v = new ChanMethods (c);
+}
+
+ChanMethods *ActSimCore::getFragmented (Channel *c)
+{
+  phash_bucket_t *b;
+  Assert (c, "Hmm");
+  if (!chan) {
+    chan = phash_new (4);
+  }
+  b = phash_lookup (chan, c);
+  if (b) {
+    return (ChanMethods *)b->v;
+  }
+  return NULL;
 }
 
 

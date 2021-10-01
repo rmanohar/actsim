@@ -870,8 +870,17 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     if (type == 2 || type == 3) {
       loff = ps->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
-      ch->fragmented = 1;
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
       sim_recordChannel (sc, ps, tmp);
+      sc->registerFragmented (ch->ct);
+      ch->cm = sc->getFragmented (ch->ct);
     }
     delete tmp;
   }

@@ -1,0 +1,46 @@
+defchan e1of1 <: chan(enum<1>) (bool r; bool a)
+{
+  methods {
+    set {
+	r+
+    }
+    send_rest {
+    	[a];r-;[~a]
+    }
+    get {
+	[r]
+    }
+    send_init {
+        r-
+    }
+    recv_rest {
+        a+;[~r];a-
+    }
+    recv_probe = r;
+  }
+}
+
+
+defproc src (e1of1 x)
+{
+  int i;
+  chp {
+     i := 0;
+    *[ i < 100 -> x!; i := i + 1; log("sent!") ]
+  }
+}
+
+defproc sink (e1of1 x)
+{
+  prs {
+    x.r -> x.a+
+   ~x.r -> x.a-
+  }
+}
+
+defproc test ()
+{
+   src s;
+   sink t(s.x);
+}
+

@@ -144,6 +144,14 @@ class ChpSim : public ActSimObj {
   unsigned long getEnergy (void);
   double getLeakage (void);
   unsigned long getArea (void);
+  
+  expr_res exprEval (Expr *e);
+  
+  int getBool (int glob_off) { return _sc->getBool (glob_off); }
+  void setBool (int glob_off, int val) { _sc->setBool (glob_off, val); }
+  void boolProp (int glob_off);
+  void setFrag (act_channel_state *f) { _frag_ch = f; }
+  
 
  private:
   int _npc;			/* # of program counters */
@@ -170,8 +178,8 @@ class ChpSim : public ActSimObj {
 
   list_t *_statestk;
   Scope *_cureval;
+  act_channel_state *_frag_ch;	// fragmented channel
 
-  expr_res exprEval (Expr *e);
   expr_res funcEval (Function *, int, expr_res *);
   expr_res varEval (int id, int type);
   
