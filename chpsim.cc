@@ -357,21 +357,11 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
       int off = getGlobalOffset (e->u.x.val, 2);
       act_channel_state *c = _sc->getChan (off);
       if ((c->fragmented & 0x1) && e->type == E_PROBEOUT) {
-	if (undo) {
-	  /* mothing to do */
-	}
-	else {
-	  return c->cm->runProbe (_sc, c, ACT_METHOD_SEND_PROBE);
-	}
+	return 1;
       }
       else if ((c->fragmented & 0x2) && e->type == E_PROBEIN) {
-	if (undo) {
-	  /* nothing to do */
-	}
-	else {
-	  return c->cm->runProbe (_sc, c, ACT_METHOD_RECV_PROBE);
-	}
-      }	  
+	return 1;
+      }
       if (undo) {
 	if (c->probe) {
 #ifdef DUMP_ALL	  
@@ -1193,7 +1183,7 @@ int ChpSim::Step (int ev_type)
 	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
-#endif	      
+#endif
 	      _sc->gStall (this);
 	      list_iappend (_stalled_pc, pc);
 	    }
@@ -2163,8 +2153,23 @@ expr_res ChpSim::exprEval (Expr *e)
 
   case E_PROBE:
     fatal_error ("E_PROBE-2");
+    
   case E_PROBEIN:
   case E_PROBEOUT:
+    {
+      int off = getGlobalOffset (e->u.x.val, 2);
+      act_channel_state *c = _sc->getChan (off);
+      if ((c->fragmented & 0x1) && e->type == E_PROBEOUT) {
+	l.v = c->cm->runProbe (_sc, c, ACT_METHOD_SEND_PROBE);
+	l.width = 1;
+	return l;
+      }
+      else if ((c->fragmented & 0x2) && e->type == E_PROBEIN) {
+	l.v = c->cm->runProbe (_sc, c, ACT_METHOD_RECV_PROBE);
+	l.width = 1;
+	return l;
+      }
+    }
     l = varEval (e->u.x.val, 3);
     break;
 
