@@ -171,7 +171,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     Assert (_npc >= 1, "What?");
     _pc[0] = g;
     _statestk = list_new ();
-    _nextEvent (0);
+    _initEvent ();
   }
   else {
     _pc = NULL;
@@ -210,6 +210,11 @@ int ChpSim::_nextEvent (int pc)
     return 1;
   }
   return 0;
+}
+
+void ChpSim::_initEvent ()
+{
+  _nextEvent (0);
 }
 
 void ChpSim::computeFanout ()
@@ -1230,6 +1235,13 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
       c->frag_st = 1;
       c->ufrag_st = 0;
     }
+
+    if (_sc->isResetMode()) {
+      _stalled_pc = pc;
+      _sc->gStall (this);
+      return 1;
+    }
+
     while (c->ufrag_st >= 0) {
       int idx;
       if (c->frag_st == 1) {
@@ -1347,6 +1359,13 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
       c->frag_st = 1;
       c->ufrag_st = 0;
     }
+
+    if (_sc->isResetMode()) {
+      _stalled_pc = pc;
+      _sc->gStall (this);
+      return 1;
+    }
+    
     while (c->ufrag_st >= 0) {
       int idx;
       if (c->frag_st == 1) {
@@ -2473,6 +2492,77 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
   _tmpused = NULL;
 }
 
+static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H);
+
+static void _rec_mark_userdef_used (ActSimCore *_sc, ActId *id,
+				    UserDef *u, struct iHashtable *H)
+{
+  ActId *tl;
+
+  if (!u) return;
+
+  tl = id;
+  while (tl->Rest()) {
+    tl = tl->Rest();
+  }
+  
+  for (int i=0; i < u->getNumPorts(); i++) {
+    const char *nm = u->getPortName (i);
+    InstType *it = u->getPortType (i);
+    ActId *extra = new ActId (nm);
+    ActId *prev;
+
+    tl->Append (extra);
+    prev = tl;
+    
+    tl = tl->Rest();
+
+    if (TypeFactory::isBoolType (it)) {
+      /* mark used */
+      if (it->arrayInfo()) {
+	Arraystep *s = it->arrayInfo()->stepper();
+	while (!s->isend()) {
+	  Array *a = s->toArray ();
+
+	  tl->setArray (a);
+	  _mark_vars_used (_sc, id, H);
+	  tl->setArray (NULL);
+
+	  delete a;
+	  
+	  s->step();
+	}
+	delete s;
+      }
+      else {
+	_mark_vars_used (_sc, id, H);
+      }
+    }
+    else if (TypeFactory::isUserType (it)) {
+      UserDef *nu = dynamic_cast<UserDef *>(it->BaseType());
+      Assert (nu, "What?");
+      /* mark recursively */
+      if (it->arrayInfo()) {
+	Arraystep *s = it->arrayInfo()->stepper();
+	while (!s->isend()) {
+	  Array *a = s->toArray();
+	  tl->setArray (a);
+	  _rec_mark_userdef_used (_sc, id, nu, H);
+	  tl->setArray (NULL);
+	  delete a;
+	  s->step();
+	}
+	delete s;
+      }
+      else {
+	_rec_mark_userdef_used (_sc, id, nu, H);
+      }
+    }
+    prev->prune();
+    delete extra;
+    tl = prev;
+  }
+}
 
 static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 {
@@ -2565,6 +2655,12 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
       if (!ihash_lookup (H, loff)) {
 	b = ihash_add (H, loff);
 	b->i = type;
+      }
+      /* channels might be fragmented */
+      if (type == 2 || type == 3) {
+	/*-- mark all the channel fields as used too --*/
+	_rec_mark_userdef_used (_sc, id,
+				dynamic_cast<UserDef *>(it->BaseType()), H);
       }
     }
   }

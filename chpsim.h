@@ -202,6 +202,7 @@ class ChpSim : public ActSimObj {
   int _collect_sharedvars (Expr *e, int pc, int undo);
 
   int _nextEvent (int pc);
+  void _initEvent ();
 };
 
 

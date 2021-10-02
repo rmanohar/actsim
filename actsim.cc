@@ -1249,6 +1249,8 @@ void ActSim::runInit ()
   ActNamespace *g = ActNamespace::Global();
   act_initialize *x;
 
+  setMode (1);
+  
   /*-- reset channels that are fragmented --*/
   for (int i=0; i < state->numChans(); i++) {
     act_channel_state *ch = state->getChan (i);
@@ -1276,6 +1278,8 @@ void ActSim::runInit ()
 
   /* -- initialize blocks -- */
   if (!g->getlang() || !g->getlang()->getinit()) {
+    setMode (0);
+    gWakeup ();
     return;
   }
   int num = 1;
@@ -1342,6 +1346,8 @@ void ActSim::runInit ()
     }
   }
   FREE (lia);
+  setMode (0);
+  gWakeup ();
 }
 
 
