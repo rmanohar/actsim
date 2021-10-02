@@ -92,7 +92,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
 {
   char buf[1024];
 
-  _stalled_pc = -1;
+  _stalled_pc = list_new ();
   _probe = NULL;
   _savedc = c;
   _energy_cost = 0;
@@ -197,6 +197,7 @@ ChpSim::~ChpSim()
   if (_statestk) {
     list_free (_statestk);
   }
+  list_free (_stalled_pc);
 }
 
 int ChpSim::_nextEvent (int pc)
@@ -355,6 +356,22 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     {
       int off = getGlobalOffset (e->u.x.val, 2);
       act_channel_state *c = _sc->getChan (off);
+      if ((c->fragmented & 0x1) && e->type == E_PROBEOUT) {
+	if (undo) {
+	  /* mothing to do */
+	}
+	else {
+	  return c->cm->runProbe (_sc, c, ACT_METHOD_SEND_PROBE);
+	}
+      }
+      else if ((c->fragmented & 0x2) && e->type == E_PROBEIN) {
+	if (undo) {
+	  /* nothing to do */
+	}
+	else {
+	  return c->cm->runProbe (_sc, c, ACT_METHOD_RECV_PROBE);
+	}
+      }	  
       if (undo) {
 	if (c->probe) {
 #ifdef DUMP_ALL	  
@@ -720,8 +737,8 @@ int ChpSim::Step (int ev_type)
   int verb;
 
   if (pc == MAX_LOCAL_PCS) {
-    pc = _stalled_pc;
-    _stalled_pc = -1;
+    Assert (!list_isempty (_stalled_pc), "What?");
+    pc = list_delete_ihead (_stalled_pc);
   }
 
   //Assert (0 <= pc && pc < _pcused, "What?");
@@ -1139,9 +1156,9 @@ int ChpSim::Step (int ev_type)
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
         if (_add_waitcond (&stmt->u.c, pc, 1)) {
-	  if (_stalled_pc != -1) {
-	    _sc->gRemove (this);
-	    _stalled_pc = -1;
+	  if (!list_isempty (_stalled_pc)) {
+	    _sc->gRemove (this);	
+	    list_delete_tail (_stalled_pc);
 	  }
 	}
       }
@@ -1173,12 +1190,12 @@ int ChpSim::Step (int ev_type)
 	     probed signals */
 	  forceret = 1;
 	  if (_add_waitcond (&stmt->u.c, pc)) {
-	    if (_stalled_pc == -1) {
+	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
 #endif	      
 	      _sc->gStall (this);
-	      _stalled_pc = pc;
+	      list_iappend (_stalled_pc, pc);
 	    }
 	    else {
 	      forceret = 0;
@@ -1237,7 +1254,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
     }
 
     if (_sc->isResetMode()) {
-      _stalled_pc = pc;
+      list_iappend (_stalled_pc, pc);
       _sc->gStall (this);
       return 1;
     }
@@ -1264,7 +1281,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
 	c->ufrag_st = 0;
       }
       else {
-	_stalled_pc = pc;
+	list_iappend (_stalled_pc, pc);
 	_sc->gStall (this);
 	return 1;
       }
@@ -1361,7 +1378,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
     }
 
     if (_sc->isResetMode()) {
-      _stalled_pc = pc;
+      list_iappend (_stalled_pc, pc);
       _sc->gStall (this);
       return 1;
     }
@@ -1389,7 +1406,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
 	c->ufrag_st = 0;
       }
       else {
-	_stalled_pc = pc;
+	list_iappend (_stalled_pc, pc);
 	_sc->gStall (this);
 	return 1;
       }

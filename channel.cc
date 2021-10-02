@@ -337,6 +337,33 @@ void ChanMethods::_compile (int idx, act_chp_lang *hse)
 }
 
 
+int ChanMethods::runProbe (ActSimCore *sim,
+			   act_channel_state *ch,
+			   int idx)
+{
+  if (!_dummy) {
+    _dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
+    _dummy->setFrag (ch);
+  }
+  
+  Expr *e = ch->ct->geteMethod (idx);
+  if (!e) {
+    warning ("%s: requested probe is not defined.", ch->ct->getName());
+    fprintf (stderr, " Instance: ");
+    ch->inst_id->Print (stderr);
+    fprintf (stderr, "\n");
+    return 0;
+  }
+  expr_res r = _dummy->exprEval (e);
+  if (r.v) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
 int ChanMethods::runMethod (ActSimCore *sim,
 			    act_channel_state *ch,
 			    int idx,

@@ -161,7 +161,8 @@ class ChpSim : public ActSimObj {
 
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
-  int _stalled_pc;
+
+  list_t *_stalled_pc;
   act_chp_lang_t *_savedc;
 
   unsigned long _energy_cost;

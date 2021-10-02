@@ -141,6 +141,7 @@ public:
 
   /* returns -1 when done, otherwise id for resuming */
   int runMethod (ActSimCore *sim, act_channel_state *ch, int idx, int from);
+  int runProbe (ActSimCore *sim, act_channel_state *ch, int idx);
   
 private:
   void _compile (int idx, act_chp_lang *hse);
