@@ -572,21 +572,62 @@ int process_get (int argc, char **argv)
   return LISP_RET_INT;
 }
 
+int process_mget (int argc, char **argv)
+{
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <name1> <name2> ...\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, NULL)) {
+      return LISP_RET_ERROR;
+    }
+
+    if (type == 2 || type == 3) {
+      printf ("'%s' is a channel; not currently supported!\n", argv[i]);
+      return LISP_RET_ERROR;
+    }
+
+    unsigned long val;
+    if (type == 0) {
+      val = glob_sim->getBool (offset);
+      if (val == 0) {
+	printf ("%s: 0\n", argv[i]);
+      }
+      else if (val == 1) {
+	printf ("%s: 1\n", argv[i]);
+      }
+      else {
+	printf ("%s: X\n", argv[i]);
+      }
+    }
+    else if (type == 1) {
+      val = glob_sim->getInt (offset);
+      printf ("%s: %lu  (0x%lx)\n", argv[i], val, val);
+    }
+  }
+  return LISP_RET_TRUE;
+}
+
 int process_watch (int argc, char **argv)
 {
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
   int type, offset;
   ActSimObj *obj;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
-    return LISP_RET_ERROR;
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
+      return LISP_RET_ERROR;
+    }
+    obj->addWatchPoint (type, offset, argv[i]);
   }
-
-  obj->addWatchPoint (type, offset, argv[1]);
 
   return LISP_RET_TRUE;
 }
@@ -613,19 +654,20 @@ int process_breakpt (int argc, char **argv)
 
 int process_unwatch (int argc, char **argv)
 {
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
   int type, offset;
   ActSimObj *obj;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
-    return LISP_RET_ERROR;
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
+      return LISP_RET_ERROR;
+    }
+    obj->delWatchPoint (type, offset);
   }
-
-  obj->delWatchPoint (type, offset);
 
   return LISP_RET_TRUE;
 }
@@ -867,9 +909,10 @@ struct LispCliCommand Cmds[] = {
 
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
+  { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
 
-  { "watch", "<n> - add watchpoint for <n>", process_watch },
-  { "unwatch", "<n> - delete watchpoint for <n>", process_unwatch },
+  { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },

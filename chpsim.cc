@@ -738,6 +738,12 @@ int ChpSim::Step (int ev_type)
     return 1;
   }
 
+  if (_sc->isResetMode() && _proc != NULL) {
+    /*-- this is a real process: wait for run mode --*/
+    new Event (this, SIM_EV_MKTYPE (pc, 0), 10);
+    return 1;
+  }
+
   /*-- go forward through sim graph until there's some work --*/
   while (_pc[pc] && !_pc[pc]->stmt) {
     pc = _updatepc (pc);
