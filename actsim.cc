@@ -1252,6 +1252,7 @@ void ActSim::runInit ()
 {
   ActNamespace *g = ActNamespace::Global();
   act_initialize *x;
+  int fragmented_set = 0;
 
   setMode (1);
   
@@ -1267,6 +1268,7 @@ void ActSim::runInit ()
 	  ch->inst_id->Print (stderr);
 	  fprintf (stderr, "'\n");
 	}
+	fragmented_set = 1;
       }
       else {
 	/* output fragmented, so do receiver fragmented protocol */
@@ -1276,12 +1278,18 @@ void ActSim::runInit ()
 	  ch->inst_id->Print (stderr);
 	  fprintf (stderr, "'\n");
 	}
+	fragmented_set = 1;
       }
     }
   }
 
   /* -- initialize blocks -- */
   if (!g->getlang() || !g->getlang()->getinit()) {
+    if (fragmented_set) {
+      if (SimDES::AdvanceTime (100) != NULL) {
+	warning ("breakpoint?");
+      }
+    }
     setMode (0);
     gWakeup ();
     return;
@@ -1330,7 +1338,7 @@ void ActSim::runInit ()
 	more_steps = 1;
 	
 	if (SimDES::AdvanceTime (100) != NULL) {
-	  warning ("More events?");
+	  warning ("breakpoint?");
 	}
       }
     }

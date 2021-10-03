@@ -1,7 +1,7 @@
 import std;
 open std::channel;
 
-defproc src (e1of2 x)
+defproc src (a1of2! x)
 {
   int i;
   chp {
@@ -10,13 +10,13 @@ defproc src (e1of2 x)
   }
 }
 
-defproc sink (e1of2 x)
+defproc sink (a1of2? x)
 {
   bool ax, bx;
   prs {
     x.t => ax+
     x.f => bx+
-    ax | bx => x.e-
+    ax | bx => x.a+
   }
 }
 
@@ -25,4 +25,3 @@ defproc test ()
    src s;
    sink t(s.x);
 }
-
