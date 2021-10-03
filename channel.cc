@@ -190,17 +190,17 @@ void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id)
       ch->fH = ihash_new (4);
       ch->ct = ct;
       ch->inst_id = id->Clone();
-    }
-    for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
-      act_chp_lang_t *x = ct->getMethod (i);
-      if (x) {
-	_hse_record_ids (ch, sc, c, id, x);
+      for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
+	act_chp_lang_t *x = ct->getMethod (i);
+	if (x) {
+	  _hse_record_ids (ch, sc, c, id, x);
+	}
       }
-    }
-    for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
-      Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
-      if (e) {
-	_hse_record_ids (ch, sc, c, id, e);
+      for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
+	Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
+	if (e) {
+	  _hse_record_ids (ch, sc, c, id, e);
+	}
       }
     }
   }

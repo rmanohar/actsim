@@ -776,7 +776,7 @@ void OnePrsSim::propagate ()
 	  _proc->msgPrefix();
 	  printf ("WARNING: weak-interference on `");
 	  _proc->printName (stdout, _me->vid);
-	  printf ("\n");
+	  printf ("'\n");
 	  if (_proc->onWarning() == 2) {
 	    exit (1);
 	  }

@@ -515,6 +515,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myI = _curI;
 
   /* -- increment cur offset after allocating all the items -- */
+  if (!_cursi) {
+    return;
+  }
   _curoffset.addVar (_cursi->local);
 
   ActInstiter it(sc);
@@ -554,211 +557,211 @@ void ActSimCore::_add_all_inst (Scope *sc)
       }
 
       si = sp->getStateInfo (x);
-      if (si) {
+      _cursi = si;
+
+      do {
+	_curproc = x;
 	_cursi = si;
-
-	do {
-	  _curproc = x;
-	  _cursi = si;
 	
-	  if (as) {
-	    tmpid->setArray (as->toArray());
+	if (as) {
+	  tmpid->setArray (as->toArray());
+	}
+
+	/*-- tmpid = name of the id --*/
+
+	char buf[1024];
+	hash_bucket_t *ib;
+	ActInstTable *iT;
+	tmpid->sPrint (buf, 1024);
+	ib = hash_add (myI->H, buf);
+	NEW (iT, ActInstTable);
+	iT->obj = NULL;
+	iT->H = NULL;
+	ib->v = iT;
+	_curI = iT;
+
+	/*-- compute ports for this process --*/
+	lev = _getlevel();
+	act_boolean_netlist_t *bnl = bp->getBNL (_curproc);
+
+	int ports_exist = 0;
+	int chpports_exist_int = 0;
+	int chpports_exist_bool = 0;
+	int chpports_exist_chan = 0;
+
+	for (int i=0; i < A_LEN (bnl->ports); i++) {
+	  if (bnl->ports[i].omit == 0) {
+	    ports_exist++;
 	  }
-
-	  /*-- tmpid = name of the id --*/
-
-	  char buf[1024];
-	  hash_bucket_t *ib;
-	  ActInstTable *iT;
-	  tmpid->sPrint (buf, 1024);
-	  ib = hash_add (myI->H, buf);
-	  NEW (iT, ActInstTable);
-	  iT->obj = NULL;
-	  iT->H = NULL;
-	  ib->v = iT;
-	  _curI = iT;
-
-	  /*-- compute ports for this process --*/
-	  lev = _getlevel();
-	  act_boolean_netlist_t *bnl = bp->getBNL (_curproc);
-
-	  int ports_exist = 0;
-	  int chpports_exist_int = 0;
-	  int chpports_exist_bool = 0;
-	  int chpports_exist_chan = 0;
-
-	  for (int i=0; i < A_LEN (bnl->ports); i++) {
-	    if (bnl->ports[i].omit == 0) {
-	      ports_exist++;
+	}
+	for (int i=0; i < A_LEN (bnl->chpports); i++) {
+	  if (bnl->chpports[i].omit == 0) {
+	    ValueIdx *lvx = bnl->chpports[i].c->getvx();
+	    Assert (lvx, "What?");
+	    if (TypeFactory::isChanType (lvx->t)) {
+	      chpports_exist_chan++;
+	    }
+	    else if (TypeFactory::isBoolType (lvx->t)) {
+	      chpports_exist_bool++;
+	    }
+	    else {
+	      chpports_exist_int++;
 	    }
 	  }
+	}
+
+	/* compute port bool, int and chan ports */
+	_cur_abs_port_bool = NULL;
+	_cur_abs_port_int = NULL;
+	_cur_abs_port_chan = NULL;
+
+	if (chpports_exist_bool || chpports_exist_int || chpports_exist_chan ||
+	    ports_exist) {
+	  if (chpports_exist_chan) {
+	    MALLOC (_cur_abs_port_chan, int, chpports_exist_chan);
+	  }
+	  if (chpports_exist_int) {
+	    MALLOC (_cur_abs_port_int, int, chpports_exist_int);
+	  }
+	  if (chpports_exist_bool || ports_exist) {
+	    MALLOC (_cur_abs_port_bool, int, chpports_exist_bool + ports_exist);
+	  }
+	}
+
+	int ibool = 0;
+	if (ports_exist) {
+	  for (int i=0; i < A_LEN (bnl->ports); i++) {
+	    if (bnl->ports[i].omit) continue;
+	    Assert (iportbool < A_LEN (mynl->instports), "What?");
+
+	    act_connection *c = mynl->instports[iportbool];
+	    int off = getLocalOffset (c, mysi, NULL);
+
+	    if (sp->isGlobalOffset (off)) {
+	      off = sp->globalIdx (off);
+	    }
+	    else if (sp->isPortOffset (off)) {
+	      off = sp->portIdx (off);
+	      off = _my_port_bool[off];
+	    }
+	    else {
+	      /* local state */
+	      off += myoffset.numAllBools();
+	    }
+	    _cur_abs_port_bool[ibool++] = off;
+	    iportbool++;
+	  }
+	}
+	
+	int ichan = 0;
+	int iint = 0;
+	if (chpports_exist_int|| chpports_exist_bool || chpports_exist_chan) {
+	  /* then we use the chp instports */
 	  for (int i=0; i < A_LEN (bnl->chpports); i++) {
-	    if (bnl->chpports[i].omit == 0) {
-	      ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
+	    if (bnl->chpports[i].omit) continue;
+	    Assert (iportchp < A_LEN (mynl->instchpports), "What?");
+	    ValueIdx *lvx = bnl->chpports[i].c->getvx();
+	    Assert (lvx, "Hmm");
+
+	    act_connection *c = mynl->instchpports[iportchp];
+	    iportchp++;
+
+            ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
+	    if (xb) {
 	      act_booleanized_var_t *v;
-	      Assert (xb, "What?");
 	      v = (act_booleanized_var_t *)xb->v;
-	      if (v->ischan) {
-		chpports_exist_chan++;
+	      if (v->used) continue; /* already covered */
+	    }
+
+	    int type;
+	    int off = getLocalOffset (c, mysi, &type);
+
+	    if (sp->isGlobalOffset (off)) {
+	      off = sp->globalIdx (off);
+	    }
+	    else if (sp->isPortOffset (off)) {
+	      off = sp->portIdx (off);
+	      if (type == 2 || type == 3) {
+		off = _my_port_chan[off];
 	      }
-	      else if (v->isint) {
-		chpports_exist_int++;
+	      else if (type == 1) {
+		off = _my_port_int[off];
 	      }
 	      else {
-		chpports_exist_bool++;
-	      }
-	    }
-	  }
-
-	  /* compute port bool, int and chan ports */
-	  _cur_abs_port_bool = NULL;
-	  _cur_abs_port_int = NULL;
-	  _cur_abs_port_chan = NULL;
-
-	  if (chpports_exist_bool || chpports_exist_int || chpports_exist_chan ||
-	      ports_exist) {
-	    if (chpports_exist_chan) {
-	      MALLOC (_cur_abs_port_chan, int, chpports_exist_chan);
-	    }
-	    if (chpports_exist_int) {
-	      MALLOC (_cur_abs_port_int, int, chpports_exist_int);
-	    }
-	    if (chpports_exist_bool || ports_exist) {
-	      MALLOC (_cur_abs_port_bool, int, chpports_exist_bool + ports_exist);
-	    }
-	  }
-
-	  int ibool = 0;
-	  if (ports_exist) {
-	    for (int i=0; i < A_LEN (bnl->ports); i++) {
-	      if (bnl->ports[i].omit) continue;
-	      Assert (iportbool < A_LEN (mynl->instports), "What?");
-
-	      act_connection *c = mynl->instports[iportbool];
-	      int off = getLocalOffset (c, mysi, NULL);
-
-	      if (sp->isGlobalOffset (off)) {
-		off = sp->globalIdx (off);
-	      }
-	      else if (sp->isPortOffset (off)) {
-		off = sp->portIdx (off);
 		off = _my_port_bool[off];
 	      }
+	    }
+	    else {
+	      /* local state */
+	      if (type == 2 || type == 3) {
+		off += myoffset.numChans();
+	      }
+	      else if (type == 1) {
+		off += myoffset.numInts();
+	      }
 	      else {
-		/* local state */
 		off += myoffset.numAllBools();
 	      }
+	    }
+	    if (TypeFactory::isChanType (lvx->t)) {
+	      _cur_abs_port_chan[ichan++] = off;
+	    }
+	    else if (TypeFactory::isBoolType (lvx->t)) {
 	      _cur_abs_port_bool[ibool++] = off;
-	      iportbool++;
+	    }
+	    else {
+	      _cur_abs_port_int[iint++] = off;
 	    }
 	  }
-	
-	  int ichan = 0;
-	  int iint = 0;
-	  if (chpports_exist_int|| chpports_exist_bool || chpports_exist_chan) {
-	    /* then we use the chp instports */
-	    for (int i=0; i < A_LEN (bnl->chpports); i++) {
-	      if (bnl->chpports[i].omit) continue;
-	      Assert (iportchp < A_LEN (mynl->instchpports), "What?");
+	}
 
-	      ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
-	      act_booleanized_var_t *v;
-	      Assert (xb, "What?");
-	      v = (act_booleanized_var_t *)xb->v;
-	      act_connection *c = mynl->instchpports[iportchp];
-	      iportchp++;
-	      if (v->used) continue; /* already covered */
-
-	      int type;
-	      int off = getLocalOffset (c, mysi, &type);
-
-	      if (sp->isGlobalOffset (off)) {
-		off = sp->globalIdx (off);
-	      }
-	      else if (sp->isPortOffset (off)) {
-		off = sp->portIdx (off);
-		if (type == 2 || type == 3) {
-		  off = _my_port_chan[off];
-		}
-		else if (type == 1) {
-		  off = _my_port_int[off];
-		}
-		else {
-		  off = _my_port_bool[off];
-		}
-	      }
-	      else {
-		/* local state */
-		if (type == 2 || type == 3) {
-		  off += myoffset.numChans();
-		}
-		else if (type == 1) {
-		  off += myoffset.numInts();
-		}
-		else {
-		  off += myoffset.numAllBools();
-		}
-	      }
-	      if (v->ischan) {
-		_cur_abs_port_chan[ichan++] = off;
-	      }
-	      else if (v->isint) {
-		_cur_abs_port_int[iint++] = off;
-	      }
-	      else {
-		_cur_abs_port_bool[ibool++] = off;
-	      }
-	    }
-	  }
-
-	  for (int i=0; i < ibool/2; i++) {
-	    int x = _cur_abs_port_bool[i];
-	    _cur_abs_port_bool[i] = _cur_abs_port_bool[ibool-1-i];
-	    _cur_abs_port_bool[ibool-1-i] = x;
-	  }
-	  for (int i=0; i < iint/2; i++) {
-	    int x = _cur_abs_port_int[i];
-	    _cur_abs_port_int[i] = _cur_abs_port_int[iint-1-i];
-	    _cur_abs_port_int[iint-1-i] = x;
-	  }
-	  for (int i=0; i < ichan/2; i++) {
-	    int x = _cur_abs_port_chan[i];
-	    _cur_abs_port_chan[i] = _cur_abs_port_chan[ichan-1-i];
-	    _cur_abs_port_chan[ichan-1-i] = x;
-	  }
+	for (int i=0; i < ibool/2; i++) {
+	  int x = _cur_abs_port_bool[i];
+	  _cur_abs_port_bool[i] = _cur_abs_port_bool[ibool-1-i];
+	  _cur_abs_port_bool[ibool-1-i] = x;
+	}
+	for (int i=0; i < iint/2; i++) {
+	  int x = _cur_abs_port_int[i];
+	  _cur_abs_port_int[i] = _cur_abs_port_int[iint-1-i];
+	  _cur_abs_port_int[iint-1-i] = x;
+	}
+	for (int i=0; i < ichan/2; i++) {
+	  int x = _cur_abs_port_chan[i];
+	  _cur_abs_port_chan[i] = _cur_abs_port_chan[ichan-1-i];
+	  _cur_abs_port_chan[ichan-1-i] = x;
+	}
 
 #if 0
-	  printf ("inst: "); _curinst->Print (stdout); printf ("\n");
-	  printf ("  [bool %d] ", ibool);
-	  for (int i=0; i < ibool; i++) {
-	    printf (" %d", _cur_abs_port_bool[i]);
-	  }
-	  printf ("\n");
-	  printf ("  [int %d] ", iint);
-	  for (int i=0; i < iint; i++) {
-	    printf (" %d", _cur_abs_port_int[i]);
-	  }
-	  printf ("\n");
-	  printf ("  [chan %d] ", ichan);
-	  for (int i=0; i < ichan; i++) {
-	    printf(" %d", _cur_abs_port_chan[i]);
-	  }
-	  printf ("\n");
+	printf ("inst: "); _curinst->Print (stdout); printf ("\n");
+	printf ("  [bool %d] ", ibool);
+	for (int i=0; i < ibool; i++) {
+	  printf (" %d", _cur_abs_port_bool[i]);
+	}
+	printf ("\n");
+	printf ("  [int %d] ", iint);
+	for (int i=0; i < iint; i++) {
+	  printf (" %d", _cur_abs_port_int[i]);
+	}
+	printf ("\n");
+	printf ("  [chan %d] ", ichan);
+	for (int i=0; i < ichan; i++) {
+	  printf(" %d", _cur_abs_port_chan[i]);
+	}
+	printf ("\n");
 #endif
 
-	  _add_language (lev, x->getlang());
-	  _add_all_inst (x->CurScope());
+	_add_language (lev, x->getlang());
+	_add_all_inst (x->CurScope());
 
-	  if (as) {
-	    Array *atmp = tmpid->arrayInfo();
-	    delete atmp;
-	    tmpid->setArray (NULL);
-	  }
-	  if (as) {
-	    as->step();
-	  }
-	} while (as && !as->isend());
-      }
+	if (as) {
+	  Array *atmp = tmpid->arrayInfo();
+	  delete atmp;
+	  tmpid->setArray (NULL);
+	}
+	if (as) {
+	  as->step();
+	}
+      } while (as && !as->isend());
 
       if (previd) {
 	previd->prune();
