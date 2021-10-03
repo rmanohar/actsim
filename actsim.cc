@@ -1248,6 +1248,14 @@ void ActSimObj::msgPrefix (FILE *fp)
   fprintf (fp, ">  ");
 }
 
+bool _match_oneprs (Event *e)
+{
+  if (dynamic_cast <OnePrsSim *> (e->getObj())) {
+    return true;
+  }
+  return false;
+}
+
 void ActSim::runInit ()
 {
   ActNamespace *g = ActNamespace::Global();
@@ -1286,8 +1294,15 @@ void ActSim::runInit ()
   /* -- initialize blocks -- */
   if (!g->getlang() || !g->getlang()->getinit()) {
     if (fragmented_set) {
-      if (SimDES::AdvanceTime (100) != NULL) {
-	warning ("breakpoint?");
+      int count = 0;
+      while (SimDES::matchPendingEvent (_match_oneprs) && count < 100) {
+	count++;
+	if (SimDES::AdvanceTime (10) != NULL) {
+	  warning ("breakpoint?");
+	}
+      }
+      if (count == 100) {
+	warning ("Pending production rule events during reset phase?");
       }
     }
     setMode (0);
@@ -1336,9 +1351,19 @@ void ActSim::runInit ()
 	lia[i] = list_next (lia[i]);
 	
 	more_steps = 1;
-	
-	if (SimDES::AdvanceTime (100) != NULL) {
-	  warning ("breakpoint?");
+
+	int count = 0;
+	do {
+	  if (SimDES::AdvanceTime (100) != NULL) {
+	    warning ("breakpoint?");
+	  }
+	  count++;
+	  if (!SimDES::matchPendingEvent (_match_oneprs)) {
+	    break;
+	  }
+	} while (count < 100);
+	if (count == 100) {
+	  warning ("Pending production rule events during reset phase?");
 	}
       }
     }
