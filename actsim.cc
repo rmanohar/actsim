@@ -1244,7 +1244,9 @@ void ActSimObj::msgPrefix (FILE *fp)
     fp = stdout;
   }
   fprintf (fp, "[%20lu] <", CurTimeLo());
-  name->Print (fp);
+  if (name) {
+    name->Print (fp);
+  }
   fprintf (fp, ">  ");
 }
 
