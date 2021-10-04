@@ -2116,6 +2116,15 @@ expr_res ChpSim::exprEval (Expr *e)
 	  Assert (b, "Error during channel registration");
 	  l.v = _sc->getBool (b->i);
 	  l.width = 1;
+	  if (l.v == 2) {
+	    ActId *tid;
+	    msgPrefix ();
+	    printf ("CHP model: Boolean variable `");
+	    tid = c->toid();
+	    tid->Print (stdout);
+	    delete tid;
+	    printf ("' is X\n");
+	  }
 	}
       }
       else {
