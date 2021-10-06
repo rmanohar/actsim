@@ -751,7 +751,10 @@ void ActSimCore::_add_all_inst (Scope *sc)
 #endif
 
 	_add_language (lev, x->getlang());
-	_add_all_inst (x->CurScope());
+	if (lev != ACT_MODEL_DEVICE) {
+	  /* a device level model applies to the *entire* sub-tree */
+	  _add_all_inst (x->CurScope());
+	}
 
 	if (as) {
 	  Array *atmp = tmpid->arrayInfo();
@@ -858,6 +861,10 @@ void ActSimCore::_initSim ()
     _cur_abs_port_chan[i] = i + _curoffset.numChans();
   }
   _curoffset.addChan (i);
+
+  if (_getlevel() == ACT_MODEL_DEVICE) {
+    warning ("Modeling the entire design at device level is unsupported; use a circuit simulator instead!");
+  }
 
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);

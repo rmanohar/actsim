@@ -712,6 +712,20 @@ static void _process_print_int (unsigned long v,
   }
 }
 
+void ChpSim::_remove_me (int pc)
+{
+  listitem_t *li;
+  listitem_t *prev = NULL;
+
+  for (li = list_first (_stalled_pc); li; li = list_next (li)) {
+    if (list_ivalue (li) == pc) {
+      list_delete_next (_stalled_pc, prev);
+      _sc->gRemove (this);
+      return;
+    }
+  }
+}
+
 int ChpSim::Step (int ev_type)
 {
   int pc = SIM_EV_TYPE (ev_type);
@@ -1152,10 +1166,7 @@ int ChpSim::Step (int ev_type)
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
         if (_add_waitcond (&stmt->u.c, pc, 1)) {
-	  if (!list_isempty (_stalled_pc)) {
-	    _sc->gRemove (this);	
-	    list_delete_tail (_stalled_pc);
-	  }
+	  _remove_me (pc);
 	}
       }
 
@@ -2776,6 +2787,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_PROBE:
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _tmpused);
     break;
     
   case E_FUNCTION:

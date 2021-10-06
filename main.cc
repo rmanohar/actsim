@@ -122,6 +122,10 @@ int process_initialize (int argc, char **argv)
     fprintf (stderr, "%s: could not find process %s\n", argv[0], argv[1]);
     return LISP_RET_ERROR;
   }
+  if (!p->isExpanded()) {
+    fprintf (stderr, "%s: `%s' is not an expanded process\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
   if (glob_sim) {
     delete glob_sim;
     delete glob_sp;

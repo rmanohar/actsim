@@ -1,5 +1,5 @@
 In expanding test<> (10.act:33)
-WARNING: Process `test<>': local variable `dv.w': no driver
-WARNING: Process `test<>': local variable `dv.v': no driver
+WARNING: Process `test<>': chp local variable `dv.w': no driver
+WARNING: Process `test<>': chp local variable `dv.v': no driver
 WARNING: drive<>: substituting chp model (requested prs, not found)
 WARNING: dendrites<>: substituting chp model (requested prs, not found)
