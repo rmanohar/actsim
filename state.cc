@@ -71,6 +71,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].ct = NULL;
       chans[i].fH = NULL;
       chans[i].cm = NULL;
+      chans[i]._dummy = NULL;
     }
   }
   else {

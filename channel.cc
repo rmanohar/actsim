@@ -190,6 +190,7 @@ void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id)
       ch->fH = ihash_new (4);
       ch->ct = ct;
       ch->inst_id = id->Clone();
+
       for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
 	act_chp_lang_t *x = ct->getMethod (i);
 	if (x) {
@@ -210,7 +211,6 @@ void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id)
 ChanMethods::ChanMethods (Channel *c)
 {
   _ch = c;
-  _dummy = NULL;
   for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
     A_INIT (_ops[i].op);
     _compile (i, c->getMethod (i));
@@ -341,11 +341,11 @@ int ChanMethods::runProbe (ActSimCore *sim,
 			   act_channel_state *ch,
 			   int idx)
 {
-  if (!_dummy) {
-    _dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
-    _dummy->setFrag (ch);
+  if (!ch->_dummy) {
+    ch->_dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
+    ch->_dummy->setFrag (ch);
   }
-  
+
   Expr *e = ch->ct->geteMethod (idx);
   if (!e) {
     warning ("%s: requested probe is not defined.", ch->ct->getName());
@@ -354,7 +354,7 @@ int ChanMethods::runProbe (ActSimCore *sim,
     fprintf (stderr, "\n");
     return 0;
   }
-  expr_res r = _dummy->exprEval (e);
+  expr_res r = ch->_dummy->exprEval (e);
   if (r.v) {
     return 1;
   }
@@ -374,9 +374,9 @@ int ChanMethods::runMethod (ActSimCore *sim,
   int v;
   expr_res r;
   
-  if (!_dummy) {
-    _dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
-    _dummy->setFrag (ch);
+  if (!ch->_dummy) {
+    ch->_dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
+    ch->_dummy->setFrag (ch);
   }
 
   while (from < A_LEN (_ops[idx].op)) {
@@ -397,44 +397,44 @@ int ChanMethods::runMethod (ActSimCore *sim,
 	fatal_error ("%s: Internal error running method %d", ch->ct->getName(),
 		     idx);
       }
-      v = _dummy->getBool (b->i);
+      v = ch->_dummy->getBool (b->i);
       if (_ops[idx].op[from].type == CHAN_OP_BOOL_T) {
 	if (v != 1) {
-	  _dummy->setBool (b->i, 1);
+	  ch->_dummy->setBool (b->i, 1);
 	  v = -1;
 	}
       }
       else {
 	if (v != 0) {
-	  _dummy->setBool (b->i, 0);
+	  ch->_dummy->setBool (b->i, 0);
 	  v = -1;
 	}
       }
       if (v == -1) {
-	if (_dummy->isWatched (0, b->i)) {
+	if (ch->_dummy->isWatched (0, b->i)) {
 	  ActId *tmpid;
-	  _dummy->msgPrefix ();
+	  ch->_dummy->msgPrefix ();
 	  tmpid = c->toid();
 	  tmpid->Print (stdout);
 	  delete tmpid;
 	  printf (" := %c\n", _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
 		  '1' : '0');
 	}
-	_dummy->boolProp (b->i);
+	ch->_dummy->boolProp (b->i);
       }
       from++;
       break;
 
     case CHAN_OP_SELF:
       /* expression evaluation!!! */
-      r = _dummy->exprEval (_ops[idx].op[from].e);
+      r = ch->_dummy->exprEval (_ops[idx].op[from].e);
       ch->data.setSingle (r);
       from++;
       break;
 
     case CHAN_OP_SEL:
       /* expression evaluation! */
-      r = _dummy->exprEval (_ops[idx].op[from].e);
+      r = ch->_dummy->exprEval (_ops[idx].op[from].e);
       if (r.v) {
 	from++;
       }
@@ -456,4 +456,3 @@ int ChanMethods::runMethod (ActSimCore *sim,
   /* done! */
   return -1;
 }
-

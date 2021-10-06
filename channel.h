@@ -60,6 +60,7 @@ struct act_channel_state {
   Channel *ct;			// channel type
   ActId *inst_id;		// instance
   ChanMethods *cm;		// fill in channel methods
+  ChpSim *_dummy;
 
   
   int len;
@@ -147,7 +148,6 @@ private:
   void _compile (int idx, act_chp_lang *hse);
   chan_ops _ops[ACT_NUM_STD_METHODS];
   Channel *_ch;
-  ChpSim *_dummy;
 };
 
 
