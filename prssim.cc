@@ -492,7 +492,7 @@ PrsSimGraph::~PrsSimGraph()
   }
 }
 
-PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p, act_spec *spec)
+PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p)
 {
   PrsSimGraph *pg;
 

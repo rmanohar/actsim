@@ -340,7 +340,7 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   return x;
 }
 
-PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
+PrsSim *ActSimCore::_add_prs (act_prs *p)
 {
 #if 0  
   printf ("add-prs-inst: ");
@@ -361,7 +361,7 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   }
   else {
     b = ihash_add (pmap, (long)_curproc);
-    pg = PrsSimGraph::buildPrsSimGraph (this, p, spec);
+    pg = PrsSimGraph::buildPrsSimGraph (this, p);
     b->v = pg;
   }
   /* need prs simulation graph */
@@ -374,6 +374,13 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   return x;
 }
 
+void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
+{
+  if (!s) return;
+  /* XXX */
+}
+
+  
 
 void ActSimCore::_check_fragmentation (ChpSim *c)
 {
@@ -430,7 +437,7 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   else if (l->getprs() && lev == ACT_MODEL_PRS) {
     /* prs */
     PrsSim *x;
-    _check_fragmentation ((x = _add_prs (l->getprs(), l->getspec())));
+    _check_fragmentation ((x = _add_prs (l->getprs())));
     _curI->obj = x;
   }
   else if (lev == ACT_MODEL_DEVICE) {
@@ -488,7 +495,81 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     }
   }
   if (_curI->obj) {
+    _cursuffix = NULL;
+    _add_spec (_curI->obj, l->getspec());
     _curI->obj->computeFanout();
+  }
+}
+
+void ActSimCore::_check_add_spec (const char *name, InstType *it,
+				  ActSimObj *obj) 
+{
+  UserDef *u;
+  if (!TypeFactory::isUserType (it)) {
+    return;
+  }
+  u = dynamic_cast<UserDef *> (it->BaseType());
+  Arraystep *as;
+  if (it->arrayInfo()) {
+    as = new Arraystep (it->arrayInfo());
+  }
+  else {
+    as = NULL;
+  }
+  
+  ActId *tmpid, *previd;
+
+  if (!_cursuffix) {
+    _cursuffix = new ActId (name);
+    tmpid = _cursuffix;
+    previd = NULL;
+  }
+  else {
+    tmpid = _cursuffix;
+    while (tmpid->Rest()) {
+      tmpid = tmpid->Rest();
+    }
+    tmpid->Append (new ActId (name));
+    previd = tmpid;
+    tmpid = tmpid->Rest();
+  }
+  
+  do {
+    if (as) {
+      tmpid->setArray (as->toArray ());
+    }
+
+    /* _cursuffix has the name */
+    if (u->getlang() && u->getlang()->getspec()) {
+      _add_spec (obj, u->getlang()->getspec());
+    }
+    for (int i=0; i < u->getNumPorts(); i++) {
+      InstType *it = u->getPortType (i);
+      if (TypeFactory::isUserType (it)) {
+	_check_add_spec (u->getPortName (i), it, obj);
+      }
+    }
+
+    if (as) {
+      Array *atmp = tmpid->arrayInfo();
+      delete atmp;
+      tmpid->setArray (NULL);
+    }
+    if (as) {
+      as->step();
+    }
+  } while (as && !as->isend());
+
+  if (previd) {
+    previd->prune();
+    delete tmpid;
+  }
+  else {
+    delete _cursuffix;
+    _cursuffix = NULL;
+  }
+  if (as) {
+    delete as;
   }
 }
 
@@ -781,6 +862,14 @@ void ActSimCore::_add_all_inst (Scope *sc)
   }
   Assert (iportbool == A_LEN (mynl->instports), "What?");
   Assert (iportchp == A_LEN (mynl->instchpports), "What?");
+
+  _cursuffix = NULL;
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+    if (!TypeFactory::isProcessType (vx->t)) {
+      _check_add_spec (vx->getName(), vx->t, myI->obj);
+    }
+  }
 }
 
 
@@ -793,6 +882,7 @@ void ActSimCore::_initSim ()
   */
   _curproc = simroot;
   _curinst = NULL;
+  _cursuffix = NULL;
   _cursi = sp->getStateInfo (_curproc);
   _curoffset = sp->getGlobals();
   _curI = &I;

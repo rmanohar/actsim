@@ -91,7 +91,7 @@ public:
   prssim_stmt *getRules () { return _rules; }
 
 
-  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, act_spec *);
+  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs_lang_t *);
   static void checkFragmentation (ActSimCore *, PrsSim *, ActId *);

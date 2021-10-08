@@ -70,6 +70,7 @@ public:
   long getInt (int x);
   void setInt (int x, long v);
   int getBool (int x);
+  inline bool isSpecialBool (int x) { return bitset_tst (bits, 3*x+2); }
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
   int numChans () { return nchans; }
@@ -295,6 +296,7 @@ protected:
   
   Process *_curproc;		/* current process, if any */
   ActId *_curinst;		/* current instance path, if any */
+  ActId *_cursuffix;
   state_counts _curoffset;	/* offset of parent process */
   stateinfo_t *_cursi;		/* current state info */
   ActInstTable *_curI;		/* current inst table */
@@ -316,7 +318,9 @@ protected:
   ChpSim *_add_chp (act_chp *c);
   ChpSim *_add_hse (act_chp *c);
   ActSimObj *_add_dflow (act_dataflow *c);
-  PrsSim *_add_prs (act_prs *c, act_spec *);
+  PrsSim *_add_prs (act_prs *c);
+  void _add_spec (ActSimObj *, act_spec *);
+  void _check_add_spec (const char *name, InstType *it, ActSimObj *obj);
   void _check_fragmentation (ChpSim *);
   void _check_fragmentation (PrsSim *);
 
