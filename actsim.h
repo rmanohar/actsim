@@ -71,6 +71,7 @@ public:
   void setInt (int x, long v);
   int getBool (int x);
   inline bool isSpecialBool (int x) { return bitset_tst (bits, 3*x+2); }
+  void mkSpecialBool (int x) { bitset_set (bits, 3*x+2); }
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
   int numChans () { return nchans; }
@@ -323,6 +324,9 @@ protected:
   void _check_add_spec (const char *name, InstType *it, ActSimObj *obj);
   void _check_fragmentation (ChpSim *);
   void _check_fragmentation (PrsSim *);
+
+  void _add_timing_fork (int root, int a, int b, int *extra);
+  void _add_excl (int type, int *ids, int sz);
 
   /*-- returns the current level selected --*/
   int _getlevel ();

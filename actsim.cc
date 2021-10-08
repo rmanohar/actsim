@@ -374,10 +374,267 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   return x;
 }
 
+
+/*
+ *      sc = Scope of parent 
+ *  parent = root of identifier
+ *      tl = tail pointer of parent id
+ *    rest = additional bit of ID to be appended
+ *
+ *  Returns canonical pointer in "sc" scope of "parent . rest",
+ *  assuming "tl" is the parent tail pointer
+ *
+ */
+static act_connection *_parent_canonical (Scope *sc,
+					  ActId *parent, ActId *tl, ActId *rest)
+{
+  act_connection *ret;
+  
+  if (tl) {
+    tl->Append (rest);
+    ret = parent->Canonical (sc);
+    tl->prune ();
+  }
+  else {
+    ret = rest->Canonical (sc);
+  }
+  return ret;
+}
+
+
 void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 {
+  stateinfo_t *si;
+  ActId *p_tl;
+  int type;
+  A_DECL (int, idx);
+  
   if (!s) return;
-  /* XXX */
+
+  si = sp->getStateInfo (obj->getProc());
+  /* XXX: this can happen for wiring processes? */
+  Assert (si, "No stateinfo found?");
+
+  if (_cursuffix) {
+    p_tl = _cursuffix->Tail();
+  }
+  else {
+    p_tl = NULL;
+  }
+
+  Scope *sc = si->bnl->cur;
+  A_INIT (idx);
+  
+  while (s) {
+    if (ACT_SPEC_ISTIMING (s)) {
+      InstType *it[3];
+      Array *aref[3];
+      act_connection *r, *a, *b;
+      ActId *tl[2];
+      Arraystep *as[2];
+      int roff, aoff, boff;
+
+      for (int i=0; i < 3; i++) {
+	if (p_tl) {
+	  p_tl->Append (s->ids[i]);
+	  it[i] = sc->FullLookup (_cursuffix, &aref[i]);
+	  p_tl->prune();
+	}
+	else {
+	  it[i] = sc->FullLookup (s->ids[i], &aref[i]);
+	}
+	Assert (it[i], "Could not find type for spec?");
+      }
+
+      if (it[0]->arrayInfo() && (!aref[0] || !aref[0]->isDeref())) {
+	fprintf (stderr, "Timing constraint error for `%s'\n",
+		 obj->getProc()->getName());
+	fprintf (stderr, "  LHS `");
+	s->ids[0]->Print (stderr);
+	fprintf (stderr, "' is an array.\n");
+	s = s->next;
+	continue;
+      }
+      
+      r = _parent_canonical (sc, _cursuffix, p_tl, s->ids[0]);
+      roff = getLocalOffset (r, si, &type, NULL);
+      Assert (type == 0, "Non-boolean in timing spec");
+      roff = obj->getGlobalOffset (roff, 0);
+
+      for (int i=1; i < 3; i++) {
+	if (it[i]->arrayInfo() && (!aref[i] || !aref[i]->isDeref())) {
+	  if (aref[i]) {
+	    as[i-1] = it[i]->arrayInfo()->stepper (aref[i]);
+	  }
+	  else {
+	    as[i-1] = it[i]->arrayInfo()->stepper ();
+	  }
+	  tl[i-1] = s->ids[i]->Tail();
+	}
+	else {
+	  as[i-1] = NULL;
+	  tl[i-1] = NULL;
+	}
+      }
+
+      if (!as[0] && !as[1]) {
+	a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
+	b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
+
+	aoff = getLocalOffset (a, si, &type, NULL);
+	Assert (type == 0, "Non-boolean in timing spec");
+	aoff = obj->getGlobalOffset (aoff, 0);
+	boff = getLocalOffset (b, si, &type, NULL);
+	Assert (type == 0, "Non-boolean in timing spec");
+	boff = obj->getGlobalOffset (boff, 0);
+
+	_add_timing_fork (roff, aoff, boff, s->extra);
+      }
+      else {
+	for (int i=1; i < 3; i++) {
+	  if (aref[i]) {
+	    tl[i-1]->setArray (NULL);
+	  }
+	}
+
+	while ((as[0] && !as[0]->isend()) ||
+	       (as[1] && !as[1]->isend())) {
+	  Array *ta[2];
+
+	  for (int i=1; i < 3; i++) {
+	    if (as[i-1]) {
+	      ta[i-1] = as[i-1]->toArray();
+	      tl[i-1]->setArray (ta[i-1]);
+	    }
+	    else {
+	      ta[i-1] = NULL;
+	    }
+	  }
+
+	  a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
+	  b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
+	  
+	  aoff = getLocalOffset (a, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  aoff = obj->getGlobalOffset (aoff, 0);
+	  boff = getLocalOffset (b, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  boff = obj->getGlobalOffset (boff, 0);
+
+	  _add_timing_fork (roff, aoff, boff, s->extra);
+
+	  for (int i=1; i < 3; i++) {
+	    if (ta[i-1]) {
+	      delete ta[i-1];
+	    }
+	  }
+	  
+	  if (as[1]) {
+	    as[1]->step();
+	    if (as[1]->isend()) {
+	      if (as[0]) {
+		as[0]->step();
+		if (!as[0]->isend()) {
+		  delete as[1];
+		  if (aref[2]) {
+		    as[1] = it[2]->arrayInfo()->stepper (aref[2]);
+		  }
+		  else {
+		    as[1] = it[2]->arrayInfo()->stepper ();
+		  }
+		}
+	      }
+	    }
+	  }
+	  else {
+	    if (as[0]) {
+	      as[0]->step();
+	    }
+	  }
+	}
+
+	if (as[0]) {
+	  delete as[0];
+	}
+	if (as[1]) {
+	  delete as[1];
+	}
+
+	for (int i=1; i < 3; i++) {
+	  if (tl[i-1]) {
+	    tl[i-1]->setArray (aref[i]);
+	  }
+	}
+      }
+    }
+    else {
+      const char *tmp = act_spec_string (s->type);
+      if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0) {
+	/* exclusive hi/lo list */
+	for (int i=0; i < s->count; i++) {
+	  Array *aref;
+	  InstType *it;
+	  Arraystep *astep;
+	  int off;
+	  act_connection *cx;
+
+	  if (p_tl) {
+	    p_tl->Append (s->ids[i]);
+	    it = sc->FullLookup (_cursuffix, &aref);
+	    p_tl->prune();
+	  }
+	  else {
+	    it = sc->FullLookup (s->ids[i], &aref);
+	  }
+
+	  astep = NULL;
+	  if (it->arrayInfo() && (!aref || !aref->isDeref())) {
+	    if (aref) {
+	      astep = it->arrayInfo()->stepper (aref);
+	    }
+	    else {
+	      astep = it->arrayInfo()->stepper ();
+	    }
+	  }
+	  if (!astep) {
+	    cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	    off = getLocalOffset (cx, si, &type, NULL);
+	    Assert (type == 0, "Non-boolean in excl");
+	    off = obj->getGlobalOffset (off, 0);
+	    A_NEW (idx, int);
+	    A_NEXT (idx) = off;
+	    A_INC (idx);
+	  }
+	  else {
+	    ActId *tl = s->ids[i]->Tail();
+	    while (!astep->isend()) {
+	      Array *a = astep->toArray();
+	      tl->setArray (a);
+	      cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	      off = getLocalOffset (cx, si, &type, NULL);
+	      Assert (type == 0, "Non-boolean in excl");
+	      off = obj->getGlobalOffset (off, 0);
+	      A_NEW (idx, int);
+	      A_NEXT (idx) = off;
+	      A_INC (idx);
+	      tl->setArray (NULL);
+	      delete a;
+	      astep->step();
+	    }
+	  }
+	}
+	if (strcmp (tmp, "mk_exclhi") == 0) {
+	  _add_excl (1, idx, A_LEN (idx));
+	}
+	else {
+	  _add_excl (0, idx, A_LEN (idx));
+	}
+	A_LEN_RAW (idx) = 0;
+      }
+    }
+    s = s->next;
+  }
+  A_FREE (idx);
 }
 
   
@@ -525,10 +782,7 @@ void ActSimCore::_check_add_spec (const char *name, InstType *it,
     previd = NULL;
   }
   else {
-    tmpid = _cursuffix;
-    while (tmpid->Rest()) {
-      tmpid = tmpid->Rest();
-    }
+    tmpid = _cursuffix->Tail();
     tmpid->Append (new ActId (name));
     previd = tmpid;
     tmpid = tmpid->Rest();
@@ -630,8 +884,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	previd = NULL;
       }
       else {
-	tmpid = _curinst;
-	while (tmpid->Rest()) { tmpid = tmpid->Rest(); }
+	tmpid = _curinst->Tail();
 	tmpid->Append (new ActId (vx->getName()));
 	previd = tmpid;
 	tmpid = tmpid->Rest();
@@ -1546,6 +1799,18 @@ ChanMethods *ActSimCore::getFragmented (Channel *c)
   return NULL;
 }
 
+void ActSimCore::_add_timing_fork (int root, int a, int b, int *extra)
+{
+  /* XXX: FIXME */
+  return;
+}
+
+void ActSimCore::_add_excl (int type, int *ids, int sz)
+{
+  /* XXX: FIXME */
+  return;
+}
+  
 
 /*-------------------------------------------------------------------------
  * Logging
