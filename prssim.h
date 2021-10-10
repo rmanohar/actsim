@@ -129,7 +129,6 @@ class PrsSim : public ActSimObj {
   int varSend (int pc, int wakeup, int id, expr_res v);
   int varRecv (int pc, int wakeup, int id, expr_res *v);
 
-  ActSimCore *_sc;
   PrsSimGraph *_g;
   list_t *_sim;			// simulation objects
 };

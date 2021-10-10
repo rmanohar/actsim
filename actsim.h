@@ -168,6 +168,7 @@ protected:
 class ChpSimGraph;
 class ChpSim;
 class PrsSim;
+class XyceSim;
 
 /*
  * Core simulation engine. 
@@ -320,10 +321,12 @@ protected:
   ChpSim *_add_hse (act_chp *c);
   ActSimObj *_add_dflow (act_dataflow *c);
   PrsSim *_add_prs (act_prs *c);
+  XyceSim *_add_xyce ();
   void _add_spec (ActSimObj *, act_spec *);
   void _check_add_spec (const char *name, InstType *it, ActSimObj *obj);
   void _check_fragmentation (ChpSim *);
   void _check_fragmentation (PrsSim *);
+  void _check_fragmentation (XyceSim *);
 
   void _add_timing_fork (int root, int a, int b, int *extra);
   void _add_excl (int type, int *ids, int sz);
@@ -422,6 +425,9 @@ inline const char *ActSimObj::isBreakPt (int type, int offset)
     return NULL;
   }
 }
+
+Act *actsim_Act();
+Process *actsim_top();
 
 
 #endif /* __ACT_SIM_H__ */

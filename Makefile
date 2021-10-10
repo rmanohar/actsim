@@ -24,14 +24,19 @@ TARGETS=$(EXE)
 TARGETINCS=actsim.h actsim_ext.h
 TARGETINCSUBDIR=act
 
-OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o
+OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o xycesim.o
 
 SRCS=$(OBJS:.o=.cc)
 
+include config.mk
+
+ifdef N_CIR_XyceCInterface_INCLUDE
+include xyce.in
+endif
 
 include $(ACT_HOME)/scripts/Makefile.std
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit $(LIBXYCE)
 
 -include Makefile.deps

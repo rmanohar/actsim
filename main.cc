@@ -53,6 +53,7 @@ static void usage (char *name)
 static ActStatePass *glob_sp;
 static ActSim *glob_sim;
 static Act *glob_act;
+static Process *glob_top;
 
 int process_cycle (int argc, char **argv)
 {
@@ -950,6 +951,16 @@ struct LispCliCommand Cmds[] = {
   { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy }
 };
 
+/* -- access top-level Act  -- */
+Act *actsim_Act()
+{
+  return glob_act;
+}
+
+Process *actsim_top()
+{
+  return glob_top;
+}
 
 int debug_metrics;
 
@@ -997,6 +1008,8 @@ int main (int argc, char **argv)
   if (!p->isExpanded()) {
     fatal_error ("Process `%s' is not expanded.", argv[2]);
   }
+
+  glob_top = p;
 
   /* do stuff here */
   glob_sp = new ActStatePass (glob_act);

@@ -22,6 +22,7 @@
 #include "actsim.h"
 #include "chpsim.h"
 #include "prssim.h"
+#include "xycesim.h"
 
 /*
 
@@ -374,6 +375,16 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   return x;
 }
 
+XyceSim *ActSimCore::_add_xyce ()
+{
+  XyceSim *x = new XyceSim (this, _curproc);
+  x->setName (_curinst);
+  x->setOffsets (&_curoffset);
+  x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+
+  return x;
+}
+
 
 /*
  *      sc = Scope of parent 
@@ -649,6 +660,12 @@ void ActSimCore::_check_fragmentation (PrsSim *p)
   PrsSimGraph::checkFragmentation (this, p, _curproc->getlang()->getprs());
 }
 
+void ActSimCore::_check_fragmentation (XyceSim *x)
+{
+  int i;
+  /* check fragmentation of I/O ports */
+}
+
 int ActSimCore::_getlevel ()
 {
   int lev;
@@ -698,7 +715,8 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     _curI->obj = x;
   }
   else if (lev == ACT_MODEL_DEVICE) {
-    fatal_error ("Xyce needs to be integrated");
+    XyceSim *x;
+    _check_fragmentation ((x = _add_xyce ()));
   }
   else {
     /* substitute a less detailed model, if possible */
@@ -1615,6 +1633,8 @@ void ActSim::runInit ()
   int fragmented_set = 0;
 
   setMode (1);
+
+  XyceActInterface::getXyceInterface()->initXyce();
   
   /*-- reset channels that are fragmented --*/
   for (int i=0; i < state->numChans(); i++) {
