@@ -309,7 +309,10 @@ void XyceActInterface::initXyce ()
 #endif
 }
 
-
+void XyceActInterface::updateDAC ()
+{
+  printf ("need to update DACs!\n");
+}
 
 XyceSim::XyceSim (ActSimCore *sim, Process *p) : ActSimObj (sim, p)
 {
@@ -331,7 +334,20 @@ int XyceSim::Step (int ev_type)
 
 void XyceSim::computeFanout()
 {
+  stateinfo_t *si;
+  si = _sc->getsi (_proc);
+  Assert (si, "Hmm");
+  for (int i=0; i < A_LEN (si->bnl->ports); i++) {
+    if (si->bnl->ports[i].omit) continue;
+    if (si->bnl->ports[i].input) {
+      _sc->incFanout (getOffset (si->bnl->ports[i].c), 0, this);
+    }
+  }
+}
 
+void XyceSim::propagate()
+{
+  XyceActInterface::getXyceInterface()->updateDAC();
 }
 
 

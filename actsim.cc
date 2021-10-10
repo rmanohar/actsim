@@ -717,6 +717,7 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   else if (lev == ACT_MODEL_DEVICE) {
     XyceSim *x;
     _check_fragmentation ((x = _add_xyce ()));
+    _curI->obj = x;
   }
   else {
     /* substitute a less detailed model, if possible */

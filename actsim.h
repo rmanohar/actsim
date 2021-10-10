@@ -199,6 +199,7 @@ class ActSimCore {
 
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
+  stateinfo_t *getsi(Process *p) { return sp->getStateInfo (p); }
 
   int getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width = NULL);
   int getLocalOffset (act_connection *c, stateinfo_t *si, int *type, int *width = NULL);

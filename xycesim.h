@@ -54,6 +54,7 @@ public:
 
   /* -- initialize simulator -- */
   void initXyce ();
+  void updateDAC ();
 
 private:
   void _addProcess (XyceSim *);
@@ -108,6 +109,8 @@ class XyceSim : public ActSimObj {
   }
     
   void setBool (int lid, int v);
+
+  void propagate ();
 
  private:
   stateinfo_t *_si;
