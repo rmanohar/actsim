@@ -71,7 +71,7 @@ class expr_multires {
       NEW (v, BigInt);
       new (v) BigInt;
     }
-    v->setWidth (64);
+    v->setWidth (BIGINT_BITS_ONE);
     v->setVal (0, val);
   }
 

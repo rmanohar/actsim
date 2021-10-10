@@ -1614,6 +1614,7 @@ typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
 
 BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
 {
+
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
@@ -1720,7 +1721,6 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
   b = hash_lookup (lstate, "self");
   x = (BigInt *)b->v;
   ret = *x;
-  
   hash_iter_init (lstate, &iter);
   while ((b = hash_iter_next (lstate, &iter))) {
     FREE (b->v);
@@ -1814,12 +1814,14 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_LSL:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
+    l.toStatic();
     l = l << r;
     break;
     
   case E_LSR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
+    l.toStatic();
     l = l >> r;
     break;
     
@@ -1827,8 +1829,9 @@ BigInt ChpSim::exprEval (Expr *e)
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
     l.toSigned ();
+    l.toStatic();
     l = l >> r;
-    l.toUnsigned ();
+    l.toUnsigned();
     break;
     
   case E_XOR:
