@@ -56,7 +56,7 @@ XyceActInterface::XyceActInterface()
   config_set_default_real ("sim.device.timescale", 1e-12);
   config_set_default_real ("sim.device.analog_window", 0.05);
   config_set_default_real ("sim.device.settling_time", 1e-12);
-  config_set_default_real ("sim.device_waveform_time", 2e-12);
+  config_set_default_real ("sim.device.waveform_time", 2e-12);
   config_set_default_int ("sim.device.digital_timestep", 10);
   config_set_default_int ("sim.device.waveform_steps", 10);
   config_set_default_int ("sim.device.case_for_sim", 0);
