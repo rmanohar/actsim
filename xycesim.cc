@@ -368,16 +368,20 @@ void XyceActInterface::initXyce ()
   const char *_cinit_xyce[] =
     { "Xyce", "-quiet", "-l", "_xyce.log", "_xyce.sp" };
   
-  char *_init_xyce[sizeof (_cinit_xyce)/sizeof(_cinit_xyce[0])];
-  int num = sizeof (_cinit_xyce)/sizeof (_cinit_xyce[0]);
+  int num = 5;
+  char **_init_xyce;
+
+  MALLOC (_init_xyce, char *, num+1);
 
   for (int i=0; i < num; i++) {
     _init_xyce[i] = Strdup (_cinit_xyce[i]);
   }
+  _init_xyce[num] = NULL;
   xyce_initialize (&_xyce_ptr, num, _init_xyce);
   for (int i=0; i < num; i++) {
     FREE (_init_xyce[i]);
   }
+  FREE (_init_xyce);
 
   if (_from_xyce) {
     Assert (_from_xyce->n > 0, "What?");
