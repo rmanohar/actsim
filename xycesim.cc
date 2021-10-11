@@ -22,6 +22,7 @@
 #include "xycesim.h"
 #include "config_pkg.h"
 #include <common/config.h>
+#include <ctype.h>
 
 #ifdef FOUND_N_CIR_XyceCInterface
 
@@ -40,15 +41,27 @@ XyceActInterface::XyceActInterface()
 
   _xyce_ptr = NULL;
   _xycetime = 0.0;
-  A_INIT (_wave);
+  A_INIT (_wave_time);
+  A_INIT (_wave_voltage);
   _to_xyce = NULL;
   _from_xyce = NULL;
   A_INIT (_analog_inst);
   _single_inst = this;
 
-  config_set_default_real ("sim.timescale", 1e-12);
-  config_set_default_real ("sim.analog_window", 0.05);
-  config_set_default_real ("sim.settling_time", 1e-12);
+  _time_points = NULL;
+  _voltage_points = NULL;
+  _names = NULL;
+  _max_points = 0;
+
+  config_set_default_real ("sim.device.timescale", 1e-12);
+  config_set_default_real ("sim.device.analog_window", 0.05);
+  config_set_default_real ("sim.device.settling_time", 1e-12);
+  config_set_default_real ("sim.device_waveform_time", 2e-12);
+  config_set_default_int ("sim.device.digital_timestep", 10);
+  config_set_default_int ("sim.device.waveform_steps", 10);
+  config_set_default_int ("sim.device.case_for_sim", 0);
+  config_set_default_int ("sim.device.dump_all", 0);
+  config_set_default_string ("sim.device.output_format", "raw");
 
   char *fname = config_file_name ("lint.conf");
   if (fname) {
@@ -63,12 +76,46 @@ XyceActInterface::XyceActInterface()
 		 0.5*1.0/config_get_real ("lint.slewrate_slow_threshold") );
 
   /* simulation unit conversion between integers and analog sim */
-  _timescale = config_get_real ("sim.timescale");
-  _percent = config_get_real ("sim.analog_window");
+  _timescale = config_get_real ("sim.device.timescale");
+  _percent = config_get_real ("sim.device.analog_window");
   if (_percent < 0 || _percent > 1) {
-    fatal_error ("sim.analog_window parameter must be in [0,1]\n");
+    fatal_error ("sim.device.analog_window parameter must be in [0,1]\n");
   }
-  _settling_time = config_get_real ("sim.settling_time");
+
+  _Vhigh = _Vdd*(1-_percent);
+  _Vlow = _Vdd*_percent;
+  
+  _settling_time = config_get_real ("sim.device.settling_time");
+  _step = config_get_int ("sim.device.digital_timestep");
+
+  _case_for_sim = config_get_int ("sim.device.case_for_sim");
+
+  _dump_all = config_get_int ("sim.device.dump_all");
+
+  _output_fmt = config_get_string ("sim.device.output_format");
+
+  /* wave approximation */
+  int nsteps = config_get_int ("sim.device.waveform_steps");
+  double dV = _Vdd/nsteps;
+  double curV = 0;
+  double curt = 0;
+  double dT = config_get_real ("sim.device.waveform_time")/nsteps;
+
+  /* simple ramp */
+  for (int i=0; i <= nsteps; i++) {
+    A_NEW (_wave_voltage, double);
+    A_NEXT (_wave_voltage) = curV;
+    curV += dV;
+    
+    A_INC (_wave_voltage);
+    
+    A_NEW (_wave_time, double);
+    A_NEXT (_wave_time) = curt;
+    curt += dT;
+    A_INC (_wave_time);
+  }
+  
+  _pending = NULL;
 }
 
 void XyceActInterface::_addProcess (XyceSim *xc)
@@ -76,6 +123,10 @@ void XyceActInterface::_addProcess (XyceSim *xc)
   A_NEW (_analog_inst, XyceSim *);
   A_NEXT (_analog_inst) = xc;
   A_INC (_analog_inst);
+
+  if (!_pending) {
+    _pending = new Event (xc, SIM_EV_MKTYPE (0,0), 0);
+  }
 }
 
 void XyceActInterface::initXyce ()
@@ -96,7 +147,7 @@ void XyceActInterface::initXyce ()
   ActPass *ap;
   ActNetlistPass *nl;
   netlist_t *top_nl;
-  char buf[10240];
+  char buf[10240], buf2[10240];
 
   ap = a->pass_find ("prs2net");
   if (ap) {
@@ -138,19 +189,17 @@ void XyceActInterface::initXyce ()
   if (!found_vdd) {
     fprintf (sfp, ".global Vdd\n");
   }
-  fprintf (sfp, "vvs0 Vdd dc %gV\n", _Vdd);
+  fprintf (sfp, "vvs0 Vdd 0 dc %gV\n", _Vdd);
 
   if (!found_gnd) {
     fprintf (sfp, ".global GND\n");
   }
-  fprintf (sfp, "vvs1 GND dc 0.0V\n\n");
+  fprintf (sfp, "vvs1 GND 0 dc 0.0V\n\n");
 
   fprintf (sfp, "* --- include models ---\n\n");
-  fprintf (sfp, ".inc \"%s\"\n", config_get_string ("sim.model_files"));
+  fprintf (sfp, ".inc \"%s\"\n", config_get_string ("sim.device.model_files"));
 
   fprintf (sfp, "*\n* -- printing any spice bodies needed --\n*\n");
-
-  config_set_int ("net.emit_parasitics", 1);
 
   for (int i=0; i < A_LEN (_analog_inst); i++) {
     XyceSim *xs = _analog_inst[i];
@@ -172,18 +221,23 @@ void XyceActInterface::initXyce ()
       int len;
       if (n->bN->ports[j].omit) continue;
 
-      inst->sPrint (buf, 10240);
-      len = strlen (buf);
-      snprintf (buf+len, 10240-len, ".");
-      len += strlen (buf+len);
+      inst->sPrint (buf2, 10240);
+      len = strlen (buf2);
+      snprintf (buf2+len, 10240-len, ".");
+      len += strlen (buf2+len);
       
       ActId *tid;
       tid = n->bN->ports[j].c->toid();
-      tid->sPrint (buf+len, 10240-len);
+      tid->sPrint (buf2+len, 10240-len);
       delete tid;
 
-      a->mfprintf (sfp, buf);
-      fprintf (sfp, " ");
+      a->mangle_string (buf2, buf, 10240);
+      fprintf (sfp, "%s ", buf);
+
+      /* circuit simulators are case insensitive... */
+      for (int k=0; buf[k]; k++) {
+	buf[k] = tolower (buf[k]);
+      }
 
       int off = xs->getOffset (n->bN->ports[j].c);
 
@@ -202,6 +256,7 @@ void XyceActInterface::initXyce ()
 	  b = ihash_add (_to_xyce, off);
 	  NEW (xf, struct xycefanout);
 	  A_INIT (xf->dac_id);
+	  xf->val = 2; /* X */
 	  b->v = xf;
 	}
 	A_NEW (xf->dac_id, char *);
@@ -221,6 +276,7 @@ void XyceActInterface::initXyce ()
 	  warning ("Signal `%s' has a duplicate driver in Xyce!", buf);
 	}
 	else {
+	  
 	  b = hash_add (_from_xyce, buf);
 	  b->i = off;
 	}
@@ -245,46 +301,62 @@ void XyceActInterface::initXyce ()
       struct xycefanout *xf;
       xf = (struct xycefanout *) b->v;
       for (int i=0; i < A_LEN (xf->dac_id); i++) {
-	a->mfprintf (sfp, "YDAC %s %s 0 myDAC\n", xf->dac_id[i], xf->dac_id[i]);
+	fprintf (sfp, "YDAC %s %s GND myDAC\n", xf->dac_id[i], xf->dac_id[i]);
       }
     }
   }
 
+  int max_sig_sz = 0;
+  
   if (_from_xyce) {
     hash_iter_t it;
     hash_bucket *b;
     hash_iter_init (_from_xyce, &it);
     while ((b = hash_iter_next (_from_xyce, &it))) {
-      a->mfprintf (sfp, "YADC %s %s 0 myADC\n", b->key, b->key);
+      fprintf (sfp, "YADC %s %s GND myADC\n", b->key, b->key);
+      int tmplen = strlen (b->key);
+      if (tmplen > max_sig_sz) {
+	max_sig_sz = tmplen;
+      }
     }
   }
 
   fprintf (sfp, ".tran 0 1\n");
 
-  fprintf (sfp, ".print tran format=raw\n");
+  if (strcmp (_output_fmt, "prn") == 0) {
+    fprintf (sfp, ".print tran\n");
+  }
+  else {
+    fprintf (sfp, ".print tran format=%s\n", _output_fmt);
+  }
 
-  if (_to_xyce) {
-    ihash_iter_t it;
-    ihash_bucket_t *b;
-    ihash_iter_init (_to_xyce, &it);
-    while ((b = ihash_iter_next (_to_xyce, &it))) {
-      struct xycefanout *xf;
-      xf = (struct xycefanout *) b->v;
-      for (int i=0; i < A_LEN (xf->dac_id); i++) {
-	fprintf (sfp, "+ v(");
-	a->mfprintf (sfp, "%s", xf->dac_id[i]);
-	fprintf (sfp, ")\n");
+  if (_dump_all) {
+    fprintf (sfp, "+ v(*)\n");
+  }
+  else {
+    if (_to_xyce) {
+      ihash_iter_t it;
+      ihash_bucket_t *b;
+      ihash_iter_init (_to_xyce, &it);
+      while ((b = ihash_iter_next (_to_xyce, &it))) {
+	struct xycefanout *xf;
+	xf = (struct xycefanout *) b->v;
+	for (int i=0; i < A_LEN (xf->dac_id); i++) {
+	  fprintf (sfp, "+ v(");
+	  fprintf (sfp, "%s", xf->dac_id[i]);
+	  fprintf (sfp, ")\n");
+	}
       }
     }
-  }
-  if (_from_xyce) {
-    hash_iter_t it;
-    hash_bucket *b;
-    hash_iter_init (_from_xyce, &it);
-    while ((b = hash_iter_next (_from_xyce, &it))) {
-      fprintf (sfp, "+ v(");
-      a->mfprintf (sfp, "%s", b->key);
-      fprintf (sfp, ")\n");
+    if (_from_xyce) {
+      hash_iter_t it;
+      hash_bucket *b;
+      hash_iter_init (_from_xyce, &it);
+      while ((b = hash_iter_next (_from_xyce, &it))) {
+	fprintf (sfp, "+ v(");
+	fprintf (sfp, "%s", b->key);
+	fprintf (sfp, ")\n");
+      }
     }
   }
   fprintf (sfp, "\n");
@@ -306,12 +378,220 @@ void XyceActInterface::initXyce ()
   for (int i=0; i < num; i++) {
     FREE (_init_xyce[i]);
   }
+
+  if (_from_xyce) {
+    Assert (_from_xyce->n > 0, "What?");
+
+    MALLOC (_time_points, double *, _from_xyce->n);
+    MALLOC (_voltage_points, double *, _from_xyce->n);
+    MALLOC (_num_points, int, _from_xyce->n);
+    MALLOC (_names, char *, _from_xyce->n);
+
+    for (int i=0; i < _from_xyce->n; i++) {
+      _num_points[i] = 0;
+      _time_points[i] = NULL;
+      _voltage_points[i] = NULL;
+      MALLOC (_names[i], char, max_sig_sz + 6);
+      _names[i][0] = '\0';
+    }
+  }
 #endif
 }
 
 void XyceActInterface::updateDAC ()
 {
-  printf ("need to update DACs!\n");
+  if (_to_xyce) {
+    ihash_iter_t it;
+    ihash_bucket_t *b;
+    ihash_iter_init (_to_xyce, &it);
+
+    for (int i=0; i < A_LEN (_wave_time); i++) {
+      _wave_time[i] += _xycetime;
+    }
+    
+    while ((b = ihash_iter_next (_to_xyce, &it))) {
+      struct xycefanout *xf;
+      int val;
+      xf = (struct xycefanout *) b->v;
+
+      val = _analog_inst[0]->getGlobalBool (b->key);
+
+      if (val != xf->val) {
+	/* change! */
+	
+	xf->val = val;
+
+	if (val == 0) {	
+	    /* flip waveform */
+	  for (int j=0; j < A_LEN (_wave_time); j++) {
+	    _wave_voltage[j] = _Vdd - _wave_voltage[j];
+	  }
+	}
+	
+	for (int i=0; i < A_LEN (xf->dac_id); i++) {
+	  char buf[10240];
+	  snprintf (buf, 10240, "ydac!%s", xf->dac_id[i]);
+	  if (_case_for_sim) {
+	    for (int j=0; buf[j]; j++) {
+	      buf[j] = toupper (buf[j]);
+	    }
+	  }
+
+#if 0	  
+	  printf ("sending waveform:\n");
+	  for (int k=0; k < A_LEN (_wave_time); k++) {
+	    printf ("%g %g\n", _wave_time[k], _wave_voltage[k]);
+	  }
+#endif
+
+	  if (xyce_updateTimeVoltagePairs (&_xyce_ptr,
+					   buf,
+					   A_LEN (_wave_time),
+					   _wave_time,
+					   _wave_voltage) == false) {
+	    warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
+	    _pending = NULL;
+	    return;
+	  }
+	}
+
+	if (val == 0) {	
+	    /* flip waveform back */
+	  for (int j=0; j < A_LEN (_wave_time); j++) {
+	    _wave_voltage[j] = _Vdd - _wave_voltage[j];
+	  }
+	}
+      }
+
+    }
+
+    for (int i=0; i < A_LEN (_wave_time); i++) {
+      _wave_time[i] -= _xycetime;
+    }
+  }
+}
+
+void XyceActInterface::step()
+{
+  bool status;
+  double tm;
+  double actual;
+  unsigned long ns;
+
+  ns = (unsigned long)((_xycetime+0.95*_timescale)/_timescale);
+
+  int sim_dt;
+
+  if ((ns % _step) != 0) {
+    sim_dt = _step - (ns % _step);
+  }
+  else {
+    sim_dt = _step;
+  }
+  ns += sim_dt;
+  tm = ns*_timescale;
+
+  /* digital signals are shipped to Xyce in an event-based fashion */
+
+  status = xyce_simulateUntil (&_xyce_ptr, tm,  &actual);
+  if (status == false) {
+    warning ("Xyce: simulateUntil failed. Stopping Xyce.");
+    _pending = NULL;
+    return;
+  }
+
+  _xycetime = actual;
+
+  /* ship analog signals back to actsim */
+  if (_from_xyce) {
+
+    int npts = 0;
+    if (xyce_getTimeVoltagePairsADCsz (&_xyce_ptr, &npts) != true) {
+      warning ("Xyce: getTimeVoltagePairs call failed! Stopping Xyce.");
+      _pending = NULL;
+      return;
+    }
+
+    if (npts > 0) {
+
+      if (npts > _max_points) {
+	if (_max_points == 0) {
+	  for (int i=0; i < _from_xyce->n; i++) {
+	    MALLOC (_time_points[i], double, npts+1);
+	    MALLOC (_voltage_points[i], double, npts+1);
+	    _time_points[i][0] = -1;
+	  }
+	}
+	else {
+	  for (int i=0; i < _from_xyce->n; i++) {
+	    REALLOC (_time_points[i], double, npts+1);
+	    REALLOC (_voltage_points[i], double, npts+1);
+	  }
+	}
+	_max_points = npts;
+      }
+      for (int i=0; i < _from_xyce->n; i++) {
+	_time_points[i][_max_points] = _time_points[i][_num_points[i]-1];
+	_voltage_points[i][_max_points] = _voltage_points[i][_num_points[i]-1];
+      }
+
+      int num_adcs;
+      if (xyce_getTimeVoltagePairsADC (&_xyce_ptr,
+				       &num_adcs, _names, _num_points,
+				       _time_points, _voltage_points) == false) {
+	warning ("Xyce: getTimeVoltagePairsADC call failed! Stopping Xyce.");
+	_pending = NULL;
+	return;
+      }
+
+      Assert (_from_xyce->n == num_adcs, "ADC count mismatch");
+
+      for (int i=0; i < _from_xyce->n; i++) {
+	for (int k=0; _names[i][k]; k++) {
+	  _names[i][k] =  tolower(_names[i][k]);
+	}
+
+#if 0	
+	printf ("-- %s --  old: (%g,%g)\n", _names[i],
+		_time_points[i][_max_points],
+		_voltage_points[i][_max_points]);
+	
+	for (int k=0; k < _num_points[i]; k++) {
+	  printf ("(%g %g) ", _time_points[i][k], _voltage_points[i][k]);
+	}
+	printf ("\n---\n");
+#endif	
+
+
+	if (strncmp (_names[i], "yadc!", 5) != 0) {
+	  warning ("Expected a yadc! name, got `%s'. Aborting.", _names[i]);
+	  _pending = NULL;
+	  return;
+	}
+	hash_bucket_t *b = hash_lookup (_from_xyce, _names[i]+5);
+	if (!b) {
+	  warning ("Name `%s' not found in the Xyce interface? Aborting.", _names[i]+5);
+	  _pending = NULL;
+	  return;
+	}
+	int old_val, new_val;
+	if (_time_points[i][_max_points] == -1) {
+	  /* X */
+	  old_val = 2;
+	}
+	else {
+	  old_val = digital (2, _voltage_points[i][_max_points]);
+	}
+	new_val = digital (old_val, _voltage_points[i][_num_points[i]-1]);
+
+	if (old_val != new_val) {
+	  _analog_inst[0]->setGlobalBool (b->i, new_val);
+	  _voltage_points[i][_num_points[i]] = new_val ? _Vdd : 0.0;
+	}
+      }
+    }
+  }
+  _pending = new Event (_analog_inst[0], SIM_EV_MKTYPE (0, 0), sim_dt);
 }
 
 XyceSim::XyceSim (ActSimCore *sim, Process *p) : ActSimObj (sim, p)
@@ -328,7 +608,8 @@ XyceSim::~XyceSim()
 
 int XyceSim::Step (int ev_type)
 {
-  /* hmm */
+  /* run simulation for X units of delay */
+  XyceActInterface::getXyceInterface()->step ();
   return 1;
 }
 
@@ -355,4 +636,15 @@ void XyceSim::setBool (int lid, int v)
 {
   int off = getGlobalOffset (lid, 0);
   _sc->setBool (off, v);
+}
+
+void XyceSim::setGlobalBool (int off, int v)
+{
+  _sc->setBool (off, v);
+  SimDES **arr = _sc->getFO (off, 0);
+  for (int i=0; i < _sc->numFanout (off, 0); i++) {
+    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+    Assert (p, "What?");
+    p->propagate ();
+  }
 }

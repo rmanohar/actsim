@@ -25,14 +25,10 @@
 #include <common/simdes.h>
 #include "actsim.h"
 
-struct waveform_step {
-  double tm;
-  double val;
-};
-
 class XyceSim;
 
 struct xycefanout {
+  int val;
   A_DECL (char *, dac_id);
 };
 
@@ -56,6 +52,21 @@ public:
   void initXyce ();
   void updateDAC ();
 
+  /* -- run one timestep block -- */
+  void step ();
+
+  inline int digital(int oval, double x) {
+    if (x >= _Vhigh) {
+      return 1;
+    }
+    else if (x <= _Vlow) {
+      return 0;
+    }
+    else {
+      return oval;
+    }
+  }
+
 private:
   void _addProcess (XyceSim *);
 
@@ -74,10 +85,20 @@ private:
 
   double _percent;		// threshold
 
+  double _Vhigh, _Vlow;		// high/low  values
+
   double _settling_time;	// settling time for simulation
-    
-  A_DECL (waveform_step, _wave); // template waveform [0..1] for
+
+  int _step;			// digital steps for one block
+
+  A_DECL (double, _wave_time);	// template waveform [0..1] for
 				// digital to analog conversion
+  A_DECL (double, _wave_voltage);
+
+  int _case_for_sim;
+  int _dump_all;		// dump all analog signals
+
+  const char *_output_fmt;	// output format
 
   struct iHashtable *_to_xyce;	// global bool ID to Xyce DAC (xycefanout)
   struct Hashtable *_from_xyce; // Xyce ADC output to global bool ID
@@ -85,6 +106,16 @@ private:
   A_DECL (XyceSim *, _analog_inst);
 
   static XyceActInterface *_single_inst;
+
+  /* allocated state for xyce interface query functions */
+
+  double **_time_points;
+  double **_voltage_points;
+  int *_num_points;
+  char **_names;
+  int _max_points;
+
+  Event *_pending;		// current pending event
 };
 
 
@@ -103,12 +134,17 @@ class XyceSim : public ActSimObj {
     return _sc->getBool (off);
   }
 
+  int getGlobalBool (int off) {
+    return _sc->getBool (off);
+  }
+
   int getOffset (act_connection *cx) {
     int off = _sc->getLocalOffset (cx, _si, NULL);
     return getGlobalOffset (off, 0);
   }
     
   void setBool (int lid, int v);
+  void setGlobalBool (int off, int v);
 
   void propagate ();
 

@@ -973,6 +973,7 @@ int main (int argc, char **argv)
   config_set_default_real ("sim.chp.default_leakage", 0);
   config_set_default_int ("sim.chp.default_area", 0);
   config_set_default_int ("sim.chp.debug_metrics", 0);
+  config_set_int ("net.emit_parasitics", 1);
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
