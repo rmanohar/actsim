@@ -148,6 +148,8 @@ class XyceSim : public ActSimObj {
 
   void propagate ();
 
+  stateinfo_t *getSI () { return _si; }
+
  private:
   stateinfo_t *_si;
 };

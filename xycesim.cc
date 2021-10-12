@@ -422,7 +422,10 @@ void XyceActInterface::updateDAC ()
 
       if (val != xf->val) {
 	/* change! */
-	
+#if 0
+	printf ("%lu dac: %d -> %d @ %g\n", b->key, xf->val, val, _xycetime*1e12);
+#endif	
+
 	xf->val = val;
 
 	if (val == 0) {	
@@ -441,21 +444,27 @@ void XyceActInterface::updateDAC ()
 	    }
 	  }
 
-#if 0	  
-	  printf ("sending waveform:\n");
-	  for (int k=0; k < A_LEN (_wave_time); k++) {
-	    printf ("%g %g\n", _wave_time[k], _wave_voltage[k]);
+	  if (val == 2) {
+	    if (xyce_updateTimeVoltagePairs (&_xyce_ptr,
+					     buf,
+					     1, 
+					     _wave_time + A_LEN (_wave_time)/2,
+					     _wave_voltage + A_LEN (_wave_voltage)/2) == false) {
+	      warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
+	      _pending = NULL;
+	      return;
+	    }
 	  }
-#endif
-
-	  if (xyce_updateTimeVoltagePairs (&_xyce_ptr,
-					   buf,
-					   A_LEN (_wave_time),
-					   _wave_time,
-					   _wave_voltage) == false) {
-	    warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
-	    _pending = NULL;
-	    return;
+	  else {
+	    if (xyce_updateTimeVoltagePairs (&_xyce_ptr,
+					     buf,
+					     A_LEN (_wave_time),
+					     _wave_time,
+					     _wave_voltage) == false) {
+	      warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
+	      _pending = NULL;
+	      return;
+	    }
 	  }
 	}
 
@@ -517,13 +526,13 @@ void XyceActInterface::step()
     }
 
     if (npts > 0) {
-
       if (npts > _max_points) {
 	if (_max_points == 0) {
 	  for (int i=0; i < _from_xyce->n; i++) {
 	    MALLOC (_time_points[i], double, npts+1);
 	    MALLOC (_voltage_points[i], double, npts+1);
 	    _time_points[i][0] = -1;
+	    _num_points[i] = 1;
 	  }
 	}
 	else {
@@ -555,17 +564,29 @@ void XyceActInterface::step()
 	  _names[i][k] =  tolower(_names[i][k]);
 	}
 
-#if 0	
-	printf ("-- %s --  old: (%g,%g)\n", _names[i],
-		_time_points[i][_max_points],
+	int old_val, new_val;
+
+	if (_time_points[i][_max_points] == -1) {  // initial
+	  /* X */
+	  old_val = 2;
+	}
+	else {
+	  old_val = digital (2, _voltage_points[i][_max_points]);
+	}
+
+	new_val = digital (old_val, _voltage_points[i][_num_points[i]-1]);
+#if 0
+	printf (" >> %s   old %d: (%.4g,%.4g); ", _names[i], old_val,
+		_time_points[i][_max_points]*1e12,
 		_voltage_points[i][_max_points]);
+
+	printf (" new %d:", new_val);
 	
 	for (int k=0; k < _num_points[i]; k++) {
-	  printf ("(%g %g) ", _time_points[i][k], _voltage_points[i][k]);
+	  printf (" (%.4g,%.4g)", _time_points[i][k]*1e12, _voltage_points[i][k]);
 	}
-	printf ("\n---\n");
+	printf ("\n");
 #endif	
-
 
 	if (strncmp (_names[i], "yadc!", 5) != 0) {
 	  warning ("Expected a yadc! name, got `%s'. Aborting.", _names[i]);
@@ -578,17 +599,11 @@ void XyceActInterface::step()
 	  _pending = NULL;
 	  return;
 	}
-	int old_val, new_val;
-	if (_time_points[i][_max_points] == -1) {
-	  /* X */
-	  old_val = 2;
-	}
-	else {
-	  old_val = digital (2, _voltage_points[i][_max_points]);
-	}
-	new_val = digital (old_val, _voltage_points[i][_num_points[i]-1]);
 
 	if (old_val != new_val) {
+#if 0
+	  printf ("  >> %d adc   %d -> %d\n", b->i, old_val, new_val);
+#endif
 	  _analog_inst[0]->setGlobalBool (b->i, new_val);
 	  _voltage_points[i][_num_points[i]] = new_val ? _Vdd : 0.0;
 	}

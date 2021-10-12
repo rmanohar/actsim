@@ -663,7 +663,39 @@ void ActSimCore::_check_fragmentation (PrsSim *p)
 void ActSimCore::_check_fragmentation (XyceSim *x)
 {
   int i;
-  /* check fragmentation of I/O ports */
+  stateinfo_t *si = x->getSI();
+
+  Assert (si, "Hmm");
+  for (int i=0; i < A_LEN (si->bnl->ports); i++) {
+    if (si->bnl->ports[i].omit) continue;
+
+    ActId *tmp = si->bnl->ports[i].c->toid();
+
+    if (!tmp->isFragmented (si->bnl->cur)) continue;
+
+    ActId *un = tmp->unFragment (si->bnl->cur);
+    int type;
+    int loff = getLocalOffset (un, si, &type);
+
+    if (type == 2 || type == 3) {
+      loff = x->getGlobalOffset (loff, 2);
+      act_channel_state *ch = getChan (loff);
+
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
+      sim_recordChannel (this, x, un);
+      registerFragmented (ch->ct);
+      ch->cm = getFragmented (ch->ct);
+    }
+    delete un;
+    delete tmp;
+  }
 }
 
 int ActSimCore::_getlevel ()
