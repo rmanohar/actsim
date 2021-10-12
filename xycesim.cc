@@ -602,8 +602,14 @@ void XyceActInterface::step()
 
 	if (old_val != new_val) {
 #if 0
-	  printf ("  >> %d adc   %d -> %d\n", b->i, old_val, new_val);
+	  printf ("%d adc: %d -> %d\n", b->i, old_val, new_val);
 #endif
+	  if (new_val == 2) {
+	    _analog_inst[0]->msgPrefix();
+	    printf ("WARNING: adc set `");
+	    actsim_Act()->ufprintf (stdout, "%s", _names[i]+5);
+	    printf ("' to X\n");
+	  }
 	  _analog_inst[0]->setGlobalBool (b->i, new_val);
 	  _voltage_points[i][_num_points[i]] = new_val ? _Vdd : 0.0;
 	}
