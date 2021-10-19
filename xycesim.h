@@ -36,6 +36,7 @@ class XyceActInterface {
 
 public:
   XyceActInterface ();
+  ~XyceActInterface ();
   
   static XyceActInterface *getXyceInterface () {
     if (!_single_inst) {
@@ -46,6 +47,13 @@ public:
   
   static void addProcess (XyceSim *inst) {
     getXyceInterface()->_addProcess (inst);
+  }
+
+  static void stopXyce () {
+    if (_single_inst) {
+      delete _single_inst;
+    }
+    _single_inst = NULL;
   }
 
   /* -- initialize simulator -- */

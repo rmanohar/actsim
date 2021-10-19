@@ -23,6 +23,7 @@
 #include "config_pkg.h"
 #include <common/config.h>
 #include <ctype.h>
+#include <lispCli.h>
 
 #ifdef FOUND_N_CIR_XyceCInterface
 
@@ -118,6 +119,19 @@ XyceActInterface::XyceActInterface()
   _pending = NULL;
 }
 
+
+XyceActInterface::~XyceActInterface()
+{
+  if (A_LEN (_analog_inst) == 0) {
+    return;
+  }
+  if (_xyce_ptr == NULL) {
+    return;
+  }
+  xyce_close (&_xyce_ptr);
+}
+
+
 void XyceActInterface::_addProcess (XyceSim *xc)
 {
   A_NEW (_analog_inst, XyceSim *);
@@ -126,6 +140,16 @@ void XyceActInterface::_addProcess (XyceSim *xc)
 
   if (!_pending) {
     _pending = new Event (xc, SIM_EV_MKTYPE (0,0), 0);
+  }
+}
+
+static  void (*old_hook) (void);
+
+static void _cleanup_xyce (void)
+{
+  XyceActInterface::stopXyce ();
+  if (old_hook) {
+    (*old_hook) ();
   }
 }
 
@@ -139,7 +163,14 @@ void XyceActInterface::initXyce ()
   fatal_error ("Xyce interface not found at compile time.");
 #else
   xyce_open (&_xyce_ptr);
-  
+
+  if (lisp_cli_exit_hook) {
+    old_hook = lisp_cli_exit_hook;
+  }
+  else {
+    old_hook = NULL;
+  }
+  lisp_cli_exit_hook = _cleanup_xyce;
 
   /* -- create spice netlist -- */
 
@@ -627,9 +658,8 @@ XyceSim::XyceSim (ActSimCore *sim, Process *p) : ActSimObj (sim, p)
 
 XyceSim::~XyceSim()
 {
-
+  XyceActInterface::stopXyce();
 }
-
 
 int XyceSim::Step (int ev_type)
 {
