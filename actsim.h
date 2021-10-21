@@ -76,10 +76,6 @@ public:
   act_channel_state *getChan (int x);
   int numChans () { return nchans; }
 
-  void gStall (SimDES *s) { gshared->AddObject (s); }
-  void gRemove (SimDES *s) { gshared->DelObject (s); }
-  void gWakeup () { gshared->Notify (MAX_LOCAL_PCS); }
-
   void *allocState (int sz);
   
 private:
@@ -94,9 +90,6 @@ private:
   int nchans;			/* numchannels */
 
   list_t *extra_state;		/* any extra state needed */
-
-  /*--- what about other bits of state?! ---*/
-  WaitForOne *gshared;
 };
 
 
@@ -149,6 +142,10 @@ public:
   inline const char *isBreakPt (int type, int idx);
   void msgPrefix (FILE *fp = NULL);
 
+  void sWakeup() { _shared->Notify (MAX_LOCAL_PCS); }
+  void sStall () { _shared->AddObject (this); }
+  void sRemove() { _shared->DelObject (this); }
+
 protected:
   state_counts _o;		/* my state offsets for all local
 				   state */
@@ -163,6 +160,8 @@ protected:
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
   int *_abs_port_int;
+
+  WaitForOne *_shared;
 };
 
 class ChpSimGraph;
@@ -219,10 +218,13 @@ class ActSimCore {
 				   int *offset_i, int *offset_b);
 
   act_connection *getConnFromOffset (Process *p, int off, int type, int *dy);
-  
+
+#if 0  
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
+#endif
+
   void incFanout (int off, int type, SimDES *who);
   int numFanout (int off, int type) { if (type == 0) return nfo[off]; else return nfo[off+nint_start];
 }
@@ -307,6 +309,8 @@ protected:
   int *_cur_abs_port_bool;	/* index of ports: absolute scale */
   int *_cur_abs_port_chan;
   int *_cur_abs_port_int;
+
+  list_t *_chp_sim_objects;	/* used for reset sync wakeup */
   
   
   stateinfo_t *_rootsi;		/* root stateinfo; needed for globals */

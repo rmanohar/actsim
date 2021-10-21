@@ -720,7 +720,7 @@ void ChpSim::_remove_me (int pc)
   for (li = list_first (_stalled_pc); li; li = list_next (li)) {
     if (list_ivalue (li) == pc) {
       list_delete_next (_stalled_pc, prev);
-      _sc->gRemove (this);
+      sRemove ();
       return;
     }
   }
@@ -1201,7 +1201,7 @@ int ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
 #endif
-	      _sc->gStall (this);
+	      sStall ();
 	      list_iappend (_stalled_pc, pc);
 	    }
 	    else {
@@ -1262,7 +1262,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
 
     if (_sc->isResetMode()) {
       list_iappend (_stalled_pc, pc);
-      _sc->gStall (this);
+      sStall ();
       return 1;
     }
 
@@ -1289,7 +1289,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
       }
       else {
 	list_iappend (_stalled_pc, pc);
-	_sc->gStall (this);
+	sStall ();
 	return 1;
       }
     }
@@ -1386,7 +1386,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
 
     if (_sc->isResetMode()) {
       list_iappend (_stalled_pc, pc);
-      _sc->gStall (this);
+      sStall ();
       return 1;
     }
     
@@ -1414,7 +1414,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
       }
       else {
 	list_iappend (_stalled_pc, pc);
-	_sc->gStall (this);
+	sStall ();
 	return 1;
       }
     }

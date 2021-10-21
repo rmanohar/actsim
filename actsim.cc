@@ -141,9 +141,13 @@ ActSimCore::ActSimCore (Process *p)
   _sim_rand = 0;
   _prs_sim_mode = 0;
   _on_warning = 0;
+
+  _chp_sim_objects = list_new ();
   
   _rootsi = si;
+  
   _initSim();
+  
 }
 
 static void _delete_sim_objs (ActInstTable *I, int del)
@@ -243,6 +247,9 @@ ActSimCore::~ActSimCore()
     ihash_free (hfo);
   }
 
+  /*-- chp objects --*/
+  list_free (_chp_sim_objects);
+
   /*-- instance tables --*/
   _delete_sim_objs (&I, 0);
 }
@@ -288,6 +295,8 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+
+  list_append (_chp_sim_objects, x);
 
   return x;
 }
@@ -1442,6 +1451,7 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
   _W = NULL;
   _B = NULL;
   name = NULL;
+  _shared = new WaitForOne(0);
 }
 
 
@@ -1552,8 +1562,8 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
 
 void ActSimObj::propagate ()
 {
-  /* by default, just wake up all globally stalled processs */
-  _sc->gWakeup ();
+  /* by default, wake me up if stalled on something shared */
+  sWakeup ();
 }
 
 
@@ -1572,6 +1582,7 @@ ActSimObj::~ActSimObj()
     ihash_free (_W);
   }
   delete name;
+  delete _shared;
 }
 
 
@@ -1664,6 +1675,7 @@ void ActSim::runInit ()
   ActNamespace *g = ActNamespace::Global();
   act_initialize *x;
   int fragmented_set = 0;
+  listitem_t *li;
 
   setMode (1);
 
@@ -1711,7 +1723,10 @@ void ActSim::runInit ()
       }
     }
     setMode (0);
-    gWakeup ();
+    for (li = list_first (_chp_sim_objects); li; li = list_next (li)) {
+      ChpSim *cx = (ChpSim *) list_value (li);
+      cx->sWakeup ();
+    }
     return;
   }
   int num = 1;
@@ -1789,7 +1804,10 @@ void ActSim::runInit ()
   }
   FREE (lia);
   setMode (0);
-  gWakeup ();
+  for (li = list_first (_chp_sim_objects); li; li = list_next (li)) {
+    ChpSim *cx = (ChpSim *) list_value (li);
+    cx->sWakeup ();
+  }
 }
 
 
