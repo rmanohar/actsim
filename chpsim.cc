@@ -1968,6 +1968,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	  tmp.setVal (0, r.getWidth());
 	  l = l << tmp;
 	}
+  r.setWidth(l.getWidth());
 	l = l | r;
 	e = e->u.e.r;
       } while (e);
@@ -1986,7 +1987,6 @@ BigInt ChpSim::exprEval (Expr *e)
       else {
 	lo = hi;
       }
-
       /* is an int */
       l = varEval (off, 1);
       l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
