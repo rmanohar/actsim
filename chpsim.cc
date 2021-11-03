@@ -1882,6 +1882,9 @@ expr_res ChpSim::exprEval (Expr *e)
     r = exprEval (e->u.e.r);
     l.width = 1 + MAX(l.width, r.width);
     l.v = l.v - r.v;
+    if (l.width < 64) {
+      l.v = l.v & ((1UL << l.width)-1);
+    }
     break;
 
   case E_MULT:
