@@ -128,7 +128,9 @@ XyceActInterface::~XyceActInterface()
   if (_xyce_ptr == NULL) {
     return;
   }
+#ifdef FOUND_N_CIR_XyceCInterface
   xyce_close (&_xyce_ptr);
+#endif
 }
 
 
@@ -435,6 +437,7 @@ void XyceActInterface::initXyce ()
 
 void XyceActInterface::updateDAC ()
 {
+#ifdef FOUND_N_CIR_XyceCInterface
   if (_to_xyce) {
     ihash_iter_t it;
     ihash_bucket_t *b;
@@ -513,6 +516,7 @@ void XyceActInterface::updateDAC ()
       _wave_time[i] -= _xycetime;
     }
   }
+#endif  
 }
 
 void XyceActInterface::step()
@@ -521,6 +525,8 @@ void XyceActInterface::step()
   double tm;
   double actual;
   unsigned long ns;
+
+#ifdef FOUND_N_CIR_XyceCInterface
 
   ns = (unsigned long)((_xycetime+0.95*_timescale)/_timescale);
 
@@ -648,6 +654,7 @@ void XyceActInterface::step()
     }
   }
   _pending = new Event (_analog_inst[0], SIM_EV_MKTYPE (0, 0), sim_dt);
+#endif
 }
 
 XyceSim::XyceSim (ActSimCore *sim, Process *p) : ActSimObj (sim, p)
