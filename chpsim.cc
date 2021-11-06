@@ -869,10 +869,10 @@ int ChpSim::Step (int ev_type)
 	}
       }
       verb = 0;
-      if ((nm = isWatched (0, off))) {
+      if ((nm = isWatched (1, off))) {
 	verb = 1;
       }
-      if ((nm2 = isBreakPt (0, off))) {
+      if ((nm2 = isBreakPt (1, off))) {
 	verb |= 2;
       }
       if (verb) {
@@ -919,11 +919,11 @@ int ChpSim::Step (int ev_type)
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
       otherwise we have to wait for the receiver --*/
-    int rv, poff;
+    int rv;
     if (stmt->type == CHPSIM_SEND) {
       vs.setSingle (v);
     }
-    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, &poff, vs, &frag);
+    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, vs, &frag);
     if (rv) {
       /* blocked */
       forceret = 1;
@@ -940,10 +940,10 @@ int ChpSim::Step (int ev_type)
       _energy_cost += stmt->energy_cost;
     }
     verb = 0;
-    if ((nm = isWatched (0, off))) {
+    if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
       verb = 1;
     }
-    if ((nm2 = isBreakPt (0, off))) {
+    if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
       verb |= 2;
     }
     if (verb) {
@@ -988,6 +988,7 @@ int ChpSim::Step (int ev_type)
       int type;
       int width;
       int rv;
+      int vchan;
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
 	d = stmt->u.sendrecv.d;
@@ -997,13 +998,28 @@ int ChpSim::Step (int ev_type)
       else {
 	type = -1;
       }
-      int poff;
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &poff, &vs, &frag);
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &vs, &frag);
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
+      vchan = 0;
+      if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
+	vchan = 1;
+      }
+      if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
+	vchan |= 2;
+      }
       /*-- attempt to receive value --*/
       if (rv) {
+	if (vchan & 1) {
+	  msgPrefix ();
+	  printf ("%s : recv-blocked\n", nm);
+	}
+	if (vchan & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
 	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
@@ -1015,6 +1031,15 @@ int ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL	
 	printf ("recv got %lu!", v.v);
 #endif	
+	if (vchan & 1) {
+	  msgPrefix ();
+	  printf ("%s : recv value: %lu (0x%lx)\n", nm, v.v, v.v);
+	}
+	if (vchan & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
 	if (type != -1) {
 	  if (stmt->type == CHPSIM_RECV) {
 	    if (type == 0) {
@@ -1244,12 +1269,11 @@ int ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
+int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
 		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
-  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {
@@ -1369,12 +1393,11 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v,
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v,
+int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
 		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
-  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {

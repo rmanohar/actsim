@@ -458,14 +458,31 @@ static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
     type = 2;
   }
 
-  offset = obj->getGlobalOffset (offset, type);
-
   *ptype = type;
   *poffset = offset;
   if (pobj) {
     *pobj = obj;
   }
   delete id;
+  return 1;
+}
+
+static int id_to_siminfo_glob (char *s,
+			       int *ptype, int *poffset, ActSimObj **pobj)
+{
+  ActSimObj *myobj;
+  myobj = NULL;
+  if (!id_to_siminfo (s, ptype, poffset, &myobj)) {
+    return 0;
+  }
+  if (!myobj) {
+    return 0;
+  }
+  if (pobj) {
+    *pobj = myobj;
+  }
+  
+  *poffset = myobj->getGlobalOffset (*poffset, *ptype);
   return 1;
 }
 
@@ -479,7 +496,7 @@ int process_set (int argc, char **argv)
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
+  if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -537,7 +554,7 @@ int process_get (int argc, char **argv)
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
+  if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -587,7 +604,7 @@ int process_mget (int argc, char **argv)
   int type, offset;
 
   for (int i=1; i < argc; i++) {
-    if (!id_to_siminfo (argv[i], &type, &offset, NULL)) {
+    if (!id_to_siminfo_glob (argv[i], &type, &offset, NULL)) {
       return LISP_RET_ERROR;
     }
 
