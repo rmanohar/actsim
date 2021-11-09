@@ -23,7 +23,7 @@ Building `Xyce`:
 Building `actsim`:
    * When you run `./configure`, it should detect that the Xyce C interface library exists.
    * To use static linking for `actsim`, we need to extract the correct link-time options used by your Xyce build. To do so:
-    *  Run `./grab_xyce.sh <path>` where `<path>` is the path to the cmake build directory for your Xyce build
-    *  Alternatively, you can copy the file `src/CMakeFiles/Xyce.dir/link.txt` from your cmake build directory for Xyce, place it it any directory, and run `grab_xyce.sh` with the path set to the directory containing `link.txt`
+      *  Run `./grab_xyce.sh <path>` where `<path>` is the path to the cmake build directory for your Xyce build
+      *  Alternatively, you can copy the file `src/CMakeFiles/Xyce.dir/link.txt` from your cmake build directory for Xyce, place it it any directory, and run `grab_xyce.sh` with the path set to the directory containing `link.txt`
    * After this, you can build actsim.
  
