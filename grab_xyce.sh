@@ -38,7 +38,7 @@ found=0
 for i in `cat $file`
 do
 	case $found in
-	0) compiler_stuff=$1; found=1;;
+	0) compiler_stuff=$i; found=1;;
 	1) if [ $i = "Xyce" ]
 	   then
 		found=2
@@ -53,6 +53,13 @@ do
 	esac
 done
 
+echo 
 echo "Creating xyce.in..."
-
+echo 
+echo "Xyce was linked with the following compiler:"
+echo "  $compiler_stuff"
+echo 
+echo "If this is different from the standard compiler, use it for linking actsim"
+echo "(e.g. by using make CXX=newcompiler)"
+echo 
 echo "LIBXYCE=-lxycecinterface $linker_stuff" > xyce.in
