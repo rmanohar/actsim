@@ -1,4 +1,24 @@
 #!/bin/sh
+#-------------------------------------------------------------------------
+#
+#  Copyright (c) 2020 Rajit Manohar
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor,
+#  Boston, MA  02110-1301, USA.
+#
+#-------------------------------------------------------------------------
 
 if [ $# -ne 1 ]
 then
@@ -10,38 +30,46 @@ xyce_build=$1
 
 echo "Xyce build dir: $xyce_build"
 
-if [ ! -d $xyce_build ]
+if [ -f $xyce_build/link.txt ]
 then
+    $file=$xyce_build/link.txt
+else    
+    if [ ! -d $xyce_build ]
+    then
 	echo "Could not find directory $xyce_build"
 	exit 1
-fi
+    fi
 
-if [ ! -d $xyce_build/src/CMakeFiles/Xyce.dir ]
-then
+    if [ ! -d $xyce_build/src/CMakeFiles/Xyce.dir ]
+    then
 	echo "Could not find Xyce sub-directory (src/CMakeFiles/Xyce.dir) in $xyce_build"
 	exit 1
-fi
+    fi
 
-file=$xyce_build/src/CMakeFiles/Xyce.dir/link.txt
+    file=$xyce_build/src/CMakeFiles/Xyce.dir/link.txt
+fi
 
 if [ ! -f $file ]
 then
-	echo "Could not find Xyce link.txt file in build directory"
-	exit 1
+    echo "Could not find Xyce link.txt file in build directory"
+    exit 1
 fi
+
+#
+# Now find the linker options!
+#
 
 linker_stuff=
 compiler_stuff=
-
 found=0
 
 for i in `cat $file`
 do
-	case $found in
+    case $found in
 	0) compiler_stuff=$i; found=1;;
 	1) if [ $i = "Xyce" ]
 	   then
-		found=2
+	       found=2
 	   fi;;
 	2)  if [ $i = "libxyce.a" ]
 	    then
@@ -50,10 +78,10 @@ do
 		val=$i
 	    fi;
 	    linker_stuff="${linker_stuff} $val";;
-	esac
+    esac
 done
 
-echo 
+echo
 echo "Creating xyce.in..."
 echo 
 echo "Xyce was linked with the following compiler:"
