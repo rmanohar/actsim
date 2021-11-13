@@ -18,7 +18,7 @@
 #  Boston, MA  02110-1301, USA.
 #
 #-------------------------------------------------------------------------
-EXE=actsim.$(EXT)
+EXE=actsimw.$(EXT)
 
 TARGETS=$(EXE)
 TARGETINCS=actsim.h actsim_ext.h
