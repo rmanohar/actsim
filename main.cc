@@ -53,6 +53,7 @@ static void usage (char *name)
 static ActStatePass *glob_sp;
 static ActSim *glob_sim;
 static Act *glob_act;
+static Process *glob_top;
 
 int process_cycle (int argc, char **argv)
 {
@@ -120,6 +121,10 @@ int process_initialize (int argc, char **argv)
   Process *p = glob_act->findProcess (argv[1]);
   if (!p) {
     fprintf (stderr, "%s: could not find process %s\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  if (!p->isExpanded()) {
+    fprintf (stderr, "%s: `%s' is not an expanded process\n", argv[0], argv[1]);
     return LISP_RET_ERROR;
   }
   if (glob_sim) {
@@ -453,14 +458,31 @@ static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
     type = 2;
   }
 
-  offset = obj->getGlobalOffset (offset, type);
-
   *ptype = type;
   *poffset = offset;
   if (pobj) {
     *pobj = obj;
   }
   delete id;
+  return 1;
+}
+
+static int id_to_siminfo_glob (char *s,
+			       int *ptype, int *poffset, ActSimObj **pobj)
+{
+  ActSimObj *myobj;
+  myobj = NULL;
+  if (!id_to_siminfo (s, ptype, poffset, &myobj)) {
+    return 0;
+  }
+  if (!myobj) {
+    return 0;
+  }
+  if (pobj) {
+    *pobj = myobj;
+  }
+  
+  *poffset = myobj->getGlobalOffset (*poffset, *ptype);
   return 1;
 }
 
@@ -474,7 +496,7 @@ int process_set (int argc, char **argv)
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
+  if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -533,7 +555,7 @@ int process_get (int argc, char **argv)
 
   int type, offset;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, NULL)) {
+  if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
     return LISP_RET_ERROR;
   }
 
@@ -574,21 +596,63 @@ int process_get (int argc, char **argv)
   return LISP_RET_INT;
 }
 
+int process_mget (int argc, char **argv)
+{
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <name1> <name2> ...\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo_glob (argv[i], &type, &offset, NULL)) {
+      return LISP_RET_ERROR;
+    }
+
+    if (type == 2 || type == 3) {
+      printf ("'%s' is a channel; not currently supported!\n", argv[i]);
+      return LISP_RET_ERROR;
+    }
+
+    unsigned long val;
+    if (type == 0) {
+      val = glob_sim->getBool (offset);
+      if (val == 0) {
+	printf ("%s: 0\n", argv[i]);
+      }
+      else if (val == 1) {
+	printf ("%s: 1\n", argv[i]);
+      }
+      else {
+	printf ("%s: X\n", argv[i]);
+      }
+    }
+    else if (type == 1) {
+      BigInt *ival;
+      ival = glob_sim->getInt (offset);
+      printf ("%s: %lu  (0x%lx)\n", argv[i], ival->getVal(0), ival->getVal (0));
+    }
+  }
+  return LISP_RET_TRUE;
+}
+
 int process_watch (int argc, char **argv)
 {
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
   int type, offset;
   ActSimObj *obj;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
-    return LISP_RET_ERROR;
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
+      return LISP_RET_ERROR;
+    }
+    obj->addWatchPoint (type, offset, argv[i]);
   }
-
-  obj->addWatchPoint (type, offset, argv[1]);
 
   return LISP_RET_TRUE;
 }
@@ -615,19 +679,20 @@ int process_breakpt (int argc, char **argv)
 
 int process_unwatch (int argc, char **argv)
 {
-  if (argc != 2) {
-    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
   int type, offset;
   ActSimObj *obj;
 
-  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
-    return LISP_RET_ERROR;
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
+      return LISP_RET_ERROR;
+    }
+    obj->delWatchPoint (type, offset);
   }
-
-  obj->delWatchPoint (type, offset);
 
   return LISP_RET_TRUE;
 }
@@ -869,9 +934,10 @@ struct LispCliCommand Cmds[] = {
 
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
+  { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
 
-  { "watch", "<n> - add watchpoint for <n>", process_watch },
-  { "unwatch", "<n> - delete watchpoint for <n>", process_unwatch },
+  { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
@@ -905,6 +971,16 @@ struct LispCliCommand Cmds[] = {
   { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy }
 };
 
+/* -- access top-level Act  -- */
+Act *actsim_Act()
+{
+  return glob_act;
+}
+
+Process *actsim_top()
+{
+  return glob_top;
+}
 
 int debug_metrics;
 
@@ -917,6 +993,7 @@ int main (int argc, char **argv)
   config_set_default_real ("sim.chp.default_leakage", 0);
   config_set_default_int ("sim.chp.default_area", 0);
   config_set_default_int ("sim.chp.debug_metrics", 0);
+  config_set_int ("net.emit_parasitics", 1);
 
   /* initialize ACT library */
   Act::Init (&argc, &argv);
@@ -952,6 +1029,8 @@ int main (int argc, char **argv)
   if (!p->isExpanded()) {
     fatal_error ("Process `%s' is not expanded.", argv[2]);
   }
+
+  glob_top = p;
 
   /* do stuff here */
   glob_sp = new ActStatePass (glob_act);

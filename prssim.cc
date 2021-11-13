@@ -492,7 +492,7 @@ PrsSimGraph::~PrsSimGraph()
   }
 }
 
-PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p, act_spec *spec)
+PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p)
 {
   PrsSimGraph *pg;
 
@@ -624,9 +624,47 @@ int OnePrsSim::matches (int val)
     }								\
   } while (0)
 
+
+#define WARNING_MSG(s,t)			\
+  do {						\
+    _proc->msgPrefix();				\
+    printf ("WARNING: " s " on `");		\
+    _proc->printName (stdout, _me->vid);	\
+    printf (t "'\n");				\
+    if (_proc->onWarning() == 2) {		\
+      exit (1);					\
+    }						\
+    else if (_proc->onWarning() == 1) {		\
+      _breakpt = 1;				\
+    }						\
+  } while (0)
+
+#define MAKE_NODE_X						\
+  do {								\
+    if (_proc->getBool (_me->vid) != 2) {			\
+      if (flags != PENDING_X) {					\
+	if (_pending) {						\
+	  _pending->Remove ();					\
+	}							\
+	flags = PENDING_X;					\
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);	\
+      }								\
+    }								\
+    else {							\
+      if (flags == PENDING_0 || flags == PENDING_1) {		\
+	flags = 0;						\
+	if (_pending) {						\
+	  _pending->Remove();					\
+	}							\
+      }								\
+    }								\
+  } while (0)
+
 void OnePrsSim::propagate ()
 {
   int u_state, d_state;
+  int u_weak = 0, d_weak = 0;
+
   /*-- fire rule --*/
   switch (_me->type) {
   case PRSSIM_PASSP:
@@ -639,80 +677,50 @@ void OnePrsSim::propagate ()
     u_state = eval (_me->up[PRSSIM_NORM]);
     if (u_state == 0) {
       u_state = eval (_me->up[PRSSIM_WEAK]);
+      u_weak = 1;
     }
 
     d_state = eval (_me->dn[PRSSIM_NORM]);
     if (d_state == 0) {
       d_state = eval (_me->dn[PRSSIM_WEAK]);
+      d_weak = 1;
     }
 
     /* -- check for unstable rules -- */
     if (flags == PENDING_1 && u_state != 1) {
       if (u_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
-	  _proc->msgPrefix();
-	  printf ("WARNING: weak-unstable transition `");
-	  _proc->printName (stdout, _me->vid);
-	  printf ("+'\n");
-	  if (_proc->onWarning() == 2) {
-	    exit (1);
-	  }
-	  else if (_proc->onWarning() == 1) {
-	    _breakpt = 1;
-	  }
+	  WARNING_MSG ("weak-unstable transition", "+");
 	}
       }
       else {
 	if (!_me->unstab) {
-	  _proc->msgPrefix();
-	  printf ("WARNING: unstable transition `");
-	  _proc->printName (stdout, _me->vid);
-	  printf ("+'\n");
-	  if (_proc->onWarning() == 2) {
-	    exit (1);
-	  }
-	  else if (_proc->onWarning() == 1) {
-	    _breakpt = 1;
-	  }
+	  WARNING_MSG ("unstable transition", "+");
 	}
       }
       _pending->Remove();
-      _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
-      flags = PENDING_X;
+      if (_proc->getBool (_me->vid) != 2) {
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	flags = PENDING_X;
+      }
     }
 
     if (flags == PENDING_0 && d_state != 1) {
       if (d_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
-	  _proc->msgPrefix();
-	  printf ("WARNING: weak-unstable transition `");
-	  _proc->printName (stdout, _me->vid);
-	  printf ("-'\n");
-	  if (_proc->onWarning() == 2) {
-	    exit (1);
-	  }
-	  else if (_proc->onWarning() == 1) {
-	    _breakpt = 1;
-	  }
+	  WARNING_MSG ("weak-unstable transition", "-");
 	}
       }
       else {
 	if (!_me->unstab) {
-	  _proc->msgPrefix();
-	  printf ("WARNING: unstable transition `");
-	  _proc->printName (stdout, _me->vid);
-	  printf ("-'\n");
-	  if (_proc->onWarning() == 2) {
-	    exit (1);
-	  }
-	  else if (_proc->onWarning() == 1) {
-	    _breakpt = 1;
-	  }
+	  WARNING_MSG ("unstable transition", "-");
 	}
       }
       _pending->Remove();
-      _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
-      flags = PENDING_X;
+      if (_proc->getBool (_me->vid) != 2) {
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	flags = PENDING_X;
+      }
     }
 
     if (u_state == 0) {
@@ -731,34 +739,37 @@ void OnePrsSim::propagate ()
     else if (u_state == 1) {
       switch (d_state) {
       case 0:
-      case 2:
 	/* set to 1 */
 	DO_SET_VAL (1);
 	break;
 
+      case 2:
+	if (!u_weak && d_weak) {
+	  DO_SET_VAL (1);
+	}
+	else {
+	  WARNING_MSG ("weak-interference", "");
+	  MAKE_NODE_X;
+	}
+	break;
+
       case 1:
 	/* interference */
-	_proc->msgPrefix();
-	printf ("WARNING: interference on `");
-	_proc->printName (stdout, _me->vid);
-	printf ("\n");
-	if (_proc->onWarning() == 2) {
-	  exit (1);
+	if (u_weak && !d_weak) {
+	  DO_SET_VAL (0);
 	}
-	else if (_proc->onWarning() == 1) {
-	  _breakpt = 1;
+	else if (!u_weak && d_weak) {
+	  DO_SET_VAL (1);
 	}
-	if (flags != PENDING_X) {
-	  if (_pending) {
-	    _pending->Remove ();
-	  }
-	  flags = PENDING_X;
-	  _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	else {
+	  WARNING_MSG ("interference", "");
+	  MAKE_NODE_X;
 	}
 	break;
       }
     }
     else {
+      /* u_state == 2 */
       switch (d_state) {
       case 0:
 	/* set to 1 */
@@ -766,31 +777,22 @@ void OnePrsSim::propagate ()
 	break;
 
       case 1:
-	/* set to 0 */
-	DO_SET_VAL (0);
+	if (u_weak && !d_weak) {
+	  /* set to 0 */
+	  DO_SET_VAL (0);
+	}
+	else {
+	  WARNING_MSG ("weak-interference", "");
+	  MAKE_NODE_X;
+	}
 	break;
 
       case 2:
 	/* set to X */
 	if (!_proc->isResetMode()) {
-	  _proc->msgPrefix();
-	  printf ("WARNING: weak-interference on `");
-	  _proc->printName (stdout, _me->vid);
-	  printf ("\n");
-	  if (_proc->onWarning() == 2) {
-	    exit (1);
-	  }
-	  else if (_proc->onWarning() == 1) {
-	    _breakpt = 1;
-	  }
+	  WARNING_MSG ("weak-interference", "");
 	}
-	if (flags != PENDING_X) {
-	  if (_pending) {
-	    _pending->Remove ();
-	  }
-	  flags = PENDING_X;
-	  _pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
-	}
+	MAKE_NODE_X;
 	break;
       }
     }
@@ -870,8 +872,17 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     if (type == 2 || type == 3) {
       loff = ps->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
-      ch->fragmented = 1;
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
       sim_recordChannel (sc, ps, tmp);
+      sc->registerFragmented (ch->ct);
+      ch->cm = sc->getFragmented (ch->ct);
     }
     delete tmp;
   }

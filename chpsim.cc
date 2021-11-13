@@ -92,7 +92,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
 {
   char buf[1024];
 
-  _stalled_pc = -1;
+  _stalled_pc = list_new ();
   _probe = NULL;
   _savedc = c;
   _energy_cost = 0;
@@ -100,6 +100,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _area_cost = 0;
   _statestk = NULL;
   _cureval = NULL;
+  _frag_ch = NULL;
 
   if (p) {
     const char *nsname;
@@ -170,7 +171,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     Assert (_npc >= 1, "What?");
     _pc[0] = g;
     _statestk = list_new ();
-    _nextEvent (0);
+    _initEvent ();
   }
   else {
     _pc = NULL;
@@ -196,6 +197,7 @@ ChpSim::~ChpSim()
   if (_statestk) {
     list_free (_statestk);
   }
+  list_free (_stalled_pc);
 }
 
 int ChpSim::_nextEvent (int pc)
@@ -209,6 +211,11 @@ int ChpSim::_nextEvent (int pc)
     return 1;
   }
   return 0;
+}
+
+void ChpSim::_initEvent ()
+{
+  _nextEvent (0);
 }
 
 void ChpSim::computeFanout ()
@@ -349,6 +356,12 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     {
       int off = getGlobalOffset (e->u.x.val, 2);
       act_channel_state *c = _sc->getChan (off);
+      if ((c->fragmented & 0x1) && e->type == E_PROBEOUT) {
+	return 1;
+      }
+      else if ((c->fragmented & 0x2) && e->type == E_PROBEIN) {
+	return 1;
+      }
       if (undo) {
 	if (c->probe) {
 #ifdef DUMP_ALL	  
@@ -700,12 +713,27 @@ static void _process_print_int (BigInt &v,
   }
 }
 
+void ChpSim::_remove_me (int pc)
+{
+  listitem_t *li;
+  listitem_t *prev = NULL;
+
+  for (li = list_first (_stalled_pc); li; li = list_next (li)) {
+    if (list_ivalue (li) == pc) {
+      list_delete_next (_stalled_pc, prev);
+      sRemove ();
+      return;
+    }
+  }
+}
+
 int ChpSim::Step (int ev_type)
 {
   int pc = SIM_EV_TYPE (ev_type);
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;
   int joined;
+  int frag;
   BigInt v;
   expr_multires vs;
   int off;
@@ -714,14 +742,20 @@ int ChpSim::Step (int ev_type)
   int verb;
 
   if (pc == MAX_LOCAL_PCS) {
-    pc = _stalled_pc;
-    _stalled_pc = -1;
+    Assert (!list_isempty (_stalled_pc), "What?");
+    pc = list_delete_ihead (_stalled_pc);
   }
 
   //Assert (0 <= pc && pc < _pcused, "What?");
   Assert (0 <= pc && pc < _npc, "What?");
 
   if (!_pc[pc]) {
+    return 1;
+  }
+
+  if (_sc->isResetMode() && _proc != NULL) {
+    /*-- this is a real process: wait for run mode --*/
+    new Event (this, SIM_EV_MKTYPE (pc, 0), 10);
     return 1;
   }
 
@@ -823,14 +857,7 @@ int ChpSim::Step (int ev_type)
 	}
       }
       _sc->setBool (off, v.getVal (0));
-
-      SimDES **arr;
-      arr = _sc->getFO (off, 0);
-      for (int i=0; i < _sc->numFanout (off, 0); i++) {
-	ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
-	Assert (p, "What?");
-	p->propagate ();
-      }
+      boolProp (off);
     }
     else {
       off = getGlobalOffset (off, 1);
@@ -841,10 +868,10 @@ int ChpSim::Step (int ev_type)
       v.toStatic ();
 
       verb = 0;
-      if ((nm = isWatched (0, off))) {
+      if ((nm = isWatched (1, off))) {
 	verb = 1;
       }
-      if ((nm2 = isBreakPt (0, off))) {
+      if ((nm2 = isBreakPt (1, off))) {
 	verb |= 2;
       }
       if (verb) {
@@ -892,11 +919,11 @@ int ChpSim::Step (int ev_type)
     }
     /*-- attempt to send; suceeds if there is a receiver waiting,
       otherwise we have to wait for the receiver --*/
-    int rv, poff;
+    int rv;
     if (stmt->type == CHPSIM_SEND) {
       vs.setSingle (v);
     }
-    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, &poff, vs);
+    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, vs, &frag);
     if (rv) {
       /* blocked */
       forceret = 1;
@@ -913,22 +940,31 @@ int ChpSim::Step (int ev_type)
       _energy_cost += stmt->energy_cost;
     }
     verb = 0;
-    if ((nm = isWatched (0, off))) {
+    if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
       verb = 1;
     }
-    if ((nm2 = isBreakPt (0, off))) {
+    if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
       verb |= 2;
     }
     if (verb) {
       if (verb & 1) {
 	msgPrefix ();
 	if (rv) {
-	  printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal (0),
-		  v.getVal (0));
+	  if (frag) {
+	    printf ("%s : send-blocked\n", nm);
+	  }
+	  else {
+	    printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
+	  }
 	}
 	else {
 	  if (!flag) {
-	    printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
+	    if (frag) {
+	      printf ("%s : send\n", nm);
+	    }
+	    else {
+	      printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
+	    }
 	  }
 	  else {
 	    printf ("%s : send complete\n", nm);
@@ -952,6 +988,7 @@ int ChpSim::Step (int ev_type)
       int type;
       int width;
       int rv;
+      int vchan;
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
 	d = stmt->u.sendrecv.d;
@@ -961,13 +998,28 @@ int ChpSim::Step (int ev_type)
       else {
 	type = -1;
       }
-      int poff;
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &poff, &vs);
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &vs, &frag);
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
+      vchan = 0;
+      if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
+	vchan = 1;
+      }
+      if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
+	vchan |= 2;
+      }
       /*-- attempt to receive value --*/
       if (rv) {
+	if (vchan & 1) {
+	  msgPrefix ();
+	  printf ("%s : recv-blocked\n", nm);
+	}
+	if (vchan & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
 	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
@@ -979,6 +1031,15 @@ int ChpSim::Step (int ev_type)
 #ifdef DUMP_ALL	
 	printf ("recv got %lu!", v.v);
 #endif	
+	if (vchan & 1) {
+	  msgPrefix ();
+	  printf ("%s : recv value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
+	}
+	if (vchan & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
 	if (type != -1) {
 	  if (stmt->type == CHPSIM_RECV) {
 	    if (type == 0) {
@@ -1127,10 +1188,7 @@ int ChpSim::Step (int ev_type)
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
         if (_add_waitcond (&stmt->u.c, pc, 1)) {
-	  if (_stalled_pc != -1) {
-	    _sc->gRemove (this);
-	    _stalled_pc = -1;
-	  }
+	  _remove_me (pc);
 	}
       }
 
@@ -1161,12 +1219,12 @@ int ChpSim::Step (int ev_type)
 	     probed signals */
 	  forceret = 1;
 	  if (_add_waitcond (&stmt->u.c, pc)) {
-	    if (_stalled_pc == -1) {
+	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
-#endif	      
-	      _sc->gStall (this);
-	      _stalled_pc = pc;
+#endif
+	      sStall ();
+	      list_iappend (_stalled_pc, pc);
 	    }
 	    else {
 	      forceret = 0;
@@ -1208,39 +1266,56 @@ int ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
+int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
+		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
-  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {
-    switch (c->frag_st) {
-    case 0:
+    *frag = 1;
+    if (c->frag_st == 0) {
       c->data = v;
       c->frag_st = 1;
       c->ufrag_st = 0;
-      /* -- run set method -- */
-      
-    case 1:
-      /* send */
-
-      break;
-    case 2:
-      /* send_up */
-
-      break;
-    case 3:
-      /* in send_rest, advance through */
-      break;
-
-    default:
-      fatal_error ("What is this?");
-      break;
     }
-    warning ("Need to implement the fragmented channel protocol");    
+
+    if (_sc->isResetMode()) {
+      list_iappend (_stalled_pc, pc);
+      sStall ();
+      return 1;
+    }
+
+    while (c->ufrag_st >= 0) {
+      int idx;
+      if (c->frag_st == 1) {
+	idx = ACT_METHOD_SET;
+      }
+      else if (c->frag_st == 2) {
+	idx = ACT_METHOD_SEND_UP;
+      }
+      else if (c->frag_st == 3) {
+	idx = ACT_METHOD_SEND_REST;
+      }
+      else {
+	/* finished protocol */
+	c->frag_st = 0;
+	return 0;
+      }
+      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
+      if (c->ufrag_st == 0xff) { /* -1 */
+	c->frag_st++;
+	c->ufrag_st = 0;
+      }
+      else {
+	list_iappend (_stalled_pc, pc);
+	sStall ();
+	return 1;
+      }
+    }
   }
+  *frag = 0;
 
 #ifdef DUMP_ALL  
   printf (" [s=%d]", off);
@@ -1315,16 +1390,57 @@ int ChpSim::varSend (int pc, int wakeup, int id, int *poff, expr_multires &v)
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v)
+int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
+		     int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
-  if (poff) { *poff = off; }
   c = _sc->getChan (off);
 
   if (c->fragmented) {
-    warning ("Need to implement the fragmented channel protocol");
+    *frag = 1;
+    if (c->frag_st == 0) {
+      c->frag_st = 1;
+      c->ufrag_st = 0;
+    }
+
+    if (_sc->isResetMode()) {
+      list_iappend (_stalled_pc, pc);
+      sStall ();
+      return 1;
+    }
+    
+    while (c->ufrag_st >= 0) {
+      int idx;
+      if (c->frag_st == 1) {
+	idx = ACT_METHOD_GET;
+      }
+      else if (c->frag_st == 2) {
+	idx = ACT_METHOD_RECV_UP;
+      }
+      else if (c->frag_st == 3) {
+	idx = ACT_METHOD_RECV_REST;
+      }
+      else {
+	/* finished protocol */
+	c->frag_st = 0;
+	(*v) = c->data;
+	return 0;
+      }
+      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
+      if (c->ufrag_st == 0xff) { /* -1 */
+	c->frag_st++;
+	c->ufrag_st = 0;
+      }
+      else {
+	list_iappend (_stalled_pc, pc);
+	sStall ();
+	return 1;
+      }
+    }
   }
+  
+  *frag = 0;
   
 #ifdef DUMP_ALL  
   printf (" [r=%d]", off);
@@ -2043,19 +2159,47 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_VAR:
     {
       ActId *xid = (ActId *) e->u.e.l;
-      Assert (!list_isempty (_statestk), "What?");
-      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
-      Assert (state,"what?");
-      hash_bucket_t *b = hash_lookup (state, xid->getName());
-      Assert (b, "what?");
-      Assert (_cureval, "What?");
-      InstType *xit = _cureval->Lookup (xid->getName());
-      if (TypeFactory::isStructure (xit)) {
-	expr_multires *x2 = (expr_multires *)b->v;
-	l = *(x2->getField (xid->Rest()));
+
+      if (_statestk) {
+	struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
+	Assert (state,"what?");
+	hash_bucket_t *b = hash_lookup (state, xid->getName());
+	Assert (b, "what?");
+	Assert (_cureval, "What?");
+	InstType *xit = _cureval->Lookup (xid->getName());
+	if (TypeFactory::isStructure (xit)) {
+	  expr_multires *x2 = (expr_multires *)b->v;
+	  l = *(x2->getField (xid->Rest()));
+	}
+	else {
+	  l = *((BigInt *)b->v);
+	}
+      }
+      else if (_frag_ch) {
+	act_connection *c;
+	ihash_bucket_t *b;
+	if (strcmp (xid->getName(), "self") == 0) {
+	  l = _frag_ch->data.v[0];
+	}
+	else {
+	  c = xid->Canonical (_frag_ch->ct->CurScope());
+	  b = ihash_lookup (_frag_ch->fH, (long)c);
+	  Assert (b, "Error during channel registration");
+	  l.setWidth (1);
+	  l.setVal (0, _sc->getBool (b->i));
+	  if (_sc->getBool (b->i) == 2) {
+	    ActId *tid;
+	    msgPrefix ();
+	    printf ("CHP model: Boolean variable `");
+	    tid = c->toid();
+	    tid->Print (stdout);
+	    delete tid;
+	    printf ("' is X\n");
+	  }
+	}
       }
       else {
-	l = *((BigInt *)b->v);
+	Assert (0, "E_VAR found without state stack or frag chan hash");
       }
     }
     break;
@@ -2097,8 +2241,23 @@ BigInt ChpSim::exprEval (Expr *e)
 
   case E_PROBE:
     fatal_error ("E_PROBE-2");
+    
   case E_PROBEIN:
   case E_PROBEOUT:
+    {
+      int off = getGlobalOffset (e->u.x.val, 2);
+      act_channel_state *c = _sc->getChan (off);
+      if ((c->fragmented & 0x1) && e->type == E_PROBEOUT) {
+	l.setWidth (1);
+	l.setVal (0, c->cm->runProbe (_sc, c, ACT_METHOD_SEND_PROBE));
+	return l;
+      }
+      else if ((c->fragmented & 0x2) && e->type == E_PROBEIN) {
+	l.setWidth (1);
+	l.setVal (0, c->cm->runProbe (_sc, c, ACT_METHOD_RECV_PROBE));
+	return l;
+      }
+    }
     l = varEval (e->u.x.val, 3);
     break;
 
@@ -2156,6 +2315,16 @@ BigInt ChpSim::exprEval (Expr *e)
     break;
 
   case E_SELF:
+    if (_frag_ch) {
+      l = _frag_ch->data.v[0];
+    }
+    else {
+      Assert (0, "E_SELF used?!");
+      l.setWidth (1);
+      l.setVal (0, 0);
+    }
+    break;
+    
   default:
     l.setVal (0, 0);
     l.setWidth (1);
@@ -2437,6 +2606,77 @@ void ChpSim::_compute_used_variables (act_chp_lang_t *c)
   _tmpused = NULL;
 }
 
+static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H);
+
+static void _rec_mark_userdef_used (ActSimCore *_sc, ActId *id,
+				    UserDef *u, struct iHashtable *H)
+{
+  ActId *tl;
+
+  if (!u) return;
+
+  tl = id;
+  while (tl->Rest()) {
+    tl = tl->Rest();
+  }
+  
+  for (int i=0; i < u->getNumPorts(); i++) {
+    const char *nm = u->getPortName (i);
+    InstType *it = u->getPortType (i);
+    ActId *extra = new ActId (nm);
+    ActId *prev;
+
+    tl->Append (extra);
+    prev = tl;
+    
+    tl = tl->Rest();
+
+    if (TypeFactory::isBoolType (it)) {
+      /* mark used */
+      if (it->arrayInfo()) {
+	Arraystep *s = it->arrayInfo()->stepper();
+	while (!s->isend()) {
+	  Array *a = s->toArray ();
+
+	  tl->setArray (a);
+	  _mark_vars_used (_sc, id, H);
+	  tl->setArray (NULL);
+
+	  delete a;
+	  
+	  s->step();
+	}
+	delete s;
+      }
+      else {
+	_mark_vars_used (_sc, id, H);
+      }
+    }
+    else if (TypeFactory::isUserType (it)) {
+      UserDef *nu = dynamic_cast<UserDef *>(it->BaseType());
+      Assert (nu, "What?");
+      /* mark recursively */
+      if (it->arrayInfo()) {
+	Arraystep *s = it->arrayInfo()->stepper();
+	while (!s->isend()) {
+	  Array *a = s->toArray();
+	  tl->setArray (a);
+	  _rec_mark_userdef_used (_sc, id, nu, H);
+	  tl->setArray (NULL);
+	  delete a;
+	  s->step();
+	}
+	delete s;
+      }
+      else {
+	_rec_mark_userdef_used (_sc, id, nu, H);
+      }
+    }
+    prev->prune();
+    delete extra;
+    tl = prev;
+  }
+}
 
 static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 {
@@ -2530,6 +2770,12 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 	b = ihash_add (H, loff);
 	b->i = type;
       }
+      /* channels might be fragmented */
+      if (type == 2 || type == 3) {
+	/*-- mark all the channel fields as used too --*/
+	_rec_mark_userdef_used (_sc, id,
+				dynamic_cast<UserDef *>(it->BaseType()), H);
+      }
     }
   }
 }
@@ -2607,6 +2853,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_PROBE:
+    _mark_vars_used (_sc, (ActId *)e->u.e.l, _tmpused);
     break;
     
   case E_FUNCTION:
@@ -3689,7 +3936,17 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
     if (type == 2 || type == 3) {
       loff = c->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
-      ch->fragmented = 1;
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
+      sim_recordChannel (sc, c, tmp);
+      sc->registerFragmented (ch->ct);
+      ch->cm = sc->getFragmented (ch->ct);
     }
     delete tmp;
   }
@@ -4236,5 +4493,17 @@ void expr_multires::Print (FILE *fp)
   fprintf (fp, "v:%d;", nvals);
   for (int i=0; i < nvals; i++) {
     fprintf (fp, " %d(w=%d):%lu", i, v[i].getWidth(), v[i].getVal (0));
+  }
+}
+
+
+void ChpSim::boolProp (int glob_off)
+{
+  SimDES **arr;
+  arr = _sc->getFO (glob_off, 0);
+  for (int i=0; i < _sc->numFanout (glob_off, 0); i++) {
+    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+    Assert (p, "What?");
+    p->propagate ();
   }
 }

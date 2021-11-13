@@ -144,6 +144,14 @@ class ChpSim : public ActSimObj {
   unsigned long getEnergy (void);
   double getLeakage (void);
   unsigned long getArea (void);
+  
+  int getBool (int glob_off) { return _sc->getBool (glob_off); }
+  void setBool (int glob_off, int val) { _sc->setBool (glob_off, val); }
+  void boolProp (int glob_off);
+  void setFrag (act_channel_state *f) { _frag_ch = f; }
+
+  BigInt exprEval (Expr *e);
+  
 
  private:
   int _npc;			/* # of program counters */
@@ -153,7 +161,8 @@ class ChpSim : public ActSimObj {
 
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
-  int _stalled_pc;
+
+  list_t *_stalled_pc;
   act_chp_lang_t *_savedc;
 
   unsigned long _energy_cost;
@@ -170,8 +179,8 @@ class ChpSim : public ActSimObj {
 
   list_t *_statestk;
   Scope *_cureval;
+  act_channel_state *_frag_ch;	// fragmented channel
 
-  BigInt exprEval (Expr *e);
   BigInt funcEval (Function *, int, BigInt *);
   BigInt varEval (int id, int type);
   
@@ -184,14 +193,16 @@ class ChpSim : public ActSimObj {
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */
 
-  int varSend (int pc, int wakeup, int id, int *poff, expr_multires &v);
-  int varRecv (int pc, int wakeup, int id, int *poff, expr_multires *v);
+  int varSend (int pc, int wakeup, int id, expr_multires &v, int *frag);
+  int varRecv (int pc, int wakeup, int id, expr_multires *v, int *frag);
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);
   int _collect_sharedvars (Expr *e, int pc, int undo);
+  void _remove_me (int pc);
 
   int _nextEvent (int pc);
+  void _initEvent ();
 };
 
 
