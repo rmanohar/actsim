@@ -21,7 +21,7 @@
 EXE=actsimw.$(EXT)
 
 TARGETS=$(EXE)
-TARGETINCS=actsim.h actsim_ext.h
+TARGETINCS=actsim_ext.h
 TARGETINCSUBDIR=act
 
 OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o xycesim.o
