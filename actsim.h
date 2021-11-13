@@ -32,6 +32,8 @@
 #include <math.h>
 #include <common/int.h>
 #include "actsim_ext.h"
+#include "state.h"
+#include "channel.h"
 
 #define E_CHP_VARBOOL  (E_NEWEND + 1)
 #define E_CHP_VARINT   (E_NEWEND + 2)
@@ -57,48 +59,6 @@
 
 class ActSimCore;
 
-struct act_channel_state {
-  unsigned int send_here:7;	// if non-zero, this is the "pc" for
-				// the sender to be used to wake-up
-				// the sending process
-
-  unsigned int sender_probe:1;	// 1 if the send_here wait is actually
-				// due to a probe, and not a waiting
-				// sender but a waiting probe
-  
-  unsigned int recv_here:7;	 // if non-zero, this is the "pc" for
-				 // the receiver to be used to wake up
-				 // the receiving process
-  
-  unsigned int receiver_probe:1; // receiver is probing and waiting as
-				 // a result, but not blocked on a
-				 // receive
-
-  unsigned int fragmented:1;	// have to simulate this at a lower
-				// level of abstraction since pieces
-				// of the channel are accessed
-
-  unsigned int frag_st:2;	// send/recv, send_up/recv_up, or
-				// send_rest/recv_rest
-  unsigned int ufrag_st:8;	// micro-state within frag state
-
-  struct iHashtable *fH;	// fragment hash table
-  Channel *ct;			// channel type
-  ActId *inst_id;		// instance
-
-  
-  int len;
-  expr_multires data, data2;  	// data: used when the receiver is
-				// waiting for sender; data2 used when
-				// sender arrives before receive is posted.
-  WaitForOne *w;
-  WaitForOne *probe;		// probe wake-up
-};
-
-struct extra_state_alloc {
-  void *space;
-  int sz;
-};
 
 #define MAX_LOCAL_PCS (SIM_EV_MAX+1)
 
@@ -111,12 +71,11 @@ public:
   BigInt *getInt (int x);
   void setInt (int x, BigInt &v);
   int getBool (int x);
+  inline bool isSpecialBool (int x) { return bitset_tst (bits, 3*x+2); }
+  void mkSpecialBool (int x) { bitset_set (bits, 3*x+2); }
   void setBool (int x, int v);
   act_channel_state *getChan (int x);
-
-  void gStall (SimDES *s) { gshared->AddObject (s); }
-  void gRemove (SimDES *s) { gshared->DelObject (s); }
-  void gWakeup () { gshared->Notify (MAX_LOCAL_PCS); }
+  int numChans () { return nchans; }
 
   void *allocState (int sz);
   
@@ -132,9 +91,6 @@ private:
   int nchans;			/* numchannels */
 
   list_t *extra_state;		/* any extra state needed */
-
-  /*--- what about other bits of state?! ---*/
-  WaitForOne *gshared;
 };
 
 
@@ -187,6 +143,10 @@ public:
   inline const char *isBreakPt (int type, int idx);
   void msgPrefix (FILE *fp = NULL);
 
+  void sWakeup() { _shared->Notify (MAX_LOCAL_PCS); }
+  void sStall () { _shared->AddObject (this); }
+  void sRemove() { _shared->DelObject (this); }
+
 protected:
   state_counts _o;		/* my state offsets for all local
 				   state */
@@ -201,11 +161,14 @@ protected:
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
   int *_abs_port_int;
+
+  WaitForOne *_shared;
 };
 
 class ChpSimGraph;
 class ChpSim;
 class PrsSim;
+class XyceSim;
 
 /*
  * Core simulation engine. 
@@ -236,6 +199,7 @@ class ActSimCore {
 
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
+  stateinfo_t *getsi(Process *p) { return sp->getStateInfo (p); }
 
   int getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width = NULL);
   int getLocalOffset (act_connection *c, stateinfo_t *si, int *type, int *width = NULL);
@@ -255,10 +219,13 @@ class ActSimCore {
 				   int *offset_i, int *offset_b);
 
   act_connection *getConnFromOffset (Process *p, int off, int type, int *dy);
-  
+
+#if 0  
   void gStall (SimDES *s) { state->gStall (s); }
   void gRemove (SimDES *s) { state->gRemove (s); }
   void gWakeup () { state->gWakeup(); }
+#endif
+
   void incFanout (int off, int type, SimDES *who);
   int numFanout (int off, int type) { if (type == 0) return nfo[off]; else return nfo[off+nint_start];
 }
@@ -279,6 +246,9 @@ class ActSimCore {
   void setWarning (int v) { _on_warning = v; }
   inline int onWarning() { return _on_warning; }
 
+  void registerFragmented (Channel *c);
+  ChanMethods *getFragmented (Channel *c);
+
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
 
@@ -286,7 +256,7 @@ class ActSimCore {
     double d;
     unsigned long val;
 
-    if (_sim_rand == 0) {
+    if (_sim_rand == 0 || delay == 0) {
       return delay;
     }
     else if (_sim_rand == 1) {
@@ -317,6 +287,8 @@ protected:
   struct iHashtable *pmap;	/* map from process pointer to
 				   prssimgraph */
 
+  struct pHashtable *chan;	// compiled channel methods table
+
   ActInstTable I;		/* instance map */
 
   unsigned int root_is_ns:1;	/* root is the global namespace? */
@@ -330,6 +302,7 @@ protected:
   
   Process *_curproc;		/* current process, if any */
   ActId *_curinst;		/* current instance path, if any */
+  ActId *_cursuffix;
   state_counts _curoffset;	/* offset of parent process */
   stateinfo_t *_cursi;		/* current state info */
   ActInstTable *_curI;		/* current inst table */
@@ -337,6 +310,8 @@ protected:
   int *_cur_abs_port_bool;	/* index of ports: absolute scale */
   int *_cur_abs_port_chan;
   int *_cur_abs_port_int;
+
+  list_t *_chp_sim_objects;	/* used for reset sync wakeup */
   
   
   stateinfo_t *_rootsi;		/* root stateinfo; needed for globals */
@@ -351,9 +326,16 @@ protected:
   ChpSim *_add_chp (act_chp *c);
   ChpSim *_add_hse (act_chp *c);
   ActSimObj *_add_dflow (act_dataflow *c);
-  PrsSim *_add_prs (act_prs *c, act_spec *);
+  PrsSim *_add_prs (act_prs *c);
+  XyceSim *_add_xyce ();
+  void _add_spec (ActSimObj *, act_spec *);
+  void _check_add_spec (const char *name, InstType *it, ActSimObj *obj);
   void _check_fragmentation (ChpSim *);
   void _check_fragmentation (PrsSim *);
+  void _check_fragmentation (XyceSim *);
+
+  void _add_timing_fork (int root, int a, int b, int *extra);
+  void _add_excl (int type, int *ids, int sz);
 
   /*-- returns the current level selected --*/
   int _getlevel ();
@@ -449,6 +431,9 @@ inline const char *ActSimObj::isBreakPt (int type, int offset)
     return NULL;
   }
 }
+
+Act *actsim_Act();
+Process *actsim_top();
 
 
 #endif /* __ACT_SIM_H__ */

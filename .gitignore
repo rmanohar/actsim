@@ -7,3 +7,5 @@ i386_*
 x86_64_*
 arm*
 .actsim_history
+config.mk
+config_pkg.h

@@ -22,6 +22,7 @@
 #include "actsim.h"
 #include "chpsim.h"
 #include "prssim.h"
+#include "xycesim.h"
 
 /*
 
@@ -67,6 +68,7 @@ ActSimCore::ActSimCore (Process *p)
   a = ActNamespace::Act();
   map = ihash_new (8);
   pmap = ihash_new (8);
+  chan = NULL;
   I.H = NULL;
   I.obj = NULL;
 
@@ -139,9 +141,13 @@ ActSimCore::ActSimCore (Process *p)
   _sim_rand = 0;
   _prs_sim_mode = 0;
   _on_warning = 0;
+
+  _chp_sim_objects = list_new ();
   
   _rootsi = si;
+  
   _initSim();
+  
 }
 
 static void _delete_sim_objs (ActInstTable *I, int del)
@@ -207,6 +213,17 @@ ActSimCore::~ActSimCore()
     ihash_free (pmap);
   }
 
+  if (chan) {
+    phash_iter_t iter;
+    phash_bucket_t *b;
+    phash_iter_init (chan, &iter);
+    while ((b = phash_iter_next (chan, &iter))) {
+      ChanMethods *ch = (ChanMethods *)b->v;
+      delete ch;
+    }
+    phash_free (chan);
+  }
+
   if (state) {
     delete state;
   }
@@ -229,6 +246,9 @@ ActSimCore::~ActSimCore()
   if (hfo) {
     ihash_free (hfo);
   }
+
+  /*-- chp objects --*/
+  list_free (_chp_sim_objects);
 
   /*-- instance tables --*/
   _delete_sim_objs (&I, 0);
@@ -275,6 +295,8 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+
+  list_append (_chp_sim_objects, x);
 
   return x;
 }
@@ -328,7 +350,7 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   return x;
 }
 
-PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
+PrsSim *ActSimCore::_add_prs (act_prs *p)
 {
 #if 0  
   printf ("add-prs-inst: ");
@@ -349,7 +371,7 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   }
   else {
     b = ihash_add (pmap, (long)_curproc);
-    pg = PrsSimGraph::buildPrsSimGraph (this, p, spec);
+    pg = PrsSimGraph::buildPrsSimGraph (this, p);
     b->v = pg;
   }
   /* need prs simulation graph */
@@ -362,6 +384,280 @@ PrsSim *ActSimCore::_add_prs (act_prs *p, act_spec *spec)
   return x;
 }
 
+XyceSim *ActSimCore::_add_xyce ()
+{
+  XyceSim *x = new XyceSim (this, _curproc);
+  x->setName (_curinst);
+  x->setOffsets (&_curoffset);
+  x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+
+  return x;
+}
+
+
+/*
+ *      sc = Scope of parent 
+ *  parent = root of identifier
+ *      tl = tail pointer of parent id
+ *    rest = additional bit of ID to be appended
+ *
+ *  Returns canonical pointer in "sc" scope of "parent . rest",
+ *  assuming "tl" is the parent tail pointer
+ *
+ */
+static act_connection *_parent_canonical (Scope *sc,
+					  ActId *parent, ActId *tl, ActId *rest)
+{
+  act_connection *ret;
+  
+  if (tl) {
+    tl->Append (rest);
+    ret = parent->Canonical (sc);
+    tl->prune ();
+  }
+  else {
+    ret = rest->Canonical (sc);
+  }
+  return ret;
+}
+
+
+void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
+{
+  stateinfo_t *si;
+  ActId *p_tl;
+  int type;
+  A_DECL (int, idx);
+  
+  if (!s) return;
+
+  si = sp->getStateInfo (obj->getProc());
+  /* XXX: this can happen for wiring processes? */
+  Assert (si, "No stateinfo found?");
+
+  if (_cursuffix) {
+    p_tl = _cursuffix->Tail();
+  }
+  else {
+    p_tl = NULL;
+  }
+
+  Scope *sc = si->bnl->cur;
+  A_INIT (idx);
+  
+  while (s) {
+    if (ACT_SPEC_ISTIMING (s)) {
+      InstType *it[3];
+      Array *aref[3];
+      act_connection *r, *a, *b;
+      ActId *tl[2];
+      Arraystep *as[2];
+      int roff, aoff, boff;
+
+      for (int i=0; i < 3; i++) {
+	if (p_tl) {
+	  p_tl->Append (s->ids[i]);
+	  it[i] = sc->FullLookup (_cursuffix, &aref[i]);
+	  p_tl->prune();
+	}
+	else {
+	  it[i] = sc->FullLookup (s->ids[i], &aref[i]);
+	}
+	Assert (it[i], "Could not find type for spec?");
+      }
+
+      if (it[0]->arrayInfo() && (!aref[0] || !aref[0]->isDeref())) {
+	fprintf (stderr, "Timing constraint error for `%s'\n",
+		 obj->getProc()->getName());
+	fprintf (stderr, "  LHS `");
+	s->ids[0]->Print (stderr);
+	fprintf (stderr, "' is an array.\n");
+	s = s->next;
+	continue;
+      }
+      
+      r = _parent_canonical (sc, _cursuffix, p_tl, s->ids[0]);
+      roff = getLocalOffset (r, si, &type, NULL);
+      Assert (type == 0, "Non-boolean in timing spec");
+      roff = obj->getGlobalOffset (roff, 0);
+
+      for (int i=1; i < 3; i++) {
+	if (it[i]->arrayInfo() && (!aref[i] || !aref[i]->isDeref())) {
+	  if (aref[i]) {
+	    as[i-1] = it[i]->arrayInfo()->stepper (aref[i]);
+	  }
+	  else {
+	    as[i-1] = it[i]->arrayInfo()->stepper ();
+	  }
+	  tl[i-1] = s->ids[i]->Tail();
+	}
+	else {
+	  as[i-1] = NULL;
+	  tl[i-1] = NULL;
+	}
+      }
+
+      if (!as[0] && !as[1]) {
+	a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
+	b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
+
+	aoff = getLocalOffset (a, si, &type, NULL);
+	Assert (type == 0, "Non-boolean in timing spec");
+	aoff = obj->getGlobalOffset (aoff, 0);
+	boff = getLocalOffset (b, si, &type, NULL);
+	Assert (type == 0, "Non-boolean in timing spec");
+	boff = obj->getGlobalOffset (boff, 0);
+
+	_add_timing_fork (roff, aoff, boff, s->extra);
+      }
+      else {
+	for (int i=1; i < 3; i++) {
+	  if (aref[i]) {
+	    tl[i-1]->setArray (NULL);
+	  }
+	}
+
+	while ((as[0] && !as[0]->isend()) ||
+	       (as[1] && !as[1]->isend())) {
+	  Array *ta[2];
+
+	  for (int i=1; i < 3; i++) {
+	    if (as[i-1]) {
+	      ta[i-1] = as[i-1]->toArray();
+	      tl[i-1]->setArray (ta[i-1]);
+	    }
+	    else {
+	      ta[i-1] = NULL;
+	    }
+	  }
+
+	  a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
+	  b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
+	  
+	  aoff = getLocalOffset (a, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  aoff = obj->getGlobalOffset (aoff, 0);
+	  boff = getLocalOffset (b, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  boff = obj->getGlobalOffset (boff, 0);
+
+	  _add_timing_fork (roff, aoff, boff, s->extra);
+
+	  for (int i=1; i < 3; i++) {
+	    if (ta[i-1]) {
+	      delete ta[i-1];
+	    }
+	  }
+	  
+	  if (as[1]) {
+	    as[1]->step();
+	    if (as[1]->isend()) {
+	      if (as[0]) {
+		as[0]->step();
+		if (!as[0]->isend()) {
+		  delete as[1];
+		  if (aref[2]) {
+		    as[1] = it[2]->arrayInfo()->stepper (aref[2]);
+		  }
+		  else {
+		    as[1] = it[2]->arrayInfo()->stepper ();
+		  }
+		}
+	      }
+	    }
+	  }
+	  else {
+	    if (as[0]) {
+	      as[0]->step();
+	    }
+	  }
+	}
+
+	if (as[0]) {
+	  delete as[0];
+	}
+	if (as[1]) {
+	  delete as[1];
+	}
+
+	for (int i=1; i < 3; i++) {
+	  if (tl[i-1]) {
+	    tl[i-1]->setArray (aref[i]);
+	  }
+	}
+      }
+    }
+    else {
+      const char *tmp = act_spec_string (s->type);
+      if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0) {
+	/* exclusive hi/lo list */
+	for (int i=0; i < s->count; i++) {
+	  Array *aref;
+	  InstType *it;
+	  Arraystep *astep;
+	  int off;
+	  act_connection *cx;
+
+	  if (p_tl) {
+	    p_tl->Append (s->ids[i]);
+	    it = sc->FullLookup (_cursuffix, &aref);
+	    p_tl->prune();
+	  }
+	  else {
+	    it = sc->FullLookup (s->ids[i], &aref);
+	  }
+
+	  astep = NULL;
+	  if (it->arrayInfo() && (!aref || !aref->isDeref())) {
+	    if (aref) {
+	      astep = it->arrayInfo()->stepper (aref);
+	    }
+	    else {
+	      astep = it->arrayInfo()->stepper ();
+	    }
+	  }
+	  if (!astep) {
+	    cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	    off = getLocalOffset (cx, si, &type, NULL);
+	    Assert (type == 0, "Non-boolean in excl");
+	    off = obj->getGlobalOffset (off, 0);
+	    A_NEW (idx, int);
+	    A_NEXT (idx) = off;
+	    A_INC (idx);
+	  }
+	  else {
+	    ActId *tl = s->ids[i]->Tail();
+	    while (!astep->isend()) {
+	      Array *a = astep->toArray();
+	      tl->setArray (a);
+	      cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	      off = getLocalOffset (cx, si, &type, NULL);
+	      Assert (type == 0, "Non-boolean in excl");
+	      off = obj->getGlobalOffset (off, 0);
+	      A_NEW (idx, int);
+	      A_NEXT (idx) = off;
+	      A_INC (idx);
+	      tl->setArray (NULL);
+	      delete a;
+	      astep->step();
+	    }
+	  }
+	}
+	if (strcmp (tmp, "mk_exclhi") == 0) {
+	  _add_excl (1, idx, A_LEN (idx));
+	}
+	else {
+	  _add_excl (0, idx, A_LEN (idx));
+	}
+	A_LEN_RAW (idx) = 0;
+      }
+    }
+    s = s->next;
+  }
+  A_FREE (idx);
+}
+
+  
 
 void ActSimCore::_check_fragmentation (ChpSim *c)
 {
@@ -371,6 +667,44 @@ void ActSimCore::_check_fragmentation (ChpSim *c)
 void ActSimCore::_check_fragmentation (PrsSim *p)
 {
   PrsSimGraph::checkFragmentation (this, p, _curproc->getlang()->getprs());
+}
+
+void ActSimCore::_check_fragmentation (XyceSim *x)
+{
+  int i;
+  stateinfo_t *si = x->getSI();
+
+  Assert (si, "Hmm");
+  for (int i=0; i < A_LEN (si->bnl->ports); i++) {
+    if (si->bnl->ports[i].omit) continue;
+
+    ActId *tmp = si->bnl->ports[i].c->toid();
+
+    if (!tmp->isFragmented (si->bnl->cur)) continue;
+
+    ActId *un = tmp->unFragment (si->bnl->cur);
+    int type;
+    int loff = getLocalOffset (un, si, &type);
+
+    if (type == 2 || type == 3) {
+      loff = x->getGlobalOffset (loff, 2);
+      act_channel_state *ch = getChan (loff);
+
+      if (type == 2) {
+	/* input */
+	ch->fragmented |= 1;
+      }
+      else {
+	ch->fragmented |= 2;
+	/* output */
+      }
+      sim_recordChannel (this, x, un);
+      registerFragmented (ch->ct);
+      ch->cm = getFragmented (ch->ct);
+    }
+    delete un;
+    delete tmp;
+  }
 }
 
 int ActSimCore::_getlevel ()
@@ -418,11 +752,13 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   else if (l->getprs() && lev == ACT_MODEL_PRS) {
     /* prs */
     PrsSim *x;
-    _check_fragmentation ((x = _add_prs (l->getprs(), l->getspec())));
+    _check_fragmentation ((x = _add_prs (l->getprs())));
     _curI->obj = x;
   }
   else if (lev == ACT_MODEL_DEVICE) {
-    fatal_error ("Xyce needs to be integrated");
+    XyceSim *x;
+    _check_fragmentation ((x = _add_xyce ()));
+    _curI->obj = x;
   }
   else {
     /* substitute a less detailed model, if possible */
@@ -476,7 +812,78 @@ void ActSimCore::_add_language (int lev, act_languages *l)
     }
   }
   if (_curI->obj) {
+    _cursuffix = NULL;
+    _add_spec (_curI->obj, l->getspec());
     _curI->obj->computeFanout();
+  }
+}
+
+void ActSimCore::_check_add_spec (const char *name, InstType *it,
+				  ActSimObj *obj) 
+{
+  UserDef *u;
+  if (!TypeFactory::isUserType (it)) {
+    return;
+  }
+  u = dynamic_cast<UserDef *> (it->BaseType());
+  Arraystep *as;
+  if (it->arrayInfo()) {
+    as = new Arraystep (it->arrayInfo());
+  }
+  else {
+    as = NULL;
+  }
+  
+  ActId *tmpid, *previd;
+
+  if (!_cursuffix) {
+    _cursuffix = new ActId (name);
+    tmpid = _cursuffix;
+    previd = NULL;
+  }
+  else {
+    tmpid = _cursuffix->Tail();
+    tmpid->Append (new ActId (name));
+    previd = tmpid;
+    tmpid = tmpid->Rest();
+  }
+  
+  do {
+    if (as) {
+      tmpid->setArray (as->toArray ());
+    }
+
+    /* _cursuffix has the name */
+    if (u->getlang() && u->getlang()->getspec()) {
+      _add_spec (obj, u->getlang()->getspec());
+    }
+    for (int i=0; i < u->getNumPorts(); i++) {
+      InstType *it = u->getPortType (i);
+      if (TypeFactory::isUserType (it)) {
+	_check_add_spec (u->getPortName (i), it, obj);
+      }
+    }
+
+    if (as) {
+      Array *atmp = tmpid->arrayInfo();
+      delete atmp;
+      tmpid->setArray (NULL);
+    }
+    if (as) {
+      as->step();
+    }
+  } while (as && !as->isend());
+
+  if (previd) {
+    previd->prune();
+    delete tmpid;
+  }
+  else {
+    delete _cursuffix;
+    _cursuffix = NULL;
+  }
+  if (as) {
+    delete as;
   }
 }
 
@@ -503,6 +910,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myI = _curI;
 
   /* -- increment cur offset after allocating all the items -- */
+  if (!_cursi) {
+    return;
+  }
   _curoffset.addVar (_cursi->local);
 
   ActInstiter it(sc);
@@ -534,15 +944,13 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	previd = NULL;
       }
       else {
-	tmpid = _curinst;
-	while (tmpid->Rest()) { tmpid = tmpid->Rest(); }
+	tmpid = _curinst->Tail();
 	tmpid->Append (new ActId (vx->getName()));
 	previd = tmpid;
 	tmpid = tmpid->Rest();
       }
 
       si = sp->getStateInfo (x);
-      Assert (si, "What?");
       _cursi = si;
 
       do {
@@ -582,18 +990,16 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	}
 	for (int i=0; i < A_LEN (bnl->chpports); i++) {
 	  if (bnl->chpports[i].omit == 0) {
-	    ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
-	    act_booleanized_var_t *v;
-	    Assert (xb, "What?");
-	    v = (act_booleanized_var_t *)xb->v;
-	    if (v->ischan) {
+	    ValueIdx *lvx = bnl->chpports[i].c->getvx();
+	    Assert (lvx, "What?");
+	    if (TypeFactory::isChanType (lvx->t)) {
 	      chpports_exist_chan++;
 	    }
-	    else if (v->isint) {
-	      chpports_exist_int++;
+	    else if (TypeFactory::isBoolType (lvx->t)) {
+	      chpports_exist_bool++;
 	    }
 	    else {
-	      chpports_exist_bool++;
+	      chpports_exist_int++;
 	    }
 	  }
 	}
@@ -648,14 +1054,18 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  for (int i=0; i < A_LEN (bnl->chpports); i++) {
 	    if (bnl->chpports[i].omit) continue;
 	    Assert (iportchp < A_LEN (mynl->instchpports), "What?");
+	    ValueIdx *lvx = bnl->chpports[i].c->getvx();
+	    Assert (lvx, "Hmm");
 
-	    ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
-	    act_booleanized_var_t *v;
-	    Assert (xb, "What?");
-	    v = (act_booleanized_var_t *)xb->v;
 	    act_connection *c = mynl->instchpports[iportchp];
 	    iportchp++;
-	    if (v->used) continue; /* already covered */
+
+            ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
+	    if (xb) {
+	      act_booleanized_var_t *v;
+	      v = (act_booleanized_var_t *)xb->v;
+	      if (v->used) continue; /* already covered */
+	    }
 
 	    int type;
 	    int off = getLocalOffset (c, mysi, &type);
@@ -687,14 +1097,14 @@ void ActSimCore::_add_all_inst (Scope *sc)
 		off += myoffset.numAllBools();
 	      }
 	    }
-	    if (v->ischan) {
+	    if (TypeFactory::isChanType (lvx->t)) {
 	      _cur_abs_port_chan[ichan++] = off;
 	    }
-	    else if (v->isint) {
-	      _cur_abs_port_int[iint++] = off;
+	    else if (TypeFactory::isBoolType (lvx->t)) {
+	      _cur_abs_port_bool[ibool++] = off;
 	    }
 	    else {
-	      _cur_abs_port_bool[ibool++] = off;
+	      _cur_abs_port_int[iint++] = off;
 	    }
 	  }
 	}
@@ -735,7 +1145,10 @@ void ActSimCore::_add_all_inst (Scope *sc)
 #endif
 
 	_add_language (lev, x->getlang());
-	_add_all_inst (x->CurScope());
+	if (lev != ACT_MODEL_DEVICE) {
+	  /* a device level model applies to the *entire* sub-tree */
+	  _add_all_inst (x->CurScope());
+	}
 
 	if (as) {
 	  Array *atmp = tmpid->arrayInfo();
@@ -762,6 +1175,14 @@ void ActSimCore::_add_all_inst (Scope *sc)
   }
   Assert (iportbool == A_LEN (mynl->instports), "What?");
   Assert (iportchp == A_LEN (mynl->instchpports), "What?");
+
+  _cursuffix = NULL;
+  for (it = it.begin(); it != it.end(); it++) {
+    ValueIdx *vx = (*it);
+    if (!TypeFactory::isProcessType (vx->t)) {
+      _check_add_spec (vx->getName(), vx->t, myI->obj);
+    }
+  }
 }
 
 
@@ -774,6 +1195,7 @@ void ActSimCore::_initSim ()
   */
   _curproc = simroot;
   _curinst = NULL;
+  _cursuffix = NULL;
   _cursi = sp->getStateInfo (_curproc);
   _curoffset = sp->getGlobals();
   _curI = &I;
@@ -842,6 +1264,10 @@ void ActSimCore::_initSim ()
     _cur_abs_port_chan[i] = i + _curoffset.numChans();
   }
   _curoffset.addChan (i);
+
+  if (_getlevel() == ACT_MODEL_DEVICE) {
+    warning ("Modeling the entire design at device level is unsupported; use a circuit simulator instead!");
+  }
 
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
@@ -1025,6 +1451,7 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
   _W = NULL;
   _B = NULL;
   name = NULL;
+  _shared = new WaitForOne(0);
 }
 
 
@@ -1135,8 +1562,8 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
 
 void ActSimObj::propagate ()
 {
-  /* by default, just wake up all globally stalled processs */
-  _sc->gWakeup ();
+  /* by default, wake me up if stalled on something shared */
+  sWakeup ();
 }
 
 
@@ -1155,6 +1582,7 @@ ActSimObj::~ActSimObj()
     ihash_free (_W);
   }
   delete name;
+  delete _shared;
 }
 
 
@@ -1228,16 +1656,77 @@ void ActSimObj::msgPrefix (FILE *fp)
     fp = stdout;
   }
   fprintf (fp, "[%20lu] <", CurTimeLo());
-  name->Print (fp);
+  if (name) {
+    name->Print (fp);
+  }
   fprintf (fp, ">  ");
+}
+
+bool _match_oneprs (Event *e)
+{
+  if (dynamic_cast <OnePrsSim *> (e->getObj())) {
+    return true;
+  }
+  return false;
 }
 
 void ActSim::runInit ()
 {
   ActNamespace *g = ActNamespace::Global();
   act_initialize *x;
-  /* -- we add the initial events -- */
+  int fragmented_set = 0;
+  listitem_t *li;
+
+  setMode (1);
+
+  XyceActInterface::getXyceInterface()->initXyce();
+  
+  /*-- reset channels that are fragmented --*/
+  for (int i=0; i < state->numChans(); i++) {
+    act_channel_state *ch = state->getChan (i);
+    if ((ch->fragmented & 0x1) != (ch->fragmented >> 1)) {
+      if (ch->fragmented & 0x1) {
+	/* input fragmented, so do sender reset protocol */
+	if (ch->cm->runMethod (this, ch, ACT_METHOD_SEND_INIT, 0) != -1) {
+	  warning ("Failed to initialize fragmented channel!");
+	  fprintf (stderr, "   Type: %s; inst: `", ch->ct->getName());
+	  ch->inst_id->Print (stderr);
+	  fprintf (stderr, "'\n");
+	}
+	fragmented_set = 1;
+      }
+      else {
+	/* output fragmented, so do receiver fragmented protocol */
+	if (ch->cm->runMethod (this, ch, ACT_METHOD_RECV_INIT, 0) != -1) {
+	  warning ("Failed to initialize fragmented channel!");
+	  fprintf (stderr, "   Type: %s; inst: `", ch->ct->getName());
+	  ch->inst_id->Print (stderr);
+	  fprintf (stderr, "'\n");
+	}
+	fragmented_set = 1;
+      }
+    }
+  }
+
+  /* -- initialize blocks -- */
   if (!g->getlang() || !g->getlang()->getinit()) {
+    if (fragmented_set) {
+      int count = 0;
+      while (SimDES::matchPendingEvent (_match_oneprs) && count < 100) {
+	count++;
+	if (SimDES::AdvanceTime (10) != NULL) {
+	  warning ("breakpoint?");
+	}
+      }
+      if (count == 100) {
+	warning ("Pending production rule events during reset phase?");
+      }
+    }
+    setMode (0);
+    for (li = list_first (_chp_sim_objects); li; li = list_next (li)) {
+      ChpSim *cx = (ChpSim *) list_value (li);
+      cx->sWakeup ();
+    }
     return;
   }
   int num = 1;
@@ -1282,9 +1771,19 @@ void ActSim::runInit ()
 	lia[i] = list_next (lia[i]);
 	
 	more_steps = 1;
-	
-	if (SimDES::AdvanceTime (100) != NULL) {
-	  warning ("More events?");
+
+	int count = 0;
+	do {
+	  if (SimDES::AdvanceTime (100) != NULL) {
+	    warning ("breakpoint?");
+	  }
+	  count++;
+	  if (!SimDES::matchPendingEvent (_match_oneprs)) {
+	    break;
+	  }
+	} while (count < 100);
+	if (count == 100) {
+	  warning ("Pending production rule events during reset phase?");
 	}
       }
     }
@@ -1302,6 +1801,12 @@ void ActSim::runInit ()
 	  
       lia[i] = list_next (lia[i]);
     }
+  }
+  FREE (lia);
+  setMode (0);
+  for (li = list_first (_chp_sim_objects); li; li = list_next (li)) {
+    ChpSim *cx = (ChpSim *) list_value (li);
+    cx->sWakeup ();
   }
 }
 
@@ -1335,6 +1840,48 @@ int ActSimCore::isFiltered (const char *s)
   }
 }
 
+
+void ActSimCore::registerFragmented (Channel *c)
+{
+  phash_bucket_t *b;
+  Assert (c, "Hmm");
+  if (!chan) {
+    chan = phash_new (4);
+  }
+  b = phash_lookup (chan, c);
+  if (b) {
+    return;
+  }
+  b = phash_add (chan, c);
+  b->v = new ChanMethods (c);
+}
+
+ChanMethods *ActSimCore::getFragmented (Channel *c)
+{
+  phash_bucket_t *b;
+  Assert (c, "Hmm");
+  if (!chan) {
+    chan = phash_new (4);
+  }
+  b = phash_lookup (chan, c);
+  if (b) {
+    return (ChanMethods *)b->v;
+  }
+  return NULL;
+}
+
+void ActSimCore::_add_timing_fork (int root, int a, int b, int *extra)
+{
+  /* XXX: FIXME */
+  return;
+}
+
+void ActSimCore::_add_excl (int type, int *ids, int sz)
+{
+  /* XXX: FIXME */
+  return;
+}
+  
 
 /*-------------------------------------------------------------------------
  * Logging

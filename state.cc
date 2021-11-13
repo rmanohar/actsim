@@ -32,9 +32,9 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   nbools = bools;
   
   if (bools > 0) {
-    bits = bitset_new (bools*2);
+    bits = bitset_new (bools*3);
     for (int i=0; i < bools; i++) {
-      bitset_set (bits, 2*i+1);
+      bitset_set (bits, 3*i+1);
     }
   }
   else {
@@ -73,15 +73,15 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
       chans[i].ufrag_st = 0;
       chans[i].ct = NULL;
       chans[i].fH = NULL;
+      chans[i].cm = NULL;
+      chans[i]._dummy = NULL;
     }
   }
   else {
     chans = NULL;
   }
 
-  gshared = new WaitForOne (10);
   extra_state = list_new ();
-  
 }
 
 ActSimState::~ActSimState()
@@ -98,7 +98,6 @@ ActSimState::~ActSimState()
     }
     FREE (chans);
   }
-  delete gshared;
 
   for (listitem_t *li = list_first (extra_state); li; li = list_next (li)) {
     struct extra_state_alloc *s;
@@ -129,11 +128,11 @@ act_channel_state *ActSimState::getChan (int x)
 
 int ActSimState::getBool (int x)
 {
-  if (bitset_tst (bits, 2*x+1)) {
+  if (bitset_tst (bits, 3*x+1)) {
     /* X */
     return 2;
   }
-  if (bitset_tst (bits, 2*x)) {
+  if (bitset_tst (bits, 3*x)) {
     return 1;
   }
   else {
@@ -144,15 +143,15 @@ int ActSimState::getBool (int x)
 void ActSimState::setBool (int x, int v)
 {
   if (v == 1) {
-    bitset_set (bits, 2*x);
-    bitset_clr (bits, 2*x+1);
+    bitset_set (bits, 3*x);
+    bitset_clr (bits, 3*x+1);
   }
   else if (v == 0) {
-    bitset_clr (bits, 2*x);
-    bitset_clr (bits, 2*x+1);
+    bitset_clr (bits, 3*x);
+    bitset_clr (bits, 3*x+1);
   }
   else {
-    bitset_set (bits, 2*x+1);
+    bitset_set (bits, 3*x+1);
   }
 }
 

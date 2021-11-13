@@ -1,0 +1,27 @@
+import std;
+open std::channel;
+
+defproc src (a1of2! x)
+{
+  int i;
+  chp {
+     i := 0;
+    *[ i < 100 -> x!(i & 1); i := i + 1; log("sent!") ]
+  }
+}
+
+defproc sink (a1of2? x)
+{
+  bool ax, bx;
+  prs {
+    x.t => ax+
+    x.f => bx+
+    ax | bx => x.a+
+  }
+}
+
+defproc test ()
+{
+   src s;
+   sink t(s.x);
+}

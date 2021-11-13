@@ -91,7 +91,7 @@ public:
   prssim_stmt *getRules () { return _rules; }
 
 
-  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, act_spec *);
+  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs_lang_t *);
   static void checkFragmentation (ActSimCore *, PrsSim *, ActId *);
@@ -129,7 +129,6 @@ class PrsSim : public ActSimObj {
   int varSend (int pc, int wakeup, int id, BigInt &v);
   int varRecv (int pc, int wakeup, int id, BigInt *v);
 
-  ActSimCore *_sc;
   PrsSimGraph *_g;
   list_t *_sim;			// simulation objects
 };
@@ -144,7 +143,7 @@ private:
   int eval (prssim_expr *);
 
 public:
-  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; }
+  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; _pending = NULL; }
   int Step (int ev_type);
   void propagate ();
   void printName ();
