@@ -495,7 +495,9 @@ int ChpSim::computeOffset (struct chpsimderef *d)
   int x = d->range->Offset (d->idx);
   if (x == -1) {
     fprintf (stderr, "In: ");
-    getName()->Print (stderr);
+    if (getName()) {
+      getName()->Print (stderr);
+    }
     fprintf (stderr, "  [ %s ]\n", _proc ? _proc->getName() : "-global-");
     fprintf (stderr, "\tAccessing index ");
     for (int i=0; i < d->range->nDims(); i++) {
@@ -1141,7 +1143,9 @@ int ChpSim::Step (int ev_type)
     {
       char buf[10240];
       buf[0] = '\0';
-      name->sPrint (buf, 10240);
+      if (name) {
+	name->sPrint (buf, 10240);
+      }
       if (_sc->isFiltered (buf)) {
 	int int_is_zero = 0;
 	int int_type = 0;
