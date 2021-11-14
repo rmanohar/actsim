@@ -777,6 +777,7 @@ int ChpSim::Step (int ev_type)
   printf ("> ");
 #endif
 
+  int my_loff;
   /*--- simulate statement until there's a blocking scenario ---*/
   switch (stmt->type) {
   case CHPSIM_FORK:
@@ -832,16 +833,17 @@ int ChpSim::Step (int ev_type)
 #endif
     pc = _updatepc (pc);
     off = computeOffset (&stmt->u.assign.d);
+    my_loff = off;
     if (stmt->u.assign.isint == 0) {
       off = getGlobalOffset (off, 0);
 #if 0      
       printf (" [glob=%d]", off);
 #endif
       verb = 0;
-      if ((nm = isWatched (0, off))) {
+      if ((nm = isWatched (0, my_loff))) {
 	verb = 1;
       }
-      if ((nm2 = isBreakPt (0, off))) {
+      if ((nm2 = isBreakPt (0, my_loff))) {
 	verb |= 2;
       }
       if (verb) {
@@ -870,10 +872,10 @@ int ChpSim::Step (int ev_type)
       v.toStatic ();
 
       verb = 0;
-      if ((nm = isWatched (1, off))) {
+      if ((nm = isWatched (1, my_loff))) {
 	verb = 1;
       }
-      if ((nm2 = isBreakPt (1, off))) {
+      if ((nm2 = isBreakPt (1, my_loff))) {
 	verb |= 2;
       }
       if (verb) {
@@ -1050,10 +1052,10 @@ int ChpSim::Step (int ev_type)
 	      printf (" [glob=%d]", off);
 #endif
 	      verb = 0;
-	      if ((nm = isWatched (0, off))) {
+	      if ((nm = isWatched (0, id))) {
 		verb = 1;
 	      }
-	      if ((nm2 = isBreakPt (0, off))) {
+	      if ((nm2 = isBreakPt (0, id))) {
 		verb |= 2;
 	      }
 	      if (verb) {
@@ -1079,10 +1081,10 @@ int ChpSim::Step (int ev_type)
 	      printf (" [glob=%d]", off);
 #endif
 	      verb = 0;
-	      if ((nm = isWatched (0, off))) {
+	      if ((nm = isWatched (1, id))) {
 		verb = 1;
 	      }
-	      if ((nm2 = isBreakPt (0, off))) {
+	      if ((nm2 = isBreakPt (1, id))) {
 		verb |= 2;
 	      }
 	      if (verb) {
@@ -1110,30 +1112,6 @@ int ChpSim::Step (int ev_type)
 	}
 	pc = _updatepc (pc);
 	_energy_cost += stmt->energy_cost;
-      }
-      verb = 0;
-      if ((nm = isWatched (0, off))) {
-	verb = 1;
-      }
-      if ((nm2 = isBreakPt (0, off))) {
-	verb |= 2;
-      }
-      if (verb) {
-	if (verb & 1) {
-	  msgPrefix ();
-	  if (rv) {
-	    printf ("%s : recv-blocked\n", nm);
-	  }
-	  else {
-	    printf ("%s : recv value: %lu (0x%lx)\n", nm, v.getVal (0),
-		    v.getVal (0));
-	  }
-	}
-	if (verb & 2) {
-	  msgPrefix ();
-	  printf ("*** breakpoint %s\n", nm2);
-	  _breakpt = 1;
-	}
       }
     }
     break;
