@@ -831,10 +831,10 @@ void PrsSim::setBool (int lid, int v)
   int verb;
 
   verb = 0;
-  if ((nm = isWatched (0, off))) {
+  if ((nm = isWatched (0, lid))) {
     verb = 1;
   }
-  if ((nm2 = isBreakPt (0, off))) {
+  if ((nm2 = isBreakPt (0, lid))) {
     verb |= 2;
   }
   if (verb) {
