@@ -1934,7 +1934,6 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_LSL:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.toStatic();
     l = l << r;
     break;
     
