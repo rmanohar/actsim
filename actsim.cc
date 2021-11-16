@@ -479,7 +479,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
       r = _parent_canonical (sc, _cursuffix, p_tl, s->ids[0]);
       roff = getLocalOffset (r, si, &type, NULL);
       Assert (type == 0, "Non-boolean in timing spec");
-      roff = obj->getGlobalOffset (roff, 0);
+      //roff = obj->getGlobalOffset (roff, 0);
 
       for (int i=1; i < 3; i++) {
 	if (it[i]->arrayInfo() && (!aref[i] || !aref[i]->isDeref())) {
@@ -503,12 +503,12 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 
 	aoff = getLocalOffset (a, si, &type, NULL);
 	Assert (type == 0, "Non-boolean in timing spec");
-	aoff = obj->getGlobalOffset (aoff, 0);
+	//aoff = obj->getGlobalOffset (aoff, 0);
 	boff = getLocalOffset (b, si, &type, NULL);
 	Assert (type == 0, "Non-boolean in timing spec");
-	boff = obj->getGlobalOffset (boff, 0);
+	//boff = obj->getGlobalOffset (boff, 0);
 
-	_add_timing_fork (roff, aoff, boff, s->extra);
+	_add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
       }
       else {
 	for (int i=1; i < 3; i++) {
@@ -536,12 +536,12 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  
 	  aoff = getLocalOffset (a, si, &type, NULL);
 	  Assert (type == 0, "Non-boolean in timing spec");
-	  aoff = obj->getGlobalOffset (aoff, 0);
+	  //aoff = obj->getGlobalOffset (aoff, 0);
 	  boff = getLocalOffset (b, si, &type, NULL);
 	  Assert (type == 0, "Non-boolean in timing spec");
-	  boff = obj->getGlobalOffset (boff, 0);
+	  //boff = obj->getGlobalOffset (boff, 0);
 
-	  _add_timing_fork (roff, aoff, boff, s->extra);
+	  _add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
 
 	  for (int i=1; i < 3; i++) {
 	    if (ta[i-1]) {
@@ -1870,15 +1870,258 @@ ChanMethods *ActSimCore::getFragmented (Channel *c)
   return NULL;
 }
 
-void ActSimCore::_add_timing_fork (int root, int a, int b, int *extra)
+struct iHashtable *ActTimingConstraint::THash  = NULL;
+
+void ActTimingConstraint::Init ()
 {
-  /* XXX: FIXME */
+  if (THash == NULL) {
+    THash = ihash_new (8);
+  }
+}
+
+#define TIMING_TRIGGER(x)  (((v) == 1 && f[x].up) || ((v) == 0 && f[x].dn))
+
+void ActTimingConstraint::update (int sig, int v)
+{
+  if (n[0] == sig) {
+    if (TIMING_TRIGGER (0)) {
+      state = ACT_TIMING_START;
+    }
+    else {
+      state = ACT_TIMING_INACTIVE;
+    }
+  }
+  if (n[1] == sig) {
+    if (state != ACT_TIMING_INACTIVE && TIMING_TRIGGER (1)) {
+      if (state == ACT_TIMING_PENDING) {
+	printf ("WARNING: timing constraint ");
+	Print (stdout);
+	printf (" violated!\n");
+	printf (">> time: %lu\n", ActSimDES::CurTimeLo());
+	state = ACT_TIMING_INACTIVE;
+      }
+      else if (state == ACT_TIMING_START) {
+	if (margin != 0) {
+	  ts = ActSimDES::CurTimeLo();
+	  state = ACT_TIMING_PENDINGDELAY;
+	}
+	else {
+	  /* if unstable, set state to inactive */
+	}
+      }
+      else if (state == ACT_TIMING_PENDINGDELAY) {
+	/* update time */
+	ts = ActSimDES::CurTimeLo();
+      }
+    }
+  }
+  if (n[2] == sig) {
+    if (state != ACT_TIMING_INACTIVE && TIMING_TRIGGER (2)) {
+      if (state == ACT_TIMING_PENDINGDELAY) {
+	if (ts + margin > ActSimDES::CurTimeLo()) {
+	  printf ("WARNING: timing constraint ");
+	  Print (stdout);
+	  printf (" violated!\n");
+	  printf (">> time: %lu\n", ActSimDES::CurTimeLo());
+	  state = ACT_TIMING_INACTIVE;
+	}
+      }
+      else {
+	state = ACT_TIMING_PENDING;
+      }
+    }
+  }
+}
+
+
+ActTimingConstraint *ActTimingConstraint::getNext (int sig)
+{
+  if (sig == n[0]) {
+    return nxt[0];
+  }
+  else if (sig == n[1]) {
+    return nxt[1];
+  }
+  else if (sig == n[2]) {
+    return nxt[2];
+  }
+  else {
+    return NULL;
+  }
+}
+
+
+int ActTimingConstraint::isEqual (ActTimingConstraint *t)
+{
+  if (t->n[0] == n[0] &&  t->n[1] == n[1] && t->n[2] == n[2] &&
+      margin == t->margin) {
+    return 1;
+  }
+  return 0;
+}
+
+#define TIMING_CHAR(up,down)  ((up) ? ((down)  ? ' ' : '+') : ((down) ? '-' : '?'))
+
+void ActTimingConstraint::Print (FILE *fp)
+{
+  if (c[0] && c[1] && c[2]) {
+    ActId *id[3];
+    for (int i=0; i < 3; i++) {
+      id[i] = c[i]->toid();
+    }
+    fprintf (fp, " ");
+    id[0]->Print (fp);
+    fprintf (fp, "%c : ", TIMING_CHAR(f[0].up, f[0].dn));
+    id[1]->Print (fp);
+    fprintf (fp, "%c < [%d] ", TIMING_CHAR(f[1].up, f[1].dn), margin);
+    id[2]->Print (fp);
+    fprintf (fp, "%c", TIMING_CHAR(f[2].up, f[2].dn));
+    for (int i=0; i < 3; i++) {
+      delete id[i];
+    }
+  }
+  else {
+    fprintf (fp, " #%d%c : #%d%c < [%d] #%d%c ",
+	     n[0], TIMING_CHAR(f[0].up, f[0].dn),
+	     n[1], TIMING_CHAR(f[1].up, f[1].dn), margin,
+	     n[2], TIMING_CHAR(f[2].up, f[2].dn));
+  }
+}
+
+ActTimingConstraint::ActTimingConstraint (int root, int a, int b,
+					  int _margin,
+					  int *extra)
+{
+  Init ();
+  
+  n[0] = root;
+  n[1] = a;
+  n[2] = b;
+  margin = _margin;
+  
+  for (int i=0; i < 3; i++) {
+    nxt[i] = NULL;
+    c[i] = NULL;
+    
+    switch (extra[i] & 0x3) {
+    case 0:
+      f[i].up = 1;
+      f[i].dn = 1;
+      break;
+      
+    case 1:
+      f[i].up = 1;
+      f[i].dn = 0;
+      break;
+      
+    case 2:
+      f[i].up = 0;
+      f[i].dn = 1;
+      break;
+      
+    default:
+      fatal_error ("What?!");
+    }
+  }
+
+  
+  state = ACT_TIMING_INACTIVE;
+
+  /* -- add links -- */
+  for (int i=0; i < 3; i++) {
+    ihash_bucket_t *b;
+
+    if ((i < 1 || n[i] != n[i-1]) && (i < 2 || n[i] != n[i-2])) {
+      b = ihash_lookup (THash, n[i]);
+      if (!b) {
+	b = ihash_add (THash, n[i]);
+	b->v = NULL;
+      }
+      else {
+	if (i == 0) {
+	  /* check for duplicates! */
+	  ActTimingConstraint *tmp = (ActTimingConstraint *)b->v;
+	  while (tmp) {
+	    if (tmp->isEqual (this)) {
+	      n[0] = -1;
+	      return;
+	    }
+	    tmp = tmp->getNext (root);
+	  }
+	}
+      }
+      nxt[i] = (ActTimingConstraint *)b->v;
+      b->v = this;
+    }
+  }    
+}
+
+ActTimingConstraint *ActTimingConstraint::findBool (int v)
+{
+  ihash_bucket_t *b;
+  Init ();
+  b = ihash_lookup (THash, v);
+  if (!b) {
+    return NULL;
+  }
+  else {
+    return (ActTimingConstraint *) b->v;
+  }
+}
+
+
+ActTimingConstraint::~ActTimingConstraint ()
+{
+  
+}
+
+
+/*
+  root, a, b are all global state offsets! 
+*/
+void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
+				   int root, int a, int b, Expr *e, int *extra)
+{
+  ActTimingConstraint *tc;
+  int rg, ag, bg;
+  Assert (!e || e->type == E_INT, "Internal error on timing forks");
+
+  rg = obj->getGlobalOffset (root, 0);
+  ag = obj->getGlobalOffset (a, 0);
+  bg = obj->getGlobalOffset (b, 0);
+  
+  tc = new ActTimingConstraint (rg, ag, bg, e ? e->u.v : 0, extra);
+
+  if (tc->isDup()) {
+    delete tc;
+  }
+
+  int dy;
+  act_connection *c = sp->getConnFromOffset (si, root, 0, &dy);
+  
+  tc->setConn (0, c);
+  c = sp->getConnFromOffset (si, a, 0, &dy);
+  tc->setConn (1, c);
+  c = sp->getConnFromOffset (si, b, 0, &dy);
+  tc->setConn (2, c);
+  
+  state->mkSpecialBool (rg);
+  state->mkSpecialBool (ag);
+  state->mkSpecialBool (bg);
   return;
 }
 
+/*
+  ids is a list of global state ids 
+*/
 void ActSimCore::_add_excl (int type, int *ids, int sz)
 {
   /* XXX: FIXME */
+  printf ("add excl %d:", type);
+  for (int i=0; i < sz; i++) {
+    printf (" %d", ids[i]);
+  }
+  printf ("\n");
   return;
 }
   

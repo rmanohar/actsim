@@ -1,0 +1,23 @@
+bool Reset;
+
+defproc test()
+{
+   bool a, b, c, d;
+ 
+   spec {
+    timing b- : c+ < d+
+   }
+
+   prs {
+   Reset -> a+
+   Reset -> d-
+   ~Reset & a => b-
+   [after=100] b => c-
+   [after=120] ~Reset & ~b -> d+
+   }
+}
+
+Initialize {
+  actions { Reset+ };
+  actions { Reset- }
+}

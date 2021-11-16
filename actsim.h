@@ -165,6 +165,48 @@ protected:
   WaitForOne *_shared;
 };
 
+#define ACT_TIMING_INACTIVE     0x0
+#define ACT_TIMING_START        0x1
+#define ACT_TIMING_PENDING      0x2
+#define ACT_TIMING_PENDINGDELAY 0x3
+
+class ActTimingConstraint {
+private:
+  int n[3];			// n[0] : n[1] < n[2]
+  act_connection *c[3];
+  ActTimingConstraint *nxt[3];	// next pointers
+  int margin;			// constraint margin
+  
+  unsigned long ts;		// time stamp
+  struct _internal_ {
+    unsigned int up:1;
+    unsigned int dn:1;
+  } f[3];
+  unsigned int state:2;		// constraint state machine
+
+  static iHashtable *THash;	// map from bool id to root of the
+				// constraint list
+
+public:
+  static void Init ();
+
+  static ActTimingConstraint *findBool (int n);
+  
+  ActTimingConstraint (int root, int a, int b, int margin, int *extra);
+  ~ActTimingConstraint ();
+
+  ActTimingConstraint *getNext (int sig);
+  void update (int sig, int v);
+
+  void Print (FILE *fp);
+  
+  void setConn (int idx, act_connection *_c) { c[idx] = _c; }
+
+  int isDup() { return n[0] >= 0 ? 0 : 1; }
+  int isEqual (ActTimingConstraint *);
+};
+
+
 class ChpSimGraph;
 class ChpSim;
 class PrsSim;
@@ -314,7 +356,12 @@ protected:
   list_t *_chp_sim_objects;	/* used for reset sync wakeup */
   
   
-  stateinfo_t *_rootsi;		/* root stateinfo; needed for globals */
+  stateinfo_t *_rootsi;		/* root stateinfo; needed for globals
+				   */
+
+
+  /*-- timing forks --*/
+  
   
   /*-- add parts to the simulator --*/
   void _add_language (int lev, act_languages *l);
@@ -334,7 +381,8 @@ protected:
   void _check_fragmentation (PrsSim *);
   void _check_fragmentation (XyceSim *);
 
-  void _add_timing_fork (int root, int a, int b, int *extra);
+  void _add_timing_fork (ActSimObj *obj, stateinfo_t *si, 
+			 int root, int a, int b, Expr *, int *extra);
   void _add_excl (int type, int *ids, int sz);
 
   /*-- returns the current level selected --*/

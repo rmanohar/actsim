@@ -153,6 +153,13 @@ void ActSimState::setBool (int x, int v)
   else {
     bitset_set (bits, 3*x+1);
   }
+  if (isSpecialBool (x)) {
+    ActTimingConstraint *tc = ActTimingConstraint::findBool (x);
+    while (tc) {
+      tc->update (x, v);
+      tc = tc->getNext (x);
+    }
+  }
 }
 
 void *ActSimState::allocState (int sz)
