@@ -165,6 +165,29 @@ protected:
   WaitForOne *_shared;
 };
 
+class ActSimState;
+
+class ActExclConstraint {
+private:
+  int sz;
+  int *n;			// nodes
+  ActExclConstraint **nxt;
+
+  static iHashtable *eHashHi, *eHashLo;	// map from bool id to root of
+					// the constraint list
+
+public:
+  ActExclConstraint (int *nodes, int sz, int dir);  
+
+  int illegal () { return sz > 0 ? 0 : 1; }
+
+  static void Init ();
+  static ActExclConstraint *findHi (int n);
+  static ActExclConstraint *findLo (int n);
+  static int safeChange (ActSimState *, int n, int v);
+
+};
+
 #define ACT_TIMING_INACTIVE     0x0
 #define ACT_TIMING_START        0x1
 #define ACT_TIMING_PENDING      0x2

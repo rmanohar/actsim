@@ -1870,6 +1870,225 @@ ChanMethods *ActSimCore::getFragmented (Channel *c)
   return NULL;
 }
 
+
+/*
+  root, a, b are all global state offsets! 
+*/
+void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
+				   int root, int a, int b, Expr *e, int *extra)
+{
+  ActTimingConstraint *tc;
+  int rg, ag, bg;
+  Assert (!e || e->type == E_INT, "Internal error on timing forks");
+
+  rg = obj->getGlobalOffset (root, 0);
+  ag = obj->getGlobalOffset (a, 0);
+  bg = obj->getGlobalOffset (b, 0);
+  
+  tc = new ActTimingConstraint (rg, ag, bg, e ? e->u.v : 0, extra);
+
+  if (tc->isDup()) {
+    delete tc;
+  }
+
+  int dy;
+  act_connection *c = sp->getConnFromOffset (si, root, 0, &dy);
+  
+  tc->setConn (0, c);
+  c = sp->getConnFromOffset (si, a, 0, &dy);
+  tc->setConn (1, c);
+  c = sp->getConnFromOffset (si, b, 0, &dy);
+  tc->setConn (2, c);
+  
+  state->mkSpecialBool (rg);
+  state->mkSpecialBool (ag);
+  state->mkSpecialBool (bg);
+  return;
+}
+
+/*
+  ids is a list of global state ids 
+*/
+void ActSimCore::_add_excl (int type, int *ids, int sz)
+{
+  ActExclConstraint *ec = new ActExclConstraint (ids, sz, type);
+  if (ec->illegal()) {
+    delete ec;
+  }
+  for (int i=0; i < sz; i++) {
+    state->mkSpecialBool (ids[i]);
+  }    
+  return;
+}
+  
+
+/*-------------------------------------------------------------------------
+ * Logging
+ *-----------------------------------------------------------------------*/
+static FILE *alog_fp = NULL;
+
+FILE *actsim_log_fp (void)
+{
+  return alog_fp ? alog_fp : stdout;
+}
+
+void actsim_log (const char *s, ...)
+{
+  va_list ap;
+
+  va_start (ap, s);
+  vfprintf (actsim_log_fp(), s, ap);
+  va_end (ap);
+  if (alog_fp) {
+    fflush (alog_fp);
+  }
+}
+
+void actsim_close_log (void)
+{
+  if (alog_fp) {
+    fclose (alog_fp);
+  }
+  alog_fp = NULL;
+}
+
+void actsim_set_log (FILE *fp)
+{
+  actsim_close_log ();
+  alog_fp = fp;
+}
+
+void actsim_log_flush (void)
+{
+  fflush (actsim_log_fp ());
+}
+
+/*--- Excl Constraints -- */
+
+struct iHashtable *ActExclConstraint::eHashHi = NULL;
+struct iHashtable *ActExclConstraint::eHashLo = NULL;
+
+void ActExclConstraint::Init ()
+{
+  if (eHashHi == NULL) {
+    eHashHi = ihash_new (4);
+    eHashLo = ihash_new (4);
+  }
+}
+
+/* dir = 1 : up going */
+ActExclConstraint::ActExclConstraint (int *nodes, int _sz, int dir)
+{
+  ihash_bucket_t *b;
+
+  if (_sz == 0) return;
+
+  Init ();
+
+  sz = _sz;
+  MALLOC (n, int, sz);
+
+  /* uniquify list */
+  for (int i=0; i < sz; i++) {
+    int j;
+    for (j=0; j < i; j++) {
+      if (nodes[j] == nodes[i]) {
+	break;
+      }
+    }
+    if (j != i) {
+      warning ("Exclusive list has duplicate node; skipped");
+      sz = 0;
+      FREE (n);
+      return;
+    }
+    n[i] = nodes[i];
+  }
+
+  struct iHashtable *H;
+  if (dir) {
+    H = eHashHi;
+  }
+  else {
+    H = eHashLo;
+  }
+
+  MALLOC (nxt, ActExclConstraint *, sz);
+
+  /* add to lists */
+  for (int i=0; i < sz; i++) {
+    b = ihash_lookup (H, n[i]);
+    if (!b) {
+      b = ihash_add (H, n[i]);
+      b->v = NULL;
+    }
+    
+    nxt[i] = (ActExclConstraint *)b->v;
+    b->v = this;
+  }
+}
+
+
+ActExclConstraint *ActExclConstraint::findHi (int n)
+{
+  if (!eHashHi) return NULL;
+  ihash_bucket_t *b = ihash_lookup (eHashHi, n);
+  if (!b) {
+    return NULL;
+  }
+  else {
+    return (ActExclConstraint *)b->v;
+  }
+}
+
+ActExclConstraint *ActExclConstraint::findLo (int n)
+{
+  if (!eHashLo) return NULL;
+  ihash_bucket_t *b = ihash_lookup (eHashLo, n);
+  if (!b) {
+    return NULL;
+  }
+  else {
+    return (ActExclConstraint *)b->v;
+  }
+}
+
+int ActExclConstraint::safeChange (ActSimState *st, int n, int v)
+{
+  ActExclConstraint *tmp, *next;
+
+  if (v == 1) {
+    tmp = findHi (n);
+  }
+  else if (v == 0) {
+    tmp = findLo (n);
+  }
+  else {
+    return 1;
+  }
+
+  if (!tmp) return 1;
+  while (tmp) {
+    next = NULL;
+    for (int i=0; i < tmp->sz; i++) {
+      if (n == tmp->n[i]) {
+	next = tmp->nxt[i];
+      }
+      else {
+	if (st->getBool (tmp->n[i]) != (1-v)) {
+	  return 0;
+	}
+      }
+    }
+    tmp = next;
+  }
+  return 1;
+}
+
+
+
+/*--- Timing Constraints -- */
+
 struct iHashtable *ActTimingConstraint::THash  = NULL;
 
 void ActTimingConstraint::Init ()
@@ -2075,94 +2294,3 @@ ActTimingConstraint::~ActTimingConstraint ()
   
 }
 
-
-/*
-  root, a, b are all global state offsets! 
-*/
-void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
-				   int root, int a, int b, Expr *e, int *extra)
-{
-  ActTimingConstraint *tc;
-  int rg, ag, bg;
-  Assert (!e || e->type == E_INT, "Internal error on timing forks");
-
-  rg = obj->getGlobalOffset (root, 0);
-  ag = obj->getGlobalOffset (a, 0);
-  bg = obj->getGlobalOffset (b, 0);
-  
-  tc = new ActTimingConstraint (rg, ag, bg, e ? e->u.v : 0, extra);
-
-  if (tc->isDup()) {
-    delete tc;
-  }
-
-  int dy;
-  act_connection *c = sp->getConnFromOffset (si, root, 0, &dy);
-  
-  tc->setConn (0, c);
-  c = sp->getConnFromOffset (si, a, 0, &dy);
-  tc->setConn (1, c);
-  c = sp->getConnFromOffset (si, b, 0, &dy);
-  tc->setConn (2, c);
-  
-  state->mkSpecialBool (rg);
-  state->mkSpecialBool (ag);
-  state->mkSpecialBool (bg);
-  return;
-}
-
-/*
-  ids is a list of global state ids 
-*/
-void ActSimCore::_add_excl (int type, int *ids, int sz)
-{
-  /* XXX: FIXME */
-  printf ("add excl %d:", type);
-  for (int i=0; i < sz; i++) {
-    printf (" %d", ids[i]);
-  }
-  printf ("\n");
-  return;
-}
-  
-
-/*-------------------------------------------------------------------------
- * Logging
- *-----------------------------------------------------------------------*/
-static FILE *alog_fp = NULL;
-
-FILE *actsim_log_fp (void)
-{
-  return alog_fp ? alog_fp : stdout;
-}
-
-void actsim_log (const char *s, ...)
-{
-  va_list ap;
-
-  va_start (ap, s);
-  vfprintf (actsim_log_fp(), s, ap);
-  va_end (ap);
-  if (alog_fp) {
-    fflush (alog_fp);
-  }
-}
-
-void actsim_close_log (void)
-{
-  if (alog_fp) {
-    fclose (alog_fp);
-  }
-  alog_fp = NULL;
-}
-
-void actsim_set_log (FILE *fp)
-{
-  actsim_close_log ();
-  alog_fp = fp;
-}
-
-void actsim_log_flush (void)
-{
-  fflush (actsim_log_fp ());
-}

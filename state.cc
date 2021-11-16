@@ -142,6 +142,23 @@ int ActSimState::getBool (int x)
 
 void ActSimState::setBool (int x, int v)
 {
+  int special = 0;
+  if (isSpecialBool (x)) {
+    special = 1;
+  }
+
+  if (special) {
+    if (!ActExclConstraint::safeChange (this, x, v)) {
+      return;
+    }
+
+    ActTimingConstraint *tc = ActTimingConstraint::findBool (x);
+    while (tc) {
+      tc->update (x, v);
+      tc = tc->getNext (x);
+    }
+  }
+  
   if (v == 1) {
     bitset_set (bits, 3*x);
     bitset_clr (bits, 3*x+1);
@@ -152,13 +169,6 @@ void ActSimState::setBool (int x, int v)
   }
   else {
     bitset_set (bits, 3*x+1);
-  }
-  if (isSpecialBool (x)) {
-    ActTimingConstraint *tc = ActTimingConstraint::findBool (x);
-    while (tc) {
-      tc->update (x, v);
-      tc = tc->getNext (x);
-    }
   }
 }
 
