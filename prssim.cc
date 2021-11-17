@@ -582,8 +582,12 @@ int OnePrsSim::Step (int ev_type)
     break;
 
   case PRSSIM_RULE:
-    _proc->setBool (_me->vid, t);
-    if (flags == (1 + t)) {
+    if (_proc->setBool (_me->vid, t)) {
+      if (flags == (1 + t)) {
+	flags = PENDING_NONE;
+      }
+    }
+    else {
       flags = PENDING_NONE;
     }
     break;
@@ -823,7 +827,7 @@ void PrsSim::printName (FILE *fp, int lid)
 }
 
 
-void PrsSim::setBool (int lid, int v)
+bool PrsSim::setBool (int lid, int v)
 {
   int off = getGlobalOffset (lid, 0);
   SimDES **arr;
@@ -851,13 +855,17 @@ void PrsSim::setBool (int lid, int v)
       }
     }
   }
-  _sc->setBool (off, v);
-
-  arr = _sc->getFO (off, 0);
-  for (int i=0; i < _sc->numFanout (off, 0); i++) {
-    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
-    Assert (p, "What?");
-    p->propagate ();
+  if (_sc->setBool (off, v)) {
+    arr = _sc->getFO (off, 0);
+    for (int i=0; i < _sc->numFanout (off, 0); i++) {
+      ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+      Assert (p, "What?");
+      p->propagate ();
+    }
+    return true;
+  }
+  else {
+    return false;
   }
 }
 
@@ -962,4 +970,52 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps, act_prs *p)
 void PrsSim::dumpState (FILE *fp)
 {
   fprintf (fp, "FIXME: prs dump state!\n");
+}
+
+OnePrsSim::OnePrsSim (PrsSim *p, struct prssim_stmt *x)
+{
+  _proc = p;
+  _me = x;
+  _pending = NULL;
+  
+}
+
+void OnePrsSim::registerExcl ()
+{
+  int gid;
+
+  if (_me->type == PRSSIM_RULE) {
+    gid = _proc->myGid (_me->vid);
+    ActExclConstraint *xc = ActExclConstraint::findHi (gid);
+    while (xc) {
+      xc->addObject (gid, this);
+      xc = xc->getNext (gid);
+    }
+    xc = ActExclConstraint::findLo (gid);
+    while (xc) {
+      xc->addObject (gid, this);
+      xc = xc->getNext (gid);
+    }
+  }
+}
+
+
+
+
+void PrsSim::registerExcl ()
+{
+  listitem_t *li;
+  for (li = list_first (_sim); li; li = list_next (li)) {
+    OnePrsSim *one = (OnePrsSim *) list_value (li);
+    one->registerExcl ();
+  }
+}
+
+
+void OnePrsSim::flushPending ()
+{
+  if (_pending) {
+    _pending->Remove ();
+    flags = PENDING_NONE;
+  }
 }

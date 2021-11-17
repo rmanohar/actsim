@@ -147,6 +147,8 @@ ActSimCore::ActSimCore (Process *p)
   _rootsi = si;
   
   _initSim();
+
+  _register_prssim_with_excl (&I);
   
 }
 
@@ -1354,6 +1356,21 @@ act_connection *ActSim::Advance (long delay)
   return NULL;
 }
 
+void ActSimCore::_register_prssim_with_excl (ActInstTable *t)
+{
+  if (t->obj && dynamic_cast <PrsSim *> (t->obj)) {
+    ((PrsSim *)t->obj)->registerExcl ();
+  }
+  if (t->H) {
+    hash_bucket_t *b;
+    hash_iter_t it;
+    hash_iter_init (t->H, &it);
+    while ((b = hash_iter_next (t->H, &it))) {
+      _register_prssim_with_excl ((ActInstTable *)b->v);
+    }
+  }
+}
+
 ActSim::ActSim (Process *root) : ActSimCore (root)
 {
   /* nothing */
@@ -2014,9 +2031,11 @@ ActExclConstraint::ActExclConstraint (int *nodes, int _sz, int dir)
   }
 
   MALLOC (nxt, ActExclConstraint *, sz);
+  MALLOC (objs, OnePrsSim *, sz);
 
   /* add to lists */
   for (int i=0; i < sz; i++) {
+    objs[i] = NULL;
     b = ihash_lookup (H, n[i]);
     if (!b) {
       b = ihash_add (H, n[i]);
@@ -2082,6 +2101,30 @@ int ActExclConstraint::safeChange (ActSimState *st, int n, int v)
     }
     tmp = next;
   }
+
+  /* now kill any pending changes */
+  if (v == 1) {
+    tmp = findHi (n);
+  }
+  else if (v == 0) {
+    tmp = findLo (n);
+  }
+  while (tmp) {
+    next = NULL;
+    for (int i=0; i < tmp->sz; i++) {
+      if (n == tmp->n[i]) {
+	next = tmp->nxt[i];
+      }
+      else {
+	/* kill any pending change here */
+	if (tmp->objs[i]) {
+	  tmp->objs[i]->flushPending ();
+	}
+      }
+    }
+    tmp = next;
+  }
+
   return 1;
 }
 
@@ -2294,3 +2337,25 @@ ActTimingConstraint::~ActTimingConstraint ()
   
 }
 
+void ActExclConstraint::addObject (int id, OnePrsSim *object)
+{
+  for (int i=0; i < sz; i++) {
+    if (n[i] == id) {
+      if (objs[i]) {
+	warning ("Exclusive constraint is in a multi-driver context. This may not work properly.");
+      }
+      objs[i] = object;
+      return;
+    }
+  }
+}
+
+ActExclConstraint *ActExclConstraint::getNext (int nid)
+{
+  for (int i=0; i < sz; i++) {
+    if (n[i] == nid) {
+      return nxt[i];
+    }
+  }
+  return NULL;
+}

@@ -145,8 +145,8 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     _pcused = 1;
     Assert (_npc >= 1, "What?");
 
-    if (_npc > SIM_EV_MAX) {
-      fatal_error ("Currently there is a hard limit of %d concurrent modules within a single CHP block. Your program requires %d.", SIM_EV_MAX+1, _npc);
+    if (_npc > SIM_EV_MAX-1) {
+      fatal_error ("Currently there is a hard limit of %d concurrent modules within a single CHP block. Your program requires %d.", SIM_EV_MAX, _npc);
     }
 
     _pc = (ChpSimGraph **)

@@ -146,7 +146,7 @@ class ChpSim : public ActSimObj {
   unsigned long getArea (void);
   
   int getBool (int glob_off) { return _sc->getBool (glob_off); }
-  void setBool (int glob_off, int val) { _sc->setBool (glob_off, val); }
+  bool setBool (int glob_off, int val) { return _sc->setBool (glob_off, val); }
   void boolProp (int glob_off);
   void setFrag (act_channel_state *f) { _frag_ch = f; }
 

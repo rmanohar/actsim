@@ -110,8 +110,10 @@ class PrsSim : public ActSimObj {
   void computeFanout ();
 
   int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
+  int isSpecialBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isSpecialBool (off); }
+  int myGid (int lid) { return getGlobalOffset (lid, 0); }
     
-  void setBool (int lid, int v);
+  bool setBool (int lid, int v);
   void printName (FILE *fp, int lid);
 
   void dumpState (FILE *fp);
@@ -121,6 +123,8 @@ class PrsSim : public ActSimObj {
   inline int onWarning() { return _sc->onWarning(); }
 
   void printStatus (int val);
+
+  void registerExcl ();
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
@@ -143,11 +147,13 @@ private:
   int eval (prssim_expr *);
 
 public:
-  OnePrsSim (PrsSim *p, struct prssim_stmt *x) { _proc = p; _me = x; _pending = NULL; }
+  OnePrsSim (PrsSim *p, struct prssim_stmt *x);
   int Step (int ev_type);
   void propagate ();
   void printName ();
   int matches (int val);
+  void registerExcl ();
+  void flushPending ();
 };
 
 

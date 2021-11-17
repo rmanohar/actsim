@@ -58,9 +58,10 @@
  */
 
 class ActSimCore;
+class OnePrsSim;
 
 
-#define MAX_LOCAL_PCS (SIM_EV_MAX+1)
+#define MAX_LOCAL_PCS SIM_EV_MAX
 
 
 class ActSimState {
@@ -73,7 +74,7 @@ public:
   int getBool (int x);
   inline bool isSpecialBool (int x) { return bitset_tst (bits, 3*x+2); }
   void mkSpecialBool (int x) { bitset_set (bits, 3*x+2); }
-  void setBool (int x, int v);
+  bool setBool (int x, int v); // success == true
   act_channel_state *getChan (int x);
   int numChans () { return nchans; }
 
@@ -172,6 +173,7 @@ private:
   int sz;
   int *n;			// nodes
   ActExclConstraint **nxt;
+  OnePrsSim **objs;
 
   static iHashtable *eHashHi, *eHashLo;	// map from bool id to root of
 					// the constraint list
@@ -180,6 +182,10 @@ public:
   ActExclConstraint (int *nodes, int sz, int dir);  
 
   int illegal () { return sz > 0 ? 0 : 1; }
+
+  void addObject (int id, OnePrsSim *obj);
+
+  ActExclConstraint *getNext (int nid);
 
   static void Init ();
   static ActExclConstraint *findHi (int n);
@@ -259,7 +265,9 @@ class ActSimCore {
   BigInt *getInt (int x) { return state->getInt (x); }
   void setInt (int x, BigInt &v) { state->setInt (x, v); }
   int getBool (int x) { return state->getBool (x); }
-  void setBool (int x, int v) { state->setBool (x, v); }
+  bool setBool (int x, int v) { return state->setBool (x, v); }
+  int isSpecialBool (int x)  { return state->isSpecialBool (x); }
+  
   act_channel_state *getChan (int x) { return state->getChan (x); }
 
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
@@ -407,6 +415,8 @@ protected:
   void _add_timing_fork (ActSimObj *obj, stateinfo_t *si, 
 			 int root, int a, int b, Expr *, int *extra);
   void _add_excl (int type, int *ids, int sz);
+
+  void _register_prssim_with_excl (ActInstTable *);
 
   /*-- returns the current level selected --*/
   int _getlevel ();
