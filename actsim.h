@@ -191,6 +191,7 @@ public:
   static ActExclConstraint *findHi (int n);
   static ActExclConstraint *findLo (int n);
   static int safeChange (ActSimState *, int n, int v);
+  static ActSimCore *_sc;
 
 };
 
@@ -315,6 +316,7 @@ class ActSimCore {
   }
   void setRandomSeed (unsigned seed) { _seed = seed; }
   void setRandomChoice (int v) { _sim_rand_excl = v; }
+  int isRandomChoice() { return _sim_rand_excl; }
   int isResetMode() { return _prs_sim_mode; }
   void setWarning (int v) { _on_warning = v; }
   inline int onWarning() { return _on_warning; }
@@ -324,6 +326,10 @@ class ActSimCore {
 
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
+
+  inline int getRandom (int range) {
+    return rand_r (&_seed) % range;
+  }
 
   inline int getDelay (int delay) {
     double d;
@@ -515,6 +521,7 @@ inline const char *ActSimObj::isBreakPt (int type, int offset)
 
 Act *actsim_Act();
 Process *actsim_top();
+int is_rand_excl ();
 
 
 #endif /* __ACT_SIM_H__ */

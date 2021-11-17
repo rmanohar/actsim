@@ -55,6 +55,11 @@ static ActSim *glob_sim;
 static Act *glob_act;
 static Process *glob_top;
 
+int is_rand_excl()
+{
+  return glob_sim->isRandomChoice();
+}
+
 int process_cycle (int argc, char **argv)
 {
   if (argc != 1) {
@@ -1038,6 +1043,7 @@ int main (int argc, char **argv)
   
   glob_sim = new ActSim (p);
   glob_sim->runInit ();
+  ActExclConstraint::_sc = glob_sim;
 
   signal (SIGINT, signal_handler);
 

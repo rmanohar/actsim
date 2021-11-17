@@ -572,6 +572,7 @@ int OnePrsSim::Step (int ev_type)
   const char *nm;
 
   _breakpt = 0;
+  _pending = NULL;
 
   /*-- fire rule --*/
   switch (_me->type) {
@@ -833,6 +834,7 @@ bool PrsSim::setBool (int lid, int v)
   SimDES **arr;
   const char *nm, *nm2;
   int verb;
+  int oval;
 
   verb = 0;
   if ((nm = isWatched (0, lid))) {
@@ -842,20 +844,22 @@ bool PrsSim::setBool (int lid, int v)
     verb |= 2;
   }
   if (verb) {
-    int oval = _sc->getBool (off);
-    if (oval != v) {
-      if (verb & 1) {
-	msgPrefix ();
-	printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
-      }
-      if (verb & 2) {
-	msgPrefix ();
-	printf ("*** breakpoint %s\n", nm2);
-	_breakpt = 1;
-      }
-    }
+    oval = _sc->getBool (off);
   }
   if (_sc->setBool (off, v)) {
+    if (verb) {
+      if (oval != v) {
+	if (verb & 1) {
+	  msgPrefix ();
+	  printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
+	}
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
+      }
+    }
     arr = _sc->getFO (off, 0);
     for (int i=0; i < _sc->numFanout (off, 0); i++) {
       ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);

@@ -154,6 +154,7 @@ public:
   int matches (int val);
   void registerExcl ();
   void flushPending ();
+  int isPending() { return _pending == NULL ? 0 : 1; }
 };
 
 

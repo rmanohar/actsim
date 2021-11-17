@@ -1984,6 +1984,7 @@ void actsim_log_flush (void)
 
 struct iHashtable *ActExclConstraint::eHashHi = NULL;
 struct iHashtable *ActExclConstraint::eHashLo = NULL;
+ActSimCore *ActExclConstraint::_sc = NULL;
 
 void ActExclConstraint::Init ()
 {
@@ -2109,8 +2110,32 @@ int ActExclConstraint::safeChange (ActSimState *st, int n, int v)
   else if (v == 0) {
     tmp = findLo (n);
   }
+
+  int first = 0;
+
+  if (is_rand_excl()) {
+    first = 1;
+  }
+  
   while (tmp) {
     next = NULL;
+
+    if (first) {
+      int count = 1;
+      for (int i=0; i < tmp->sz; i++) {
+	if (tmp->objs[i]) {
+	  if (tmp->objs[i]->isPending()) {
+	    count++;
+	  }
+	}
+      }
+      Assert (count > 0, "What?!");
+      if (_sc->getRandom (count) != 0) {
+	return 0;
+      }
+    }
+    first = 0;
+    
     for (int i=0; i < tmp->sz; i++) {
       if (n == tmp->n[i]) {
 	next = tmp->nxt[i];
