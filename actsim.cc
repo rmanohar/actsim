@@ -1399,20 +1399,16 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
   int res;
   int offset;
 
-  if (!sp->connExists (si, c)) {
-    ActId *t = c->toid();
-    fprintf (stderr, "Identifier `");
-    t->Print (stderr);
-    fprintf (stderr, "' used, but not used in the design hierarchy selected.\n");
-    fatal_error ("Error in initializer block?");
-  }
-
   res = sp->getTypeOffset (si, c, &offset, type, width);
   if (res) {
     return offset;
   }
   else {
-    fatal_error ("getLocalOffset() failed!");
+    ActId *t = c->toid();
+    fprintf (stderr, "Identifier `");
+    t->Print (stderr);
+    fprintf (stderr, "' used, but not used in the design hierarchy selected.\n");
+    fatal_error ("Error in initializer block?");
   }
   return 0;
 }
