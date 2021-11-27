@@ -1846,7 +1846,10 @@ BigInt ChpSim::exprEval (Expr *e)
     break;
     
   case E_INT:
-    {
+    if (e->u.v_extra) {
+       l = *((BigInt *)e->u.v_extra);
+    }
+    else {
       unsigned long x = e->u.v;
       int width = 0;
       while (x) {
@@ -1857,8 +1860,8 @@ BigInt ChpSim::exprEval (Expr *e)
 	width = 1;
       }
       l.setWidth (width);
+      l.setVal (0, e->u.v);
     }
-    l.setVal (0, e->u.v);
     break;
 
   case E_REAL:
