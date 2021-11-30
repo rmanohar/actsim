@@ -647,6 +647,10 @@ static const char *_process_string (const char *s,
 	*type = 0; /* default */
 	stmp = stmp + idx + 1;
       }
+      else if (stmp[idx] == 'b') {
+	*type = 3; /* bits */
+	stmp = stmp + idx + 1;
+      }
       else {
 	*is_zero = 0;
 	*type = 0;
@@ -682,6 +686,9 @@ static void _process_print_int (BigInt &v,
     else if (int_type == 2) {
       v.hexPrint (actsim_log_fp ());
     }
+    else if (int_type == 3) {
+      v.bitPrint (actsim_log_fp ());
+    }
   }
   else {
     if (int_type == 0) {
@@ -701,13 +708,10 @@ static void _process_print_int (BigInt &v,
       }
     }
     else if (int_type == 2) {
-      /* XXX fixme */
-      if (int_is_zero) {
-	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*x", int_width, v.getVal (0));
-      }
-      else {
-	actsim_log ("%" ACT_EXPR_RES_PRINTF "*x", int_width, v.getVal (0));
-      }
+      v.hexPrint (actsim_log_fp ());
+    }
+    else if (int_type == 3) {
+      v.bitPrint (actsim_log_fp ());
     }
     else {
       fatal_error ("What?!");

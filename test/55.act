@@ -1,0 +1,9 @@
+defproc test()
+{
+  int<72> x;
+
+  chp {
+    x := 1;
+   *[ x{71} = 0 ->  log ("%xiter:", x); log ("%biterbin: ", x); x := x << 1 ]
+  }
+}
