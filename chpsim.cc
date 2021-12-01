@@ -1877,25 +1877,25 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_AND:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l & r;
+    l &= r;
     break;
 
   case E_OR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l | r;
+    l |= r;
     break;
 
   case E_PLUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l + r;
+    l += r;
     break;
 
   case E_MINUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l - r;
+    l -= r;
     break;
 
   case E_MULT:
@@ -1919,14 +1919,14 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_LSL:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l << r;
+    l <<= r;
     break;
     
   case E_LSR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
     l.toStatic();
-    l = l >> r;
+    l >>= r;
     break;
     
   case E_ASR:
@@ -1934,14 +1934,14 @@ BigInt ChpSim::exprEval (Expr *e)
     r = exprEval (e->u.e.r);
     l.toSigned ();
     l.toStatic();
-    l = l >> r;
+    l >>= r;
     l.toUnsigned();
     break;
     
   case E_XOR:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l = l ^ r;
+    l ^= r;
     break;
     
   case E_LT:
@@ -2070,10 +2070,10 @@ BigInt ChpSim::exprEval (Expr *e)
 	  BigInt tmp;
 	  tmp.setWidth (32);
 	  tmp.setVal (0, r.getWidth());
-	  l = l << tmp;
+	  l <<= tmp;
 	}
-  r.setWidth(l.getWidth());
-	l = l | r;
+	r.setWidth(l.getWidth());
+	l |= r;
 	e = e->u.e.r;
       } while (e);
     }
@@ -2105,10 +2105,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	  fprintf (stderr, "\n");
 	}
       }
-      BigInt tmp;
-      tmp.setWidth (32);
-      tmp.setVal (0, lo);
-      l = l >> tmp;
+      l >>= lo;
       l.setWidth (hi - lo + 1);
     }
     break;
@@ -2219,10 +2216,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.getWidth(), hi, lo);
 	fprintf (stderr, "   id: %s\n", b->key);
       }
-      BigInt tmp;
-      tmp.setWidth (32);
-      tmp.setVal (0, lo);
-      l = l >> tmp;
+      l >>= lo;
       l.setWidth (hi - lo + 1);
     }
     break;
