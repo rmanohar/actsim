@@ -1,0 +1,113 @@
+defproc test()
+{
+  int<256> prefix_bits;
+  int<8> w;
+ 
+  chp {
+    prefix_bits := 0;
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xde;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+    w := 0xad;
+    prefix_bits := (prefix_bits << 8) | w ; 
+    log("w at {i}", w); 
+    log("%xfull prefix ", prefix_bits);
+    log("%xprefix_bits ", prefix_bits{255..192}, "%x ", prefix_bits{191..128}, "%x ", prefix_bits{127..64}, "%x ", prefix_bits{63..0});
+
+    skip
+  }
+}
+
+

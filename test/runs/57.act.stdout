@@ -1,0 +1,60 @@
+[                  30] <>  w at {i}222
+[                  30] <>  full prefix 00000000000000000000000000000000000000000000000de
+[                  30] <>  prefix_bits 0 0 0 de
+[                  50] <>  w at {i}173
+[                  50] <>  full prefix 000000000000000000000000000000000000000000000dead
+[                  50] <>  prefix_bits 0 0 0 dead
+[                  70] <>  w at {i}222
+[                  70] <>  full prefix 0000000000000000000000000000000000000000000deadde
+[                  70] <>  prefix_bits 0 0 0 deadde
+[                  90] <>  w at {i}173
+[                  90] <>  full prefix 00000000000000000000000000000000000000000deaddead
+[                  90] <>  prefix_bits 0 0 0 deaddead
+[                 110] <>  w at {i}222
+[                 110] <>  full prefix 000000000000000000000000000000000000000deaddeadde
+[                 110] <>  prefix_bits 0 0 0 deaddeadde
+[                 130] <>  w at {i}173
+[                 130] <>  full prefix 0000000000000000000000000000000000000deaddeaddead
+[                 130] <>  prefix_bits 0 0 0 deaddeaddead
+[                 150] <>  w at {i}222
+[                 150] <>  full prefix 00000000000000000000000000000000000deaddeaddeadde
+[                 150] <>  prefix_bits 0 0 0 deaddeaddeadde
+[                 170] <>  w at {i}173
+[                 170] <>  full prefix 000000000000000000000000000000000deaddeaddeaddead
+[                 170] <>  prefix_bits 0 0 0 deaddeaddeaddead
+[                 190] <>  w at {i}222
+[                 190] <>  full prefix 0000000000000000000000000000000deaddeaddeaddeadde
+[                 190] <>  prefix_bits 0 0 de addeaddeaddeadde
+[                 210] <>  w at {i}173
+[                 210] <>  full prefix 00000000000000000000000000000deaddeaddeaddeaddead
+[                 210] <>  prefix_bits 0 0 dead deaddeaddeaddead
+[                 230] <>  w at {i}222
+[                 230] <>  full prefix 000000000000000000000000000deaddeaddeaddeaddeadde
+[                 230] <>  prefix_bits 0 0 deadde addeaddeaddeadde
+[                 250] <>  w at {i}173
+[                 250] <>  full prefix 0000000000000000000000000deaddeaddeaddeaddeaddead
+[                 250] <>  prefix_bits 0 0 deaddead deaddeaddeaddead
+[                 270] <>  w at {i}222
+[                 270] <>  full prefix 00000000000000000000000deaddeaddeaddeaddeaddeadde
+[                 270] <>  prefix_bits 0 0 deaddeadde addeaddeaddeadde
+[                 290] <>  w at {i}173
+[                 290] <>  full prefix 000000000000000000000deaddeaddeaddeaddeaddeaddead
+[                 290] <>  prefix_bits 0 0 deaddeaddead deaddeaddeaddead
+[                 310] <>  w at {i}222
+[                 310] <>  full prefix 0000000000000000000deaddeaddeaddeaddeaddeaddeadde
+[                 310] <>  prefix_bits 0 0 deaddeaddeadde addeaddeaddeadde
+[                 330] <>  w at {i}173
+[                 330] <>  full prefix 00000000000000000deaddeaddeaddeaddeaddeaddeaddead
+[                 330] <>  prefix_bits 0 0 deaddeaddeaddead deaddeaddeaddead
+[                 350] <>  w at {i}222
+[                 350] <>  full prefix 000000000000000deaddeaddeaddeaddeaddeaddeaddeadde
+[                 350] <>  prefix_bits 0 de addeaddeaddeadde addeaddeaddeadde
+[                 370] <>  w at {i}173
+[                 370] <>  full prefix 0000000000000deaddeaddeaddeaddeaddeaddeaddeaddead
+[                 370] <>  prefix_bits 0 dead deaddeaddeaddead deaddeaddeaddead
+[                 390] <>  w at {i}222
+[                 390] <>  full prefix 00000000000deaddeaddeaddeaddeaddeaddeaddeaddeadde
+[                 390] <>  prefix_bits 0 deadde addeaddeaddeadde addeaddeaddeadde
+[                 410] <>  w at {i}173
+[                 410] <>  full prefix 000000000deaddeaddeaddeaddeaddeaddeaddeaddeaddead
+[                 410] <>  prefix_bits 0 deaddead deaddeaddeaddead deaddeaddeaddead
