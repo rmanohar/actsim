@@ -678,7 +678,8 @@ static void _process_print_int (BigInt &v,
 {
   if (int_width == -1) {
     if (int_type == 0) {
-      actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v.getVal (0));
+      v.decPrint (actsim_log_fp());
+      //actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v.getVal (0));
     }
     else if (int_type == 1) {
       actsim_log ("%" ACT_EXPR_RES_PRINTF "d", v.getVal (0));
@@ -692,12 +693,15 @@ static void _process_print_int (BigInt &v,
   }
   else {
     if (int_type == 0) {
+      v.decPrint (actsim_log_fp());
+#if 0
       if (int_is_zero) {
 	actsim_log ("%0" ACT_EXPR_RES_PRINTF "*u", int_width, v.getVal (0));
       }
       else {
 	actsim_log ("%" ACT_EXPR_RES_PRINTF "*u", int_width, v.getVal (0));
       }
+#endif
     }
     else if (int_type == 1) {
       if (int_is_zero) {
