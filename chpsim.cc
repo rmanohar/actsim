@@ -3646,14 +3646,21 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
     
   case ACT_CHP_DOLOOP:
-    ret = new ChpSimGraph (sc);
-    ret->stmt = gc_to_chpsim (c->u.gc, sc);
-    ret->stmt->type = CHPSIM_LOOP;
-    (*stop) = new ChpSimGraph (sc);
-    ret->next = (*stop);
-    MALLOC (ret->all, ChpSimGraph *, 1);
-    ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
-    tmp2->next = ret;
+    {
+      ChpSimGraph *ntmp;
+      ChpSimGraph *nret = _buildChpSimGraph (sc, c->u.gc->s, &ntmp);
+    
+      ret = new ChpSimGraph (sc);
+      ntmp->next = ret;
+      ret->stmt = gc_to_chpsim (c->u.gc, sc);
+      ret->stmt->type = CHPSIM_LOOP;
+      (*stop) = new ChpSimGraph (sc);
+      ret->next = (*stop);
+      MALLOC (ret->all, ChpSimGraph *, 1);
+      ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
+      tmp2->next = ret;
+      ret = nret;
+    }
     break;
     
   case ACT_CHP_SKIP:

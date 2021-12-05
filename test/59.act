@@ -1,0 +1,10 @@
+defproc test()
+{ 
+  int i;
+  chp {
+    i := 0;
+   *[ log ("got i ", i); i := (i + 1) % 10 <- i != 0 ];
+    log ("hi!")
+  }
+}
+
