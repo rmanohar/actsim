@@ -9,3 +9,4 @@ arm*
 .actsim_history
 config.mk
 config_pkg.h
+xyce.in
