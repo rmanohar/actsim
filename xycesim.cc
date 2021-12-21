@@ -204,14 +204,18 @@ void XyceActInterface::initXyce ()
 
   int found_vdd = 0, found_gnd = 0;
 
+  const char *Vddname, *GNDname;
+  Vddname = config_get_string ("net.global_vdd");
+  GNDname = config_get_string ("net.global_gnd");
+
   for (int i=0; i < A_LEN (top_nl->bN->used_globals); i++) {
     ActId *tid = top_nl->bN->used_globals[i]->toid();
     tid->sPrint (buf, 10240);
     delete tid;
-    if (strcmp (buf, "Vdd") == 0) {
+    if (strcmp (buf, Vddname) == 0) {
       found_vdd = 1;
     }
-    else if (strcmp (buf, "GND") == 0) {
+    else if (strcmp (buf, GNDname) == 0) {
       found_gnd = 1;
     }
     fprintf (sfp, ".global ");
@@ -220,14 +224,14 @@ void XyceActInterface::initXyce ()
   }
 
   if (!found_vdd) {
-    fprintf (sfp, ".global Vdd\n");
+    fprintf (sfp, ".global %s\n", Vddname);
   }
-  fprintf (sfp, "vvs0 Vdd 0 dc %gV\n", _Vdd);
+  fprintf (sfp, "vvs0 %s 0 dc %gV\n", Vddname, _Vdd);
 
   if (!found_gnd) {
-    fprintf (sfp, ".global GND\n");
+    fprintf (sfp, ".global %s\n", GNDname);
   }
-  fprintf (sfp, "vvs1 GND 0 dc 0.0V\n\n");
+  fprintf (sfp, "vvs1 %s 0 dc 0.0V\n\n", GNDname);
 
   fprintf (sfp, "* --- include models ---\n\n");
   fprintf (sfp, ".inc \"%s\"\n", config_get_string ("sim.device.model_files"));
