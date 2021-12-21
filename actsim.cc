@@ -52,6 +52,8 @@ struct chpsimgraph_info {
 ActSimCore::ActSimCore (Process *p)
 {
   _have_filter = 0;
+
+  A_INIT (_rand_init);
   
   if (!p) {
     root_is_ns = 1;
@@ -145,7 +147,7 @@ ActSimCore::ActSimCore (Process *p)
   _chp_sim_objects = list_new ();
   
   _rootsi = si;
-  
+
   _initSim();
 
   _register_prssim_with_excl (&I);
@@ -180,6 +182,8 @@ static void _delete_sim_objs (ActInstTable *I, int del)
 ActSimCore::~ActSimCore()
 {
   Assert (_rootsi, "What");
+
+  A_FREE (_rand_init);
   
   for (int i=0; i < A_LEN (_rootsi->bnl->used_globals); i++) {
     act_booleanized_var_t *v;
@@ -591,8 +595,10 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
     }
     else {
       const char *tmp = act_spec_string (s->type);
-      if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0) {
-	/* exclusive hi/lo list */
+      if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0 ||
+	  strcmp (tmp, "rand_init") == 0) {
+	
+	/*-- signal list --*/
 	for (int i=0; i < s->count; i++) {
 	  Array *aref;
 	  InstType *it;
@@ -621,7 +627,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  if (!astep) {
 	    cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
 	    off = getLocalOffset (cx, si, &type, NULL);
-	    Assert (type == 0, "Non-boolean in excl");
+	    Assert (type == 0, "Non-boolean in signal list");
 	    off = obj->getGlobalOffset (off, 0);
 	    A_NEW (idx, int);
 	    A_NEXT (idx) = off;
@@ -634,7 +640,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	      tl->setArray (a);
 	      cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
 	      off = getLocalOffset (cx, si, &type, NULL);
-	      Assert (type == 0, "Non-boolean in excl");
+	      Assert (type == 0, "Non-boolean in signal list");
 	      off = obj->getGlobalOffset (off, 0);
 	      A_NEW (idx, int);
 	      A_NEXT (idx) = off;
@@ -648,8 +654,12 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	if (strcmp (tmp, "mk_exclhi") == 0) {
 	  _add_excl (1, idx, A_LEN (idx));
 	}
-	else {
+	else if (strcmp (tmp, "mk_excllo") == 0) {
 	  _add_excl (0, idx, A_LEN (idx));
+	}
+	else {
+	  _add_rand_init (idx, A_LEN (idx));
+	  /*-- rand init --*/
 	}
 	A_LEN_RAW (idx) = 0;
       }
@@ -1693,6 +1703,21 @@ void ActSim::runInit ()
   setMode (1);
 
   XyceActInterface::getXyceInterface()->initXyce();
+
+  /*-- random init --*/
+  for (int i=0; i < A_LEN (_rand_init); i++) {
+    int v = random() % 2;
+    if (getBool (_rand_init[i]) == 2) {
+      if (setBool (_rand_init[i], v)) {
+	SimDES **arr = getFO (_rand_init[i], 0);
+	for (int j=0; j < numFanout (_rand_init[i], 0); j++) {
+	  ActSimDES *x = dynamic_cast<ActSimDES *>(arr[j]);
+	  Assert (x, "What?");
+	  x->propagate ();
+	}
+      }
+    }
+  }
   
   /*-- reset channels that are fragmented --*/
   for (int i=0; i < state->numChans(); i++) {
@@ -1930,10 +1955,21 @@ void ActSimCore::_add_excl (int type, int *ids, int sz)
   }
   for (int i=0; i < sz; i++) {
     state->mkSpecialBool (ids[i]);
-  }    
+  }
   return;
 }
-  
+
+/*
+  ids for rand init
+*/
+void ActSimCore::_add_rand_init (int *ids, int sz)
+{
+  for (int i=0; i < sz; i++) {
+    A_NEW (_rand_init, int);
+    A_NEXT (_rand_init) = ids[i];
+    A_INC (_rand_init);
+  }
+}
 
 /*-------------------------------------------------------------------------
  * Logging

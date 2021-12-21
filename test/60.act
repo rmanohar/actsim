@@ -1,0 +1,10 @@
+defproc test()
+{
+  int<8> x;
+   
+  chp {
+   [ {x{1..0},x{2..1}} = x -> log ("equal") [] else -> skip ]
+  }
+}
+
+

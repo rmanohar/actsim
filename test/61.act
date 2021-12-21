@@ -1,0 +1,13 @@
+defproc test()
+{
+  bool x, y;
+  spec {
+    rand_init (x)
+  }
+  prs {
+   x -> y-
+  ~x -> y+
+  } 
+}
+
+

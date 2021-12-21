@@ -421,6 +421,7 @@ protected:
   void _add_timing_fork (ActSimObj *obj, stateinfo_t *si, 
 			 int root, int a, int b, Expr *, int *extra);
   void _add_excl (int type, int *ids, int sz);
+  void _add_rand_init (int *ids, int sz);
 
   void _register_prssim_with_excl (ActInstTable *);
 
@@ -443,6 +444,8 @@ protected:
   unsigned int _rand_min, _rand_max;
   
   unsigned _seed;		 /* random seed, if used */
+
+  A_DECL (int, _rand_init);
 };
 
 
