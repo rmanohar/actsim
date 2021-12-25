@@ -21,7 +21,7 @@ defproc drive(chan!(int) w, v; chan!(bool) tick; chan?(int) s)
     int i, v_val, w_val, sum;
     chp
     {
-        tk:=0;
+        tk:=false;
         i:=0;
         v_val:=15;
         w_val:=2;

@@ -4449,7 +4449,7 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 BigInt *expr_multires::getField (ActId *x)
 {
   Assert (x, "setField with scalar called with NULL ID value");
-  int off = _d->getStructOffset (x);
+  int off = _d->getStructOffset (x, NULL);
   Assert (0 <= off && off < nvals, "Hmm");
   return &v[off];
 }
@@ -4457,7 +4457,7 @@ BigInt *expr_multires::getField (ActId *x)
 void expr_multires::setField (ActId *x, BigInt *val)
 {
   Assert (x, "setField with scalar called with NULL ID value");
-  int off = _d->getStructOffset (x);
+  int off = _d->getStructOffset (x, NULL);
   Assert (0 <= off && off < nvals, "Hmm");
 
   v[off] = *val;
@@ -4471,7 +4471,7 @@ void expr_multires::setField (ActId *x, expr_multires *m)
     *this = *m;
   }
   else {
-    int off = _d->getStructOffset (x);
+    int off = _d->getStructOffset (x, NULL);
     Assert (0 <= off && off < nvals, "Hmm");
     Assert (off + m->nvals <= nvals, "What?");
     for (int i=0; i < m->nvals; i++) {
