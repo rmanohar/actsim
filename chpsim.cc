@@ -1698,6 +1698,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	res = exprEval (c->u.assign.e);
 	xm->setField (c->u.assign.id->Rest(), &res);
       }
+      delete xit;
     }
     else {
       x = (BigInt *) b->v;
@@ -1720,7 +1721,6 @@ typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
 
 BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
 {
-
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
@@ -1745,7 +1745,8 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
     if (TypeFactory::isStructure (vx->t)) {
       expr_multires *x2;
       Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
-      x2 = new expr_multires (xd);
+      NEW (x2, expr_multires);
+      new (x2) expr_multires (xd);
       b->v = x2;
     }
     else {
@@ -1808,10 +1809,27 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
       }
     }
     extret = (*extcall) (nargs, extargs);
-    FREE (extargs);
+    if (nargs > 0) {
+      FREE (extargs);
+    }
     BigInt tmp;
     tmp.setWidth (extret.width);
     tmp.setVal (0, extret.v);
+
+    hash_iter_init (lstate, &iter);
+    while ((b = hash_iter_next (lstate, &iter))) {
+      ValueIdx *vx = f->CurScope()->LookupVal (b->key);
+      Assert (vx, "How is this possible?");
+      if (TypeFactory::isStructure (vx->t)) {
+	((expr_multires *)b->v)->~expr_multires();
+      }
+      else {
+	((BigInt *)b->v)->~BigInt();
+      }
+      FREE (b->v);
+    }
+    hash_free (lstate);
+    
     return tmp;
   }
   
@@ -1827,8 +1845,17 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
   b = hash_lookup (lstate, "self");
   x = (BigInt *)b->v;
   ret = *x;
+
   hash_iter_init (lstate, &iter);
   while ((b = hash_iter_next (lstate, &iter))) {
+    ValueIdx *vx = f->CurScope()->LookupVal (b->key);
+    Assert (vx, "How is this possible?");
+    if (TypeFactory::isStructure (vx->t)) {
+      ((expr_multires *)b->v)->~expr_multires();
+    }
+    else {
+      ((BigInt *)b->v)->~BigInt();
+    }
     FREE (b->v);
   }
   hash_free (lstate);
@@ -2285,7 +2312,9 @@ BigInt ChpSim::exprEval (Expr *e)
 	nargs++;
 	tmp = tmp->u.e.r;
       }
-      MALLOC (args, BigInt, nargs);
+      if (nargs > 0) {
+	MALLOC (args, BigInt, nargs);
+      }
       for (i=0; i < nargs; i++) {
 	new (&args[i]) BigInt;
       }
@@ -2297,6 +2326,12 @@ BigInt ChpSim::exprEval (Expr *e)
 	tmp = tmp->u.e.r;
       }
       l = funcEval ((Function *)e->u.fn.s, nargs, args);
+      for (i=0; i < nargs; i++) {
+	args[i].~BigInt();
+      }
+      if (nargs > 0) {
+	FREE (args);
+      }
     }
     break;
 
@@ -2482,7 +2517,9 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	nargs++;
 	tmp = tmp->u.e.r;
       }
-      MALLOC (args, BigInt, nargs);
+      if (nargs > 0) {
+	MALLOC (args, BigInt, nargs);
+      }
       for (i=0; i < nargs; i++) {
 	new (&args[i]) BigInt;
       }
@@ -2494,6 +2531,12 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	tmp = tmp->u.e.r;
       }
       res = funcStruct ((Function *)e->u.fn.s, nargs, args);
+      for (i=0; i < nargs; i++) {
+	args[i].~BigInt();
+      }
+      if (nargs > 0) {
+	FREE (args);
+      }
     }
     break;
 
