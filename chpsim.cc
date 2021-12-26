@@ -1719,15 +1719,15 @@ static void *dl_extern_files;
 
 typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
 
-BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
+BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 {
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
   BigInt *x;
+  expr_multires *xm;
   BigInt ret;
   ActInstiter it(f->CurScope());
-
 
   /*-- allocate state and bindings --*/
   lstate = hash_new (4);
@@ -1766,11 +1766,18 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
     int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
-    x = (BigInt *) b->v;
-    w = x->getWidth ();
-    *x = args[i];
-    x->setWidth (w);
-    x->toStatic ();
+
+    if (TypeFactory::isStructure (f->getPortType (i))) {
+      xm = (expr_multires *)b->v;
+      *xm = *((expr_multires *)vargs[i]);
+    }
+    else {
+      x = (BigInt *) b->v;
+      w = x->getWidth ();
+      *x = *((BigInt *)vargs[i]);
+      x->setWidth (w);
+      x->toStatic ();
+    }
   }
 
   /* --- run body -- */
@@ -1804,8 +1811,11 @@ BigInt ChpSim::funcEval (Function *f, int nargs, BigInt *args)
     if (nargs > 0) {
       MALLOC (extargs, expr_res, nargs);
       for (int i=0; i < nargs; i++) {
-	extargs[i].width = args[i].getWidth ();
-	extargs[i].v = args[i].getVal (0);
+	if (TypeFactory::isStructure (f->getPortType (i))) {
+	  fatal_error ("External function calls cannot have structure arguments");
+	}
+	extargs[i].width = ((BigInt *)vargs[i])->getWidth ();
+	extargs[i].v = ((BigInt *)vargs[i])->getVal (0);
       }
     }
     extret = (*extcall) (nargs, extargs);
@@ -2304,7 +2314,8 @@ BigInt ChpSim::exprEval (Expr *e)
       Expr *tmp = NULL;
       int nargs = 0;
       int i;
-      BigInt *args;
+      void **args;
+      Function *fx = (Function *)e->u.fn.s;
 
       /* first: evaluate arguments */
       tmp = e->u.fn.r;
@@ -2313,21 +2324,36 @@ BigInt ChpSim::exprEval (Expr *e)
 	tmp = tmp->u.e.r;
       }
       if (nargs > 0) {
-	MALLOC (args, BigInt, nargs);
+	MALLOC (args, void *, nargs);
       }
       for (i=0; i < nargs; i++) {
-	new (&args[i]) BigInt;
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  args[i] = new expr_multires;
+	}
+	else {
+	  args[i] = new BigInt;
+	}
       }
       tmp = e->u.fn.r;
       i = 0;
       while (tmp) {
-	args[i] = exprEval (tmp->u.e.l);
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  *((expr_multires *)args[i]) = exprStruct (tmp->u.e.l);
+	}
+	else {
+	  *((BigInt *)args[i]) = exprEval (tmp->u.e.l);
+	}
 	i++;
 	tmp = tmp->u.e.r;
       }
       l = funcEval ((Function *)e->u.fn.s, nargs, args);
       for (i=0; i < nargs; i++) {
-	args[i].~BigInt();
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  delete ((expr_multires *)args[i]);
+	}
+	else {
+	  delete ((BigInt *)args[i]);
+	}
       }
       if (nargs > 0) {
 	FREE (args);
@@ -2376,12 +2402,13 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
   return res;
 }
 
-expr_multires ChpSim::funcStruct (Function *f, int nargs, BigInt *args)
+expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
 {
   struct Hashtable *lstate;
   hash_bucket_t *b;
   hash_iter_t iter;
   BigInt *x;
+  expr_multires *xm;
   expr_multires ret;
   ActInstiter it(f->CurScope());
   InstType *ret_type = f->getRetType ();
@@ -2429,11 +2456,18 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, BigInt *args)
     int w;
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
-    x = (BigInt *) b->v;
-    w = x->getWidth ();
-    *x = args[i];
-    x->setWidth (w);
-    x->toStatic ();
+
+    if (TypeFactory::isStructure (f->getPortType (i))) {
+      xm = (expr_multires *)b->v;
+      *xm = *((expr_multires *)vargs[i]);
+    }
+    else {
+      x = (BigInt *) b->v;
+      w = x->getWidth ();
+      *x = *((BigInt *)vargs[i]);
+      x->setWidth (w);
+      x->toStatic ();
+    }
   }
 
   /* --- run body -- */
@@ -2509,7 +2543,8 @@ expr_multires ChpSim::exprStruct (Expr *e)
       Expr *tmp = NULL;
       int nargs = 0;
       int i;
-      BigInt *args;
+      void **args;
+      Function *fx = (Function *)e->u.fn.s;
 
       /* first: evaluate arguments */
       tmp = e->u.fn.r;
@@ -2518,21 +2553,36 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	tmp = tmp->u.e.r;
       }
       if (nargs > 0) {
-	MALLOC (args, BigInt, nargs);
+	MALLOC (args, void *, nargs);
       }
       for (i=0; i < nargs; i++) {
-	new (&args[i]) BigInt;
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  args[i] = new expr_multires;
+	}
+	else {
+	  args[i] = new BigInt;
+	}
       }
       tmp = e->u.fn.r;
       i = 0;
       while (tmp) {
-	args[i] = exprEval (tmp->u.e.l);
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  *((expr_multires *)args[i]) = exprStruct (tmp->u.e.l);
+	}
+	else {
+	  *((BigInt *)args[i]) = exprEval (tmp->u.e.l);
+	}
 	i++;
 	tmp = tmp->u.e.r;
       }
-      res = funcStruct ((Function *)e->u.fn.s, nargs, args);
+      res = funcStruct (fx, nargs, args);
       for (i=0; i < nargs; i++) {
-	args[i].~BigInt();
+	if (TypeFactory::isStructure (fx->getPortType (i))) {
+	  delete ((expr_multires *)args[i]);
+	}
+	else {
+	  delete ((BigInt *)args[i]);
+	}
       }
       if (nargs > 0) {
 	FREE (args);

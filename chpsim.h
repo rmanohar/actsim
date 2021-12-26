@@ -181,11 +181,11 @@ class ChpSim : public ActSimObj {
   Scope *_cureval;
   act_channel_state *_frag_ch;	// fragmented channel
 
-  BigInt funcEval (Function *, int, BigInt *);
+  BigInt funcEval (Function *, int, void **);
   BigInt varEval (int id, int type);
   
   expr_multires exprStruct (Expr *e);
-  expr_multires funcStruct (Function *, int, BigInt *);
+  expr_multires funcStruct (Function *, int, void **);
   expr_multires varStruct (struct chpsimderef *);
 
   void _structure_assign (struct chpsimderef *, expr_multires *);
