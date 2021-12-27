@@ -1442,6 +1442,16 @@ int ChpSim::varSend (int pc, int wakeup, int id, int flavor,
       if (c->ufrag_st == 0xff) { /* -1 */
 	c->frag_st++;
 	c->ufrag_st = 0;
+
+	/* if flavors, then we are done half way as well */
+	if (c->use_flavors && c->send_flavor == 1) {
+	  if (c->frag_st == 3) {
+	    if (bidir) {
+	      *xchg = c->data2;
+	    }
+	    return 0;
+	  }
+	}
       }
       else {
 	list_iappend (_stalled_pc, pc);
@@ -1606,6 +1616,12 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int flavor,
       if (c->ufrag_st == 0xff) { /* -1 */
 	c->frag_st++;
 	c->ufrag_st = 0;
+	if (c->use_flavors && c->recv_flavor == 1) {
+	  if (c->frag_st == 3) {
+	    (*v) = c->data;
+	    return 0;
+	  }
+	}
       }
       else {
 	list_iappend (_stalled_pc, pc);
