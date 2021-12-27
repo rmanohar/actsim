@@ -1,0 +1,14 @@
+defproc test()
+{
+  int<4> a, b;
+  int<5> c;
+
+  chp {
+    a := 4; 
+    b := 3;
+    c := a - b;
+    log (a, " ", b, " ", c);
+    c := b - a;
+    log (a, " ", b, " ", c)
+  }
+}

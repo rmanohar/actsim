@@ -2143,6 +2143,7 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_MINUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
+    l.setWidth (MAX(l.getWidth(), r.getWidth()) + 1);
     l -= r;
     break;
 
