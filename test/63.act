@@ -1,0 +1,26 @@
+defproc src (chan(int,int) out)
+{
+  int a, b;
+  chp {
+    a := 0;
+    b := 0;
+   *[ b < 10 -> out!a?b; log ("sent: ", a, " got: ", b); a := a + 2 ]
+  }
+}
+
+defproc dst (chan(int,int) in)
+{
+  int a, b;
+  chp {
+    a := 1; 
+    b := 1;
+   *[ in?a!b; log ("sent ", b, " got: ", a); b := b + 2 ]
+  }
+}
+
+
+defproc test()
+{
+  src x1;
+  dst x2(x1.out);
+}

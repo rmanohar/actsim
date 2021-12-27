@@ -1,0 +1,12 @@
+[                  60] <x2>  sent 1 got: 0
+[                  60] <x1>  sent: 0 got: 1
+[                  80] <x1>  sent: 2 got: 3
+[                  80] <x2>  sent 3 got: 2
+[                 100] <x2>  sent 5 got: 4
+[                 100] <x1>  sent: 4 got: 5
+[                 120] <x1>  sent: 6 got: 7
+[                 120] <x2>  sent 7 got: 6
+[                 140] <x2>  sent 9 got: 8
+[                 140] <x1>  sent: 8 got: 9
+[                 160] <x1>  sent: 10 got: 11
+[                 160] <x2>  sent 11 got: 10

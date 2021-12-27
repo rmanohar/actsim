@@ -456,3 +456,34 @@ int ChanMethods::runMethod (ActSimCore *sim,
   /* done! */
   return -1;
 }
+
+
+act_channel_state::act_channel_state(expr_multires &vinit)
+{
+  send_here = 0;
+  recv_here = 0;
+  sender_probe = 0;
+  receiver_probe = 0;
+  len = 0;
+  data.nvals = 0;
+  data2.nvals = 0;
+  data = vinit;
+  data2 = vinit;
+  w = new WaitForOne(0);
+  probe = NULL;
+  fragmented = 0;
+  frag_st = 0;
+  ufrag_st = 0;
+  ct = NULL;
+  fH = NULL;
+  cm = NULL;
+  _dummy = NULL;
+  use_flavors = 0;
+  send_flavor = 0;
+  recv_flavor = 0;
+}
+
+act_channel_state::~act_channel_state()
+{
+  delete w;
+}

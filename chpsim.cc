@@ -532,10 +532,6 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     }
     break;
 
-  case CHPSIM_ASSIGN_STRUCT:
-    fprintf (fp, "assign-struct: ");
-    break;
-
   case CHPSIM_ASSIGN:
     fprintf (fp, "assign: ");
     if (!p) break;
@@ -554,7 +550,6 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     break;
 
   case CHPSIM_SEND:
-  case CHPSIM_SEND_STRUCT:
     fprintf (fp, "send: ");
     if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 3, &dy);
@@ -570,7 +565,6 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     break;
 
   case CHPSIM_RECV:
-  case CHPSIM_RECV_STRUCT:
     fprintf (fp, "recv: ");
     if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.sendrecv.chvar, 2, &dy);
@@ -745,7 +739,7 @@ int ChpSim::Step (int ev_type)
   int joined;
   int frag;
   BigInt v;
-  expr_multires vs;
+  expr_multires vs, xchg;
   int off;
   const char *nm, *nm2;
   int _breakpt = 0;
@@ -830,177 +824,278 @@ int ChpSim::Step (int ev_type)
     }
     break;
 
+
   case CHPSIM_ASSIGN:
     _energy_cost += stmt->energy_cost;
 #ifdef DUMP_ALL
     printf ("assign v[%d] := ", stmt->u.assign.d.offset);
 #endif
-    v = exprEval (stmt->u.assign.e);
-#ifdef DUMP_ALL    
-    printf ("%lu (w=%d)", v.v, v.width);
-#endif
     pc = _updatepc (pc);
-    off = computeOffset (&stmt->u.assign.d);
-    my_loff = off;
-    if (stmt->u.assign.isint == 0) {
-      off = getGlobalOffset (off, 0);
-#if 0      
-      printf (" [glob=%d]", off);
-#endif
-      verb = 0;
-      if ((nm = isWatched (0, my_loff))) {
-	verb = 1;
-      }
-      if ((nm2 = isBreakPt (0, my_loff))) {
-	verb |= 2;
-      }
-      if (verb) {
-	int oval = _sc->getBool (off);
-	if (oval != v.getVal (0)) {
-	  if (verb & 1) {
-	    msgPrefix ();
-	    printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
-	  }
-	  if (verb & 2) {
-	    msgPrefix ();
-	    printf ("*** breakpoint %s\n", nm2);
-	    _breakpt = 1;
-	  }
-	}
-      }
-      _sc->setBool (off, v.getVal (0));
-      boolProp (off);
+    if (stmt->u.assign.is_struct) {
+      vs = exprStruct (stmt->u.assign.e);
+      _structure_assign (&stmt->u.assign.d, &vs);
     }
     else {
-      off = getGlobalOffset (off, 1);
-#if 0      
-      printf (" [glob=%d]", off);
+      v = exprEval (stmt->u.assign.e);
+#ifdef DUMP_ALL
+      printf ("%lu (w=%d)", v.getVal (0), v.getWidth());
 #endif
-      v.setWidth (stmt->u.assign.isint);
-      v.toStatic ();
+      off = computeOffset (&stmt->u.assign.d);
+      my_loff = off;
 
-      verb = 0;
-      if ((nm = isWatched (1, my_loff))) {
-	verb = 1;
-      }
-      if ((nm2 = isBreakPt (1, my_loff))) {
-	verb |= 2;
-      }
-      if (verb) {
-	BigInt *otmp = _sc->getInt (off);
-	unsigned long oval =  otmp->getVal (0);
-	if (*otmp != v) {
-	  if (verb & 1) {
-	    msgPrefix ();
-	    printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
-	  }
-	  if (verb & 2) {
-	    msgPrefix ();
-	    printf ("*** breakpoint %s\n", nm2);
-	    _breakpt = 1;
-	  }	    
+      if (stmt->u.assign.isint == 0) {
+	off = getGlobalOffset (off, 0);
+#if 0
+	printf (" [glob=%d]", off);
+#endif
+	verb = 0;
+	if ((nm = isWatched (0, my_loff))) {
+	  verb = 1;
 	}
+	if ((nm2 = isBreakPt (0, my_loff))) {
+	  verb |= 2;
+	}
+	if (verb) {
+	  int oval = _sc->getBool (off);
+	  if (oval != v.getVal (0)) {
+	    if (verb & 1) {
+	      msgPrefix ();
+	      printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+	    }
+	    if (verb & 2) {
+	      msgPrefix ();
+	      printf ("*** breakpoint %s\n", nm2);
+	      _breakpt = 1;
+	    }
+	  }
+	}
+	_sc->setBool (off, v.getVal (0));
+	boolProp (off);
       }
-      _sc->setInt (off, v);
+      else {
+	off = getGlobalOffset (off, 1);
+#if 0      
+	printf (" [glob=%d]", off);
+#endif
+	v.setWidth (stmt->u.assign.isint);
+	v.toStatic ();
+
+	verb = 0;
+	if ((nm = isWatched (1, my_loff))) {
+	  verb = 1;
+	}
+	if ((nm2 = isBreakPt (1, my_loff))) {
+	  verb |= 2;
+	}
+	if (verb) {
+	  BigInt *otmp = _sc->getInt (off);
+	  unsigned long oval =  otmp->getVal (0);
+	  if (*otmp != v) {
+	    if (verb & 1) {
+	      msgPrefix ();
+	      printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
+	    }
+	    if (verb & 2) {
+	      msgPrefix ();
+	      printf ("*** breakpoint %s\n", nm2);
+	      _breakpt = 1;
+	    }	    
+	  }
+	}
+	_sc->setInt (off, v);
+      }
     }
     break;
 
   case CHPSIM_SEND:
-  case CHPSIM_SEND_STRUCT:
-    if (!flag) {
-      /*-- this is the first time we are at the send, so evaluate the
-           expression being sent over the channel --*/
-      
-      listitem_t *li;
-      if (stmt->u.sendrecv.e) {
-	if (stmt->type == CHPSIM_SEND_STRUCT) {
-	  vs = exprStruct (stmt->u.sendrecv.e);
-	}
-	else {
-	  v = exprEval (stmt->u.sendrecv.e);
-	}
-      }
-      else {
-	/* data-less */
-	v.setVal (0,0);
-	v.setWidth (1);
-      }
-#ifdef DUMP_ALL      
-      printf ("send val=%lu", v.v);
-#endif
-    }
-    /*-- attempt to send; suceeds if there is a receiver waiting,
-      otherwise we have to wait for the receiver --*/
-    int rv;
-    if (stmt->type == CHPSIM_SEND) {
-      vs.setSingle (v);
-    }
-    rv = varSend (pc, flag, stmt->u.sendrecv.chvar, vs, &frag);
-    if (rv) {
-      /* blocked */
-      forceret = 1;
-#ifdef DUMP_ALL      
-      printf ("send blocked");
-#endif      
-    }
-    else {
-      /* no blocking, so we move forward */
-      pc = _updatepc (pc);
-#ifdef DUMP_ALL      
-      printf ("send done");
-#endif      
-      _energy_cost += stmt->energy_cost;
-    }
-    verb = 0;
-    if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
-      verb = 1;
-    }
-    if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
-      verb |= 2;
-    }
-    if (verb) {
-      if (verb & 1) {
-	msgPrefix ();
-	if (rv) {
-	  if (frag) {
-	    printf ("%s : send-blocked\n", nm);
-	  }
-	  else {
-	    printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
-	  }
-	}
-	else {
-	  if (!flag) {
-	    if (frag) {
-	      printf ("%s : send\n", nm);
-	    }
-	    else {
-	      printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
-	    }
-	  }
-	  else {
-	    printf ("%s : send complete\n", nm);
-	  }
-	}
-      }
-      if (verb & 2) {
-	msgPrefix ();
-	printf ("*** breakpoint %s\n", nm2);
-	_breakpt = 1;
-      }
-    }
-    break;
-
-  case CHPSIM_RECV_STRUCT:
-  case CHPSIM_RECV:
     {
-      listitem_t *li;
       struct chpsimderef *d;
       int id;
       int type;
       int width;
       int rv;
       int vchan;
+
+      if (stmt->u.sendrecv.is_structx) {
+	/* bidirectional */
+	if (stmt->u.sendrecv.d) {
+	  type = stmt->u.sendrecv.d_type;
+	  d = stmt->u.sendrecv.d;
+	  id = computeOffset (d);
+	  width = d->width;
+	}
+	else {
+	  type = -1;
+	}
+      }
+      
+      if (!flag) {
+	/*-- this is the first time we are at the send, so evaluate the
+	  expression being sent over the channel --*/
+	if (stmt->u.sendrecv.e) {
+	  if (stmt->u.sendrecv.is_struct) {
+	    vs = exprStruct (stmt->u.sendrecv.e);
+	  }
+	  else {
+	    v = exprEval (stmt->u.sendrecv.e);
+	    vs.setSingle (v);
+	  }
+	}
+	else {
+	  /* data-less */
+	  v.setVal (0,0);
+	  v.setWidth (1);
+	  vs.setSingle (v);
+	}
+#ifdef DUMP_ALL      
+	printf ("send val=%lu", v.getVal (0));
+#endif
+      }
+      /*-- attempt to send; suceeds if there is a receiver waiting,
+	otherwise we have to wait for the receiver --*/
+      rv = varSend (pc, flag, stmt->u.sendrecv.chvar,
+		    stmt->u.sendrecv.flavor, vs, stmt->u.sendrecv.is_structx,
+		    &xchg, &frag);
+
+      if (stmt->u.sendrecv.is_structx) {
+	if (!rv && xchg.nvals > 0) {
+	  v = xchg.v[0];
+	}
+      }
+      
+      if (rv) {
+	/* blocked */
+	forceret = 1;
+#ifdef DUMP_ALL
+	printf ("send blocked");
+#endif
+      }
+      else {
+	/* no blocking, so we move forward */
+	pc = _updatepc (pc);
+#ifdef DUMP_ALL
+	printf ("send done");
+#endif
+	_energy_cost += stmt->energy_cost;
+	if (stmt->u.sendrecv.is_structx) {
+	  if (type != -1) {
+	    if (stmt->u.sendrecv.is_structx == 1) {
+	      if (type == 0) {
+		off = getGlobalOffset (id, 0);
+#if 0	    
+		printf (" [glob=%d]", off);
+#endif
+		verb = 0;
+		if ((nm = isWatched (0, id))) {
+		  verb = 1;
+		}
+		if ((nm2 = isBreakPt (0, id))) {
+		  verb |= 2;
+		}
+		if (verb) {
+		  int oval = _sc->getBool (off);
+		  if (oval != v.getVal (0)) {
+		    if (verb & 1) {
+		      msgPrefix ();
+		      printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' :
+						 ((char)v.getVal (0) + '0')));
+		    }
+		    if (verb & 2) {
+		      msgPrefix ();
+		      printf ("*** breakpoint %s\n", nm2);
+		      _breakpt = 1;
+		    }
+		  }
+		}
+		_sc->setBool (off, v.getVal (0));
+	      }
+	      else {
+		off = getGlobalOffset (id, 1);
+#if 0	    
+		printf (" [glob=%d]", off);
+#endif
+		verb = 0;
+		if ((nm = isWatched (1, id))) {
+		  verb = 1;
+		}
+		if ((nm2 = isBreakPt (1, id))) {
+		  verb |= 2;
+		}
+		if (verb) {
+		  BigInt *otmp = _sc->getInt (off);
+		  unsigned long oval = otmp->getVal (0);
+		  if (*otmp != v) {
+		    if (verb & 1) {
+		      msgPrefix ();
+		      printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0),
+			      v.getVal (0));
+		    }
+		    if (verb & 2) {
+		      msgPrefix ();
+		      printf ("*** breakpoint %s\n", nm2);
+		      _breakpt = 1;
+		    }
+		  }
+		}
+		_sc->setInt (off, v);
+	      }
+	    }
+	    else {
+	      _structure_assign (stmt->u.sendrecv.d, &xchg);
+	    }
+	  }
+	}
+      }
+      verb = 0;
+      if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
+	verb = 1;
+      }
+      if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
+	verb |= 2;
+      }
+      if (verb) {
+	if (verb & 1) {
+	  msgPrefix ();
+	  if (rv) {
+	    if (frag) {
+	      printf ("%s : send-blocked\n", nm);
+	    }
+	    else {
+	      printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
+	    }
+	  }
+	  else {
+	    if (!flag) {
+	      if (frag) {
+		printf ("%s : send\n", nm);
+	      }
+	      else {
+		printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
+	      }
+	    }
+	    else {
+	      printf ("%s : send complete\n", nm);
+	    }
+	  }
+	}
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  _breakpt = 1;
+	}
+      }
+    }
+    break;
+
+  case CHPSIM_RECV:
+    {
+      struct chpsimderef *d;
+      int id;
+      int type;
+      int width;
+      int rv;
+      int vchan;
+      
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
 	d = stmt->u.sendrecv.d;
@@ -1010,7 +1105,31 @@ int ChpSim::Step (int ev_type)
       else {
 	type = -1;
       }
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, &vs, &frag);
+
+      if (stmt->u.sendrecv.is_structx) {
+	/* bidirectional */
+	if (!flag) {
+	  if (stmt->u.sendrecv.e) {
+	    if (stmt->u.sendrecv.is_structx == 2) {
+	      xchg = exprStruct (stmt->u.sendrecv.e);
+	    }
+	    else {
+	      v = exprEval (stmt->u.sendrecv.e);
+	      xchg.setSingle (v); 
+	    }
+	  }
+	  else {
+	    v.setVal (0,0);
+	    v.setWidth (1);
+	    xchg.setSingle (v);
+	  }
+	}
+      }
+      
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar,
+		    stmt->u.sendrecv.flavor, &vs,
+		    stmt->u.sendrecv.is_structx, xchg, &frag);
+      
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
@@ -1041,7 +1160,7 @@ int ChpSim::Step (int ev_type)
       else {
 	/*-- success! --*/
 #ifdef DUMP_ALL	
-	printf ("recv got %lu!", v.v);
+	printf ("recv got %lu!", v.getVal (0));
 #endif	
 	if (vchan & 1) {
 	  msgPrefix ();
@@ -1053,7 +1172,7 @@ int ChpSim::Step (int ev_type)
 	  _breakpt = 1;
 	}
 	if (type != -1) {
-	  if (stmt->type == CHPSIM_RECV) {
+	  if (stmt->u.sendrecv.is_struct == 0) {
 	    if (type == 0) {
 	      off = getGlobalOffset (id, 0);
 #if 0	    
@@ -1228,12 +1347,6 @@ int ChpSim::Step (int ev_type)
       }
     }
     break;
-
-  case CHPSIM_ASSIGN_STRUCT:
-    vs = exprStruct (stmt->u.assign.e);
-    _structure_assign (&stmt->u.assign.d, &vs);
-    pc = _updatepc (pc);
-    break;
     
   default:
     fatal_error ("What?");
@@ -1256,12 +1369,15 @@ int ChpSim::Step (int ev_type)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
-		     int *frag)
+int ChpSim::varSend (int pc, int wakeup, int id, int flavor,
+		     expr_multires &v, int bidir,
+		     expr_multires *xchg, int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
+
+  /* XXX: need to handle flavors */
 
   if (c->fragmented) {
     *frag = 1;
@@ -1291,6 +1407,9 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
       else {
 	/* finished protocol */
 	c->frag_st = 0;
+	if (bidir) {
+	  *xchg = c->data2;
+	}
 	return 0;
       }
       c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
@@ -1312,20 +1431,27 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
 #endif  
 
   if (wakeup) {
-#ifdef DUMP_ALL    
+#ifdef DUMP_ALL
     printf (" [send-wake %d]", pc);
-#endif    
+#endif
     c->send_here = 0;
     Assert (c->sender_probe == 0, "What?");
+
+    if (bidir) {
+      *xchg = c->data;
+    }
     return 0;
   }
 
   if (WAITING_RECEIVER (c)) {
-#ifdef DUMP_ALL    
+#ifdef DUMP_ALL
     printf (" [waiting-recv %d]", pc);
-#endif    
+#endif
     // blocked receive, because there was no data
     c->data = v;
+    if (bidir) {
+      *xchg = c->data2;
+    }
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
     if (c->send_here != 0) {
@@ -1380,8 +1506,9 @@ int ChpSim::varSend (int pc, int wakeup, int id, expr_multires &v,
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
-		     int *frag)
+int ChpSim::varRecv (int pc, int wakeup, int id, int flavor,
+		     expr_multires *v, int bidir,
+		     expr_multires &xchg, int *frag)
 {
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
@@ -1390,6 +1517,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
   if (c->fragmented) {
     *frag = 1;
     if (c->frag_st == 0) {
+      if (bidir) {
+	c->data2 = xchg;
+      }
       c->frag_st = 1;
       c->ufrag_st = 0;
     }
@@ -1463,6 +1593,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
     printf (" [waiting-send %d]", pc);
 #endif    
     *v = c->data2;
+    if (bidir) {
+      c->data = xchg;
+    }
     c->w->Notify (c->send_here-1);
     c->send_here = 0;
     Assert (c->recv_here == 0 && c->receiver_probe == 0 &&
@@ -1497,6 +1630,9 @@ int ChpSim::varRecv (int pc, int wakeup, int id, expr_multires *v,
     c->recv_here = (pc+1);
     if (!c->w->isWaiting (this)) {
       c->w->AddObject (this);
+    }
+    if (bidir) {
+      c->data2 = xchg;
     }
     return 1;
   }
@@ -3781,14 +3917,16 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
       _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      ret->stmt->type = CHPSIM_SEND;
       if (ch_struct) {
-	ret->stmt->type = CHPSIM_SEND_STRUCT;
+	ret->stmt->u.sendrecv.is_struct = 1;
       }
       else {
-	ret->stmt->type = CHPSIM_SEND;
+	ret->stmt->u.sendrecv.is_struct = 0;
       }
       ret->stmt->u.sendrecv.e = NULL;
       ret->stmt->u.sendrecv.d = NULL;
+      ret->stmt->u.sendrecv.is_structx = 0;
 
       if (c->u.comm.e) {
 	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
@@ -3799,6 +3937,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	struct chpsimderef *d;
 
 	if (TypeFactory::isStructure (ch->acktype())) {
+	  ret->stmt->u.sendrecv.is_structx = 2;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref_struct (id, sc);
 	    type = 1;
@@ -3807,9 +3946,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    Data *x = dynamic_cast<Data *> (ch->acktype()->BaseType());
 	    Assert (x, "What!");
 	    d = _mk_std_deref_struct (id, x, sc);
+	    type = 1;
 	  }
 	}
 	else {
+	  ret->stmt->u.sendrecv.is_structx = 1;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref (id, sc, &type);
 	  }
@@ -3830,6 +3971,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
       ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+      ret->stmt->u.sendrecv.flavor = c->u.comm.flavor;
       (*stop) = ret;
     }
     break;
@@ -3856,15 +3998,17 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
       _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      ret->stmt->type = CHPSIM_RECV;
       if (ch_struct) {
-	ret->stmt->type = CHPSIM_RECV_STRUCT;
+	ret->stmt->u.sendrecv.is_struct = 1;
       }
       else {
-	ret->stmt->type = CHPSIM_RECV;
+	ret->stmt->u.sendrecv.is_struct = 0;
       }
 
       ret->stmt->u.sendrecv.e = NULL;
       ret->stmt->u.sendrecv.d = NULL;
+      ret->stmt->u.sendrecv.is_structx = 0;
 
       if (c->u.comm.e) {
 	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
@@ -3876,18 +4020,19 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
 	/*-- if this is a structure, unravel the structure! --*/
 	if (TypeFactory::isStructure (ch->datatype())) {
+	  ret->stmt->u.sendrecv.is_structx = 2;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref_struct (id, sc);
-	    type = 1;
 	  }
 	  else {
 	    Data *x = dynamic_cast<Data *> (ch->datatype()->BaseType());
 	    Assert (x, "Hmm");
 	    d = _mk_std_deref_struct (id, x, sc);
-	    type = 1;
 	  }
+	  type = 1;
 	}
 	else {
+	  ret->stmt->u.sendrecv.is_structx = 1;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref (id, sc, &type);
 	  }
@@ -3908,6 +4053,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
       ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
+      ret->stmt->u.sendrecv.flavor = c->u.comm.flavor;
       (*stop) = ret;
     }
     break;
@@ -3951,15 +4097,16 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
       _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
+      ret->stmt->type = CHPSIM_ASSIGN;
       if (TypeFactory::isStructure (it)) {
-	ret->stmt->type = CHPSIM_ASSIGN_STRUCT;
+	ret->stmt->u.assign.is_struct = 1;
       }
       else {
-	ret->stmt->type = CHPSIM_ASSIGN;
+	ret->stmt->u.assign.is_struct = 0;
       }
       ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
 
-      if (ret->stmt->type == CHPSIM_ASSIGN_STRUCT) {
+      if (ret->stmt->u.assign.is_struct) {
 	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id))  {
 	  struct chpsimderef *d = _mk_deref_struct (c->u.assign.id, sc);
 	  type = 1;
@@ -4345,13 +4492,10 @@ ChpSimGraph::~ChpSimGraph ()
       break;
       
     case CHPSIM_ASSIGN:
-    case CHPSIM_ASSIGN_STRUCT:
       _free_deref (&stmt->u.assign.d);
       _free_chp_expr (stmt->u.assign.e);
       break;
 
-    case CHPSIM_SEND_STRUCT:
-    case CHPSIM_RECV_STRUCT:
     case CHPSIM_RECV:
     case CHPSIM_SEND:
       if (stmt->u.sendrecv.e) {

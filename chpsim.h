@@ -40,9 +40,6 @@ struct chpsimcond {
 #define CHPSIM_FUNC   4  /* built-in functions */
 #define CHPSIM_FORK   5
 #define CHPSIM_LOOP   6
-#define CHPSIM_SEND_STRUCT 7
-#define CHPSIM_RECV_STRUCT 8
-#define CHPSIM_ASSIGN_STRUCT 9
 
 struct chpsimderef {
   Array *range;			// if NULL, then offset is the id
@@ -70,17 +67,23 @@ struct chpsimstmt {
       list_t *l;		/* arguments */
     } fn;
     struct {
-      int isint;		/* 0 = bool, otherwise bitwidth of int
+      short isint;		/* 0 = bool, otherwise bitwidth of int
 				   */
+      unsigned int is_struct:1;	// 1 if structure, 0 otherwise
       Expr *e;
       struct chpsimderef d;	/* variable deref */
     } assign;			/* var := e */
     struct {
       int chvar;
       act_connection *vc;
-      int d_type;
-      Expr *e;
-      struct chpsimderef *d;
+      unsigned int d_type:3;	// data type (0, 1, 2)
+      unsigned int flavor:2;	// flavor: 0, 1 (+), 2 (-)
+      unsigned int is_struct:1;	// 1 if structure, 0 otherwise
+      unsigned int is_structx:2; // 0 if not bidir, 1 if bidir, no
+				 // 2 if bidir and struct
+      
+      Expr *e;			// outgoing expression, if any
+      struct chpsimderef *d;	// variable, if any
     } sendrecv;
   } u;
 };
@@ -193,8 +196,10 @@ class ChpSim : public ActSimObj {
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */
 
-  int varSend (int pc, int wakeup, int id, expr_multires &v, int *frag);
-  int varRecv (int pc, int wakeup, int id, expr_multires *v, int *frag);
+  int varSend (int pc, int wakeup, int id, int flavor,
+	       expr_multires &v, int bidir, expr_multires *xchg, int *frag);
+  int varRecv (int pc, int wakeup, int id, int flavor,
+	       expr_multires *v, int bidir, expr_multires &xchg, int *frag);
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);

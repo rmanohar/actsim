@@ -28,7 +28,11 @@ class ChanMethods;
 class ChpSim;
 
 struct act_channel_state {
-  unsigned int send_here:7;	// if non-zero, this is the "pc" for
+  /* vinit : initializer for value */
+  act_channel_state(expr_multires &vinit); // initialize all fields (constructor)
+  ~act_channel_state();		// release storage (destructor)
+  
+  unsigned int send_here:16;	// if non-zero, this is the "pc" for
 				// the sender to be used to wake-up
 				// the sending process
 
@@ -36,7 +40,7 @@ struct act_channel_state {
 				// due to a probe, and not a waiting
 				// sender but a waiting probe
   
-  unsigned int recv_here:7;	 // if non-zero, this is the "pc" for
+  unsigned int recv_here:16;	 // if non-zero, this is the "pc" for
 				 // the receiver to be used to wake up
 				 // the receiving process
   
@@ -55,6 +59,11 @@ struct act_channel_state {
   unsigned int frag_st:2;	// send/recv, send_up/recv_up, or
 				// send_rest/recv_rest
   unsigned int ufrag_st:8;	// micro-state within frag state
+
+  unsigned int use_flavors:1;	// 1 if !+/!- are in use
+  unsigned int send_flavor:1;	// state of send flavor
+  unsigned int recv_flavor:1;	// state of recv flavor
+  
 
   struct iHashtable *fH;	// fragment hash table
   Channel *ct;			// channel type

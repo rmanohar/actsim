@@ -57,24 +57,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
     expr_multires vinit;
     MALLOC (chans, act_channel_state, nchans);
     for (int i=0; i < nchans; i++) {
-      chans[i].send_here = 0;
-      chans[i].recv_here = 0;
-      chans[i].sender_probe = 0;
-      chans[i].receiver_probe = 0;
-      chans[i].len = 0;
-      chans[i].data.nvals = 0;
-      chans[i].data2.nvals = 0;
-      chans[i].data = vinit;
-      chans[i].data2 = vinit;
-      chans[i].w = new WaitForOne(0);
-      chans[i].probe = NULL;
-      chans[i].fragmented = 0;
-      chans[i].frag_st = 0;
-      chans[i].ufrag_st = 0;
-      chans[i].ct = NULL;
-      chans[i].fH = NULL;
-      chans[i].cm = NULL;
-      chans[i]._dummy = NULL;
+      new (&chans[i]) act_channel_state (vinit);
     }
   }
   else {
@@ -94,7 +77,7 @@ ActSimState::~ActSimState()
   }
   if (chans) {
     for (int i=0; i < nchans; i++) {
-      delete chans[i].w;
+      chans[i].~act_channel_state();
     }
     FREE (chans);
   }
