@@ -1,0 +1,3 @@
+WARNING: dst<>: substituting chp model (requested prs, not found)
+WARNING: src<>: substituting chp model (requested prs, not found)
+Process src<>: channel send flavors must alternate between + and - (`out')

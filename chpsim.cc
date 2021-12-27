@@ -1377,7 +1377,33 @@ int ChpSim::varSend (int pc, int wakeup, int id, int flavor,
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
-  /* XXX: need to handle flavors */
+  if (!c->use_flavors && flavor != 0) {
+    c->use_flavors = 1;
+    c->send_flavor = 0;
+    c->recv_flavor = 0;
+  }
+
+  if (c->use_flavors && flavor == 0) {
+    int dy;
+    fprintf (stderr, "Process %s: all channel actions must use +/- flavors (`",
+	     _proc ? _proc->getName() : "-global-");
+    act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+    x->toid()->Print (stderr);
+    fprintf (stderr, "')\n");
+    exit (1);
+  }
+
+  if (!wakeup && c->use_flavors) {
+    if ((c->send_flavor+1) != flavor) {
+      int dy;
+      fprintf (stderr, "Process %s: channel send flavors must alternate between + and - (`",  _proc ? _proc->getName() : "-global-");
+      act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "')\n");
+      exit (1);
+    }
+    c->send_flavor = 1 - c->send_flavor;
+  }
 
   if (c->fragmented) {
     *frag = 1;
@@ -1513,6 +1539,35 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int flavor,
   act_channel_state *c;
   int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
+
+  if (!c->use_flavors && flavor != 0) {
+    c->use_flavors = 1;
+    c->send_flavor = 0;
+    c->recv_flavor = 0;
+  }
+
+  if (c->use_flavors && flavor == 0) {
+    int dy;
+    fprintf (stderr, "Process %s: all channel actions must use +/- flavors (`",
+	     _proc ? _proc->getName() : "-global-");
+    act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+    x->toid()->Print (stderr);
+    fprintf (stderr, "')\n");
+    exit (1);
+  }
+
+  if (!wakeup && c->use_flavors) {
+    if ((c->recv_flavor+1) != flavor) {
+      int dy;
+      fprintf (stderr, "Process %s: channel receive flavors must alternate between + and - (`",  _proc ? _proc->getName() : "-global-");
+      act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      x->toid()->Print (stderr);
+      fprintf (stderr, "')\n");
+      exit (1);
+    }
+    c->recv_flavor = 1 - c->recv_flavor;
+  }
+  
 
   if (c->fragmented) {
     *frag = 1;
@@ -3909,8 +3964,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       else {
 	ch = dynamic_cast<Chan *> (it->BaseType());
       }
-      if (TypeFactory::isStructure (ch->datatype()) ||
-	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
+      if (TypeFactory::isStructure (ch->datatype())) {
 	ch_struct = 1;
       }
 
@@ -3918,12 +3972,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       NEW (ret->stmt, chpsimstmt);
       _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
       ret->stmt->type = CHPSIM_SEND;
-      if (ch_struct) {
-	ret->stmt->u.sendrecv.is_struct = 1;
-      }
-      else {
-	ret->stmt->u.sendrecv.is_struct = 0;
-      }
+      ret->stmt->u.sendrecv.is_struct = ch_struct;
       ret->stmt->u.sendrecv.e = NULL;
       ret->stmt->u.sendrecv.d = NULL;
       ret->stmt->u.sendrecv.is_structx = 0;
@@ -3991,8 +4040,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       else {
 	ch = dynamic_cast<Chan *> (it->BaseType());
       }
-      if (TypeFactory::isStructure (ch->datatype()) ||
-	  ch->acktype() && TypeFactory::isStructure (ch->acktype())) {
+      if (TypeFactory::isStructure (ch->datatype())) {
 	ch_struct = 1;
       }
       ret = new ChpSimGraph (sc);
@@ -4012,6 +4060,13 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
       if (c->u.comm.e) {
 	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
+	Assert (ch->acktype(), "Bidirectional channel inconsistency");
+	if (TypeFactory::isStructure (ch->acktype())) {
+	  ret->stmt->u.sendrecv.is_structx = 2;
+	}
+	else {
+	  ret->stmt->u.sendrecv.is_structx = 1;
+	}
       }
       if (c->u.comm.var) {
 	ActId *id = c->u.comm.var;
@@ -4020,7 +4075,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
 	/*-- if this is a structure, unravel the structure! --*/
 	if (TypeFactory::isStructure (ch->datatype())) {
-	  ret->stmt->u.sendrecv.is_structx = 2;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref_struct (id, sc);
 	  }
@@ -4032,7 +4086,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  type = 1;
 	}
 	else {
-	  ret->stmt->u.sendrecv.is_structx = 1;
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref (id, sc, &type);
 	  }
