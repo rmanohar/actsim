@@ -579,7 +579,14 @@ int OnePrsSim::Step (int ev_type)
   case PRSSIM_PASSP:
   case PRSSIM_PASSN:
   case PRSSIM_TGATE:
-
+    if (_proc->setBool (_me->t2, t)) {
+      if (flags == (1+t)) {
+	flags = PENDING_NONE;
+      }
+    }
+    else {
+      flags = PENDING_NONE;
+    }
     break;
 
   case PRSSIM_RULE:
@@ -616,9 +623,9 @@ int OnePrsSim::matches (int val)
 }
 
 
-#define DO_SET_VAL(x)						\
+#define DO_SET_VAL(nid,x)					\
   do {								\
-    if (_proc->getBool (_me->vid) != (x)) {			\
+    if (_proc->getBool (nid) != (x)) {				\
       if (flags != (1 + (x))) {					\
 	flags = (1 + (x));					\
 	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
@@ -644,9 +651,9 @@ int OnePrsSim::matches (int val)
     }						\
   } while (0)
 
-#define MAKE_NODE_X						\
+#define MAKE_NODE_X(nid)					\
   do {								\
-    if (_proc->getBool (_me->vid) != 2) {			\
+    if (_proc->getBool (nid) != 2) {				\
       if (flags != PENDING_X) {					\
 	if (_pending) {						\
 	  _pending->Remove ();					\
@@ -673,8 +680,71 @@ void OnePrsSim::propagate ()
   /*-- fire rule --*/
   switch (_me->type) {
   case PRSSIM_PASSP:
+    u_state = _proc->getBool (_me->_g);
+    if (u_state == 0) {
+      u_weak = _proc->getBool (_me->t1);
+      d_weak = _proc->getBool (_me->t2);
+      if (u_weak == 1 && d_weak != 1) {
+	DO_SET_VAL (_me->t2, 1);
+      }
+      else if (u_weak == 2 && d_weak != 2) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    else if (u_state == 2) {
+      u_weak = _proc->getBool (_me->t1);
+      d_weak = _proc->getBool (_me->t2);
+      if (u_weak == 1 && d_weak != 1) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    break;
+    
   case PRSSIM_PASSN:
+    u_state = _proc->getBool (_me->g);
+    if (u_state == 1) {
+      u_weak = _proc->getBool (_me->t1);
+      d_weak = _proc->getBool (_me->t2);
+      if (u_weak == 0 && d_weak != 0) {
+	DO_SET_VAL (_me->t2, 0);
+      }
+      else if (u_weak == 2 && d_weak != 2) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    else if (u_state == 2) {
+      u_weak = _proc->getBool (_me->t1);
+      d_weak = _proc->getBool (_me->t2);
+      if (u_weak == 0 && d_weak != 0) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    break;
+    
   case PRSSIM_TGATE:
+    u_state = _proc->getBool (_me->_g);
+    d_state = _proc->getBool (_me->g);
+    u_weak = _proc->getBool (_me->t1);
+    d_weak = _proc->getBool (_me->t2);
+    if (u_weak == 1) {
+      if (u_state == 0) {
+	DO_SET_VAL (_me->t2, 1);
+      }
+      else if (u_state == 2) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    else if (u_weak == 0) {
+      if (d_state == 1) {
+	DO_SET_VAL (_me->t2, 0);
+      }
+      else if (d_state == 2) {
+	MAKE_NODE_X (_me->t2);
+      }
+    }
+    else if (u_weak == 2 && (d_state == 1 || u_state == 0)) {
+      MAKE_NODE_X (_me->t2);
+    }
     break;
 
   case PRSSIM_RULE:
@@ -703,11 +773,14 @@ void OnePrsSim::propagate ()
 	  WARNING_MSG ("unstable transition", "+");
 	}
       }
+      MAKE_NODE_X (_me->vid);
+#if 0      
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
 	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
 	flags = PENDING_X;
       }
+#endif      
     }
 
     if (flags == PENDING_0 && d_state != 1) {
@@ -721,11 +794,14 @@ void OnePrsSim::propagate ()
 	  WARNING_MSG ("unstable transition", "-");
 	}
       }
+      MAKE_NODE_X (_me->vid);
+#if 0      
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
 	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
 	flags = PENDING_X;
       }
+#endif      
     }
 
     if (u_state == 0) {
@@ -737,7 +813,7 @@ void OnePrsSim::propagate ()
       case 1:
       case 2:
 	/* set to 0 */
-	DO_SET_VAL (0);
+	DO_SET_VAL (_me->vid, 0);
 	break;
       }
     }
@@ -745,30 +821,30 @@ void OnePrsSim::propagate ()
       switch (d_state) {
       case 0:
 	/* set to 1 */
-	DO_SET_VAL (1);
+	DO_SET_VAL (_me->vid, 1);
 	break;
 
       case 2:
 	if (!u_weak && d_weak) {
-	  DO_SET_VAL (1);
+	  DO_SET_VAL (_me->vid, 1);
 	}
 	else {
 	  WARNING_MSG ("weak-interference", "");
-	  MAKE_NODE_X;
+	  MAKE_NODE_X (_me->vid);
 	}
 	break;
 
       case 1:
 	/* interference */
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL (0);
+	  DO_SET_VAL (_me->vid, 0);
 	}
 	else if (!u_weak && d_weak) {
-	  DO_SET_VAL (1);
+	  DO_SET_VAL (_me->vid, 1);
 	}
 	else {
 	  WARNING_MSG ("interference", "");
-	  MAKE_NODE_X;
+	  MAKE_NODE_X (_me->vid);
 	}
 	break;
       }
@@ -778,17 +854,17 @@ void OnePrsSim::propagate ()
       switch (d_state) {
       case 0:
 	/* set to 1 */
-	DO_SET_VAL (1);
+	DO_SET_VAL (_me->vid, 1);
 	break;
 
       case 1:
 	if (u_weak && !d_weak) {
 	  /* set to 0 */
-	  DO_SET_VAL (0);
+	  DO_SET_VAL (_me->vid, 0);
 	}
 	else {
 	  WARNING_MSG ("weak-interference", "");
-	  MAKE_NODE_X;
+	  MAKE_NODE_X (_me->vid);
 	}
 	break;
 
@@ -797,7 +873,7 @@ void OnePrsSim::propagate ()
 	if (!_proc->isResetMode()) {
 	  WARNING_MSG ("weak-interference", "");
 	}
-	MAKE_NODE_X;
+	MAKE_NODE_X (_me->vid);
 	break;
       }
     }
