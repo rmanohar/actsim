@@ -10,7 +10,7 @@ echo
 ARCH=`$ACT_HOME/scripts/getarch`
 OS=`$ACT_HOME/scripts/getos`
 EXT=${ARCH}_${OS}
-ACTTOOL=../actsim.$EXT 
+ACTTOOL=../actsim.$EXT
 
 check_echo=0
 myecho()
@@ -56,7 +56,7 @@ do
         else
 	   myecho ".[$bname]"
         fi
-	$ACTTOOL $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
+	$ACTTOOL -cnf=sim.conf $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 cycle
 EOF
 	ok=1

@@ -592,6 +592,10 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     fprintf (fp, "loop: ");
     break;
 
+  case CHPSIM_NOP:
+    fprintf (fp, "nop ");
+    break;
+
   default:
     fatal_error ("What?");
     break;
@@ -824,6 +828,14 @@ int ChpSim::Step (int ev_type)
     }
     break;
 
+  case CHPSIM_NOP:
+    pc = _updatepc (pc);
+    if (_sc->infLoopOpt()) {
+      msgPrefix();
+      printf ("** infinite loop **\n");
+      _pc[pc] = NULL;
+    }
+    break;
 
   case CHPSIM_ASSIGN:
     _energy_cost += stmt->energy_cost;
@@ -3824,6 +3836,16 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   return _buildChpSimGraph (sc, c, stop);
 }
 
+static ChpSimGraph *_gen_nop (ActSimCore *sc)
+{
+  ChpSimGraph *ret = new ChpSimGraph (sc);
+  NEW (ret->stmt, chpsimstmt);
+  ret->stmt->type = CHPSIM_NOP;
+  ret->stmt->delay_cost = 1;
+  ret->stmt->energy_cost = 0;
+  return ret;
+}
+
 ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 					    act_chp_lang_t *c,
 					    ChpSimGraph **stop)
@@ -3952,21 +3974,24 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ChpSimGraph *nret = _buildChpSimGraph (sc, c->u.gc->s, &ntmp);
 
       ret = new ChpSimGraph (sc);
-      if (nret) {
-	ntmp->next = ret;
+
+      if (!nret) {
+	nret = _gen_nop (sc);
+	ntmp = nret;
       }
+      ntmp->next = ret;
       ret->stmt = gc_to_chpsim (c->u.gc, sc);
       ret->stmt->type = CHPSIM_LOOP;
       (*stop) = new ChpSimGraph (sc);
       ret->next = (*stop);
       MALLOC (ret->all, ChpSimGraph *, 1);
       ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
-      if (ret->all[0]) {
-	tmp2->next = ret;
+      if (!ret->all[0]) {
+	ret->all[0] = _gen_nop (sc);
+	tmp2 = ret->all[0];
       }
-      if (nret) {
-	ret = nret;
-      }
+      tmp2->next = ret;
+      ret = nret;
     }
     break;
     
@@ -4575,6 +4600,9 @@ ChpSimGraph::~ChpSimGraph ()
     case CHPSIM_ASSIGN:
       _free_deref (&stmt->u.assign.d);
       _free_chp_expr (stmt->u.assign.e);
+      break;
+
+    case CHPSIM_NOP:
       break;
 
     case CHPSIM_RECV:

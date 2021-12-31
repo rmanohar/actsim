@@ -151,7 +151,12 @@ ActSimCore::ActSimCore (Process *p)
   _initSim();
 
   _register_prssim_with_excl (&I);
-  
+
+  _inf_loop_opt = 0;
+  if (config_exists ("sim.chp.inf_loop_opt") &&
+      (config_get_int ("sim.chp.inf_loop_opt") == 1)) {
+    _inf_loop_opt = 1;
+  }
 }
 
 static void _delete_sim_objs (ActInstTable *I, int del)

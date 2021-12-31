@@ -19,7 +19,7 @@ fi
 
 for i in $list
 do
-	$ACTTOOL $i test > runs/$i.stdout 2> runs/$i.stderr <<EOF
+	$ACTTOOL -cnf=sim.conf $i test > runs/$i.stdout 2> runs/$i.stderr <<EOF
 cycle
 EOF
 done

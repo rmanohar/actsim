@@ -350,6 +350,8 @@ class ActSimCore {
     return val;
   }
 
+  int infLoopOpt() { return _inf_loop_opt; }
+
 protected:
   Act *a;
 
@@ -440,6 +442,8 @@ protected:
   unsigned int _sim_rand_excl:1; /* 0 = normal, 1 = random excl */
 
   unsigned int _on_warning:2;	/* 0 = nothing, 1 = break, 2 = exit */
+
+  unsigned int _inf_loop_opt:1;	/* turn on infinite loop optimization */
 
   unsigned int _rand_min, _rand_max;
   
