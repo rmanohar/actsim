@@ -1,0 +1,21 @@
+defproc testme (chan!(int) R)
+{
+  chp {
+    R!0;
+    *[skip <- true]; 
+    log ("Hello!")
+  }
+}
+
+defproc sink_R(chan?(int<32>) C) {
+  int<32> x;
+  chp {
+    *[ C?x; log("%xR got 0x", x) ]
+  }
+}
+
+defproc test() {
+  testme ts;
+  sink_R snk_R(ts.R);
+}
+

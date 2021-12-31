@@ -3950,17 +3950,23 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     {
       ChpSimGraph *ntmp;
       ChpSimGraph *nret = _buildChpSimGraph (sc, c->u.gc->s, &ntmp);
-    
+
       ret = new ChpSimGraph (sc);
-      ntmp->next = ret;
+      if (nret) {
+	ntmp->next = ret;
+      }
       ret->stmt = gc_to_chpsim (c->u.gc, sc);
       ret->stmt->type = CHPSIM_LOOP;
       (*stop) = new ChpSimGraph (sc);
       ret->next = (*stop);
       MALLOC (ret->all, ChpSimGraph *, 1);
       ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
-      tmp2->next = ret;
-      ret = nret;
+      if (ret->all[0]) {
+	tmp2->next = ret;
+      }
+      if (nret) {
+	ret = nret;
+      }
     }
     break;
     
@@ -4454,7 +4460,12 @@ void ChpSim::dumpState (FILE *fp)
 {
   int found = 0;
   fprintf (fp, "--- Process: ");
-  getName()->Print (fp);
+  if (getName()) {
+    getName()->Print (fp);
+  }
+  else {
+    fprintf (fp, "-unknown-");
+  }
   fprintf (fp, " [ %s ] ---\n", _proc ? _proc->getName() : "-global-");
 
   for (int i=0; i < _npc; i++) {
