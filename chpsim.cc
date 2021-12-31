@@ -2155,7 +2155,13 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_MINUS:
     l = exprEval (e->u.e.l);
     r = exprEval (e->u.e.r);
-    l.setWidth (MAX(l.getWidth(), r.getWidth()) + 1);
+    {
+      phash_bucket_t *b;
+      b = _sc->exprWidth (e);
+      if (b) {
+	l.setWidth (b->i);
+      }
+    }
     l -= r;
     break;
 
@@ -2284,18 +2290,21 @@ BigInt ChpSim::exprEval (Expr *e)
     break;
     
   case E_NOT:
+  case E_COMPLEMENT:
     l = exprEval (e->u.e.l);
+    if (l.getWidth() < ((long)e->u.e.r)) {
+      l.setWidth ((long)e->u.e.r);
+    }
     l = ~l;
     break;
     
   case E_UMINUS:
     l = exprEval (e->u.e.l);
+    if (l.getWidth() < ((long)e->u.e.r)) {
+      l.setWidth ((long)e->u.e.r);
+    }
     l = -l;
-    break;
-
-  case E_COMPLEMENT:
-    l = exprEval (e->u.e.l);
-    l = ~l;
+    l.toUnsigned ();
     break;
 
   case E_QUERY:
@@ -3603,13 +3612,26 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
   case E_NE:
     ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
     ret->u.e.r = expr_to_chp_expr (e->u.e.r, s);
+    if (e->type == E_MINUS) {
+      phash_bucket_t *b = s->exprWidth (ret);
+      if (!b) {
+	int width;
+	b = s->exprAddWidth (ret);
+	act_type_expr (s->CurScope(), e, &width, 2);
+	b->i = width;
+      }
+    }
     break;
     
   case E_NOT:
   case E_UMINUS:
   case E_COMPLEMENT:
     ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
-    ret->u.e.r = NULL;
+    {
+      int width;
+      act_type_expr (s->CurScope(), e->u.e.l, &width, 2);
+      ret->u.e.r = (Expr *) (long)width;
+    }
     break;
 
   case E_QUERY:

@@ -70,6 +70,7 @@ ActSimCore::ActSimCore (Process *p)
   a = ActNamespace::Act();
   map = ihash_new (8);
   pmap = ihash_new (8);
+  ewidths = phash_new (4);
   chan = NULL;
   I.H = NULL;
   I.obj = NULL;
@@ -233,6 +234,10 @@ ActSimCore::~ActSimCore()
       delete ch;
     }
     phash_free (chan);
+  }
+
+  if (ewidths) {
+    phash_free (ewidths);
   }
 
   if (state) {

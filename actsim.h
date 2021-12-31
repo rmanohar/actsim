@@ -324,6 +324,9 @@ class ActSimCore {
   void registerFragmented (Channel *c);
   ChanMethods *getFragmented (Channel *c);
 
+  phash_bucket_t *exprWidth (Expr *e) { return phash_lookup (ewidths, e); }
+  phash_bucket_t *exprAddWidth (Expr *e) { return phash_add (ewidths, e); }
+
 
 #define LN_MAX_VAL 11.0903548889591  /* log(1 << 16) */
 
@@ -369,6 +372,8 @@ protected:
 				   prssimgraph */
 
   struct pHashtable *chan;	// compiled channel methods table
+
+  struct pHashtable *ewidths;	// expression width table map for a - b
 
   ActInstTable I;		/* instance map */
 

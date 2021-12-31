@@ -1,0 +1,28 @@
+defproc testme (chan?(int) L; chan!(int) R)
+{
+  int<4> a;
+  int<6> b;
+  int<1> c;
+  int<70> d;
+  chp {
+    a:=0;
+    b:=0;
+    c:=1;
+    d:= (a + b) - c;
+    R!d
+  }
+}
+
+defproc sink_R(chan?(int) C) {
+  int x;
+  chp {
+    *[ C?x; log("R got ", x) ]
+  }
+}
+
+defproc test()
+{
+   testme t;
+   sink_R s(t.R);
+}
+

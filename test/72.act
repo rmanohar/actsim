@@ -1,0 +1,52 @@
+defproc testme (chan?(int<32>) L; chan!(int<280>) R)
+{
+  int<280> inp;
+  int<1> a;
+  int<1> b;
+  int<1> z;
+  chp {
+    L?inp; a:=inp;
+    L?inp; b:=inp;
+    z := 0;
+    R!(~((a + b) * z))
+  }
+}
+
+defproc source_L(chan!(int<32>) C) {
+  chp {
+    C!3403661657;
+    C!929751053;
+    C!3422690621;
+    C!3437261625;
+    C!3336861011;
+    C!2311435734;
+    C!3441584055;
+    C!3431211963;
+    C!4269009133;
+    C!4135785762;
+    C!148002086;
+    C!4104131482;
+    C!4022090016;
+    C!2615939251;
+    C!2460147747;
+    C!3622367977;
+    C!866287632;
+    C!754082670;
+    C!120050193;
+    C!2251522193;
+    skip
+  }
+}
+
+defproc sink_R(chan?(int<280>) C) {
+  int<280> x;
+  chp {
+    *[ C?x; log("%xR got 0x", x) ]
+  }
+}
+
+defproc test() {
+  testme ts;
+  source_L src_L(ts.L);
+  sink_R snk_R(ts.R);
+}
