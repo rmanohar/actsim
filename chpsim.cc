@@ -2465,14 +2465,24 @@ BigInt ChpSim::exprEval (Expr *e)
 
   case E_BITFIELD:
     {
+      ActId *xid = (ActId *) e->u.e.l;
       int lo, hi;
 
       Assert (!list_isempty (_statestk), "What?");
+
       struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
       Assert (state,"what?");
-      hash_bucket_t *b = hash_lookup (state, ((ActId*)e->u.e.l)->getName());
+      hash_bucket_t *b = hash_lookup (state, xid->getName());
       Assert (b, "what?");
-      l = *((BigInt *)b->v);
+      Assert (_cureval, "What?");
+      InstType *xit = _cureval->Lookup (xid->getName());
+      if (TypeFactory::isStructure (xit)) {
+	expr_multires *x2 = (expr_multires *)b->v;
+	l = *(x2->getField (xid->Rest()));
+      }
+      else {
+	l = *((BigInt *)b->v);
+      }
 
       hi = (long)e->u.e.r->u.e.r->u.v;
       if (e->u.e.r->u.e.l) {
