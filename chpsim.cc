@@ -2467,6 +2467,7 @@ BigInt ChpSim::exprEval (Expr *e)
     {
       ActId *xid = (ActId *) e->u.e.l;
       int lo, hi;
+      int w;
 
       Assert (!list_isempty (_statestk), "What?");
 
@@ -2479,9 +2480,13 @@ BigInt ChpSim::exprEval (Expr *e)
       if (TypeFactory::isStructure (xit)) {
 	expr_multires *x2 = (expr_multires *)b->v;
 	l = *(x2->getField (xid->Rest()));
+	xit = _cureval->FullLookup (xid, NULL);
+	Assert (xit, "What?");
+	w = TypeFactory::bitWidth (xit);
       }
       else {
 	l = *((BigInt *)b->v);
+	w = TypeFactory::bitWidth (xit);
       }
 
       hi = (long)e->u.e.r->u.e.r->u.v;
@@ -2492,7 +2497,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	lo = hi;
       }
 
-      if (hi >= l.getWidth()) {
+      if (hi >= w) {
 	warning ("Bit-width (%d) is less than the width specifier {%d..%d}", l.getWidth(), hi, lo);
 	fprintf (stderr, "   id: %s\n", b->key);
       }
