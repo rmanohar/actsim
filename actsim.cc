@@ -937,48 +937,48 @@ void ActSimCore::_add_all_inst (Scope *sc)
   }
   _curoffset.addVar (_cursi->local);
 
-  ActInstiter it(sc);
+  ActUniqProcInstiter ipt(sc);
 
-  if (it.begin() != it.end()) {
+  if (ipt.begin() != ipt.end()) {
     myI->H = hash_new (4);
   }
-  
-  for (it = it.begin(); it != it.end(); it++) {
-    ValueIdx *vx = (*it);
+
+  for (ipt = ipt.begin(); ipt != ipt.end(); ipt++) {
+    ValueIdx *vx = (*ipt);
     stateinfo_t *si;
-    if (TypeFactory::isProcessType (vx->t)) {
-      Process *x = dynamic_cast<Process *> (vx->t->BaseType());
-      Arraystep *as = NULL;
-      Assert (x->isExpanded(), "What?");
+    Process *x = dynamic_cast<Process *> (vx->t->BaseType());
+    Arraystep *as = NULL;
+    Assert (x->isExpanded(), "What?");
 
-      if (vx->t->arrayInfo()) {
-	as = new Arraystep (vx->t->arrayInfo());
-      }
-      else {
-	as = NULL;
-      }
+    if (vx->t->arrayInfo()) {
+      as = new Arraystep (vx->t->arrayInfo());
+    }
+    else {
+      as = NULL;
+    }
 
-      ActId *tmpid, *previd;
+    ActId *tmpid, *previd;
 
-      if (!_curinst) {
-	_curinst = new ActId (vx->getName());
-	tmpid = _curinst;
-	previd = NULL;
-      }
-      else {
-	tmpid = _curinst->Tail();
-	tmpid->Append (new ActId (vx->getName()));
-	previd = tmpid;
-	tmpid = tmpid->Rest();
-      }
+    if (!_curinst) {
+      _curinst = new ActId (vx->getName());
+      tmpid = _curinst;
+      previd = NULL;
+    }
+    else {
+      tmpid = _curinst->Tail();
+      tmpid->Append (new ActId (vx->getName()));
+      previd = tmpid;
+      tmpid = tmpid->Rest();
+    }
 
-      si = sp->getStateInfo (x);
+    si = sp->getStateInfo (x);
+    _cursi = si;
+
+    do {
+      _curproc = x;
       _cursi = si;
 
-      do {
-	_curproc = x;
-	_cursi = si;
-	
+      if (!as || vx->isPrimary (as->index())) {
 	if (as) {
 	  tmpid->setArray (as->toArray());
 	}
@@ -1082,7 +1082,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    act_connection *c = mynl->instchpports[iportchp];
 	    iportchp++;
 
-            ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
+	    ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
 	    if (xb) {
 	      act_booleanized_var_t *v;
 	      v = (act_booleanized_var_t *)xb->v;
@@ -1177,28 +1177,31 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	  delete atmp;
 	  tmpid->setArray (NULL);
 	}
-	if (as) {
-	  as->step();
-	}
-      } while (as && !as->isend());
 
-      if (previd) {
-	previd->prune();
-	delete tmpid;
       }
-      else {
-	delete _curinst;
-	_curinst = NULL;
-      }
+      
       if (as) {
-	delete as;
+	as->step();
       }
+    } while (as && !as->isend());
+
+    if (previd) {
+      previd->prune();
+      delete tmpid;
+    }
+    else {
+      delete _curinst;
+      _curinst = NULL;
+    }
+    if (as) {
+      delete as;
     }
   }
   Assert (iportbool == A_LEN (mynl->instports), "What?");
   Assert (iportchp == A_LEN (mynl->instchpports), "What?");
 
   _cursuffix = NULL;
+  ActInstiter it(sc);
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
     if (!TypeFactory::isProcessType (vx->t)) {
