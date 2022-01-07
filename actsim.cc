@@ -1691,7 +1691,10 @@ void ActSimObj::msgPrefix (FILE *fp)
   if (fp == NULL) {
     fp = stdout;
   }
-  fprintf (fp, "[%20lu] <", CurTimeLo());
+  BigInt tm = CurTime();
+  fprintf (fp, "[");
+  tm.decPrint (fp, 20);
+  fprintf (fp, "] <");
   if (name) {
     name->Print (fp);
   }

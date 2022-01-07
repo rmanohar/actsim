@@ -926,8 +926,6 @@ struct LispCliCommand Cmds[] = {
   { "random_choice", "on|off - randomize non-deterministic choices", process_random_choice },
 
 #if 0
-  { "rand_init", "- randomly set signals that are X for rand_init signals",
-    process_rand_init },
   { "dumptc", "<file> - dump transition counts to a file", process_dumptc },
 #endif
 
