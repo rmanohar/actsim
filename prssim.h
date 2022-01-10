@@ -105,7 +105,7 @@ class PrsSim : public ActSimObj {
      /* initialize simulation, and create initial event */
   ~PrsSim ();
 
-  int Step (int ev_type);	/* run a step of the simulation */
+  int Step (Event *ev);		/* run a step of the simulation */
 
   void computeFanout ();
 
@@ -148,7 +148,7 @@ private:
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x);
-  int Step (int ev_type);
+  int Step (Event *ev);
   void propagate ();
   void printName ();
   int matches (int val);

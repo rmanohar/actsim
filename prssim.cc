@@ -41,7 +41,7 @@ PrsSim::~PrsSim()
   list_free (_sim);
 }
 
-int PrsSim::Step (int ev_type)
+int PrsSim::Step (Event */*ev*/)
 {
   fatal_error ("This should never be called!");
   return 1;
@@ -565,8 +565,9 @@ int OnePrsSim::eval (prssim_expr *x)
 
 static int _breakpt;
 
-int OnePrsSim::Step (int ev_type)
+int OnePrsSim::Step (Event *ev)
 {
+  int ev_type = ev->getType ();
   int u_state, d_state;
   int t = SIM_EV_TYPE (ev_type);
   const char *nm;

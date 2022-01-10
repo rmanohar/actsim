@@ -906,8 +906,40 @@ int process_status (int argc, char **argv)
   _compute_status (glob_sim->getInstTable(), val);
   return LISP_RET_TRUE;
 }
-  
 
+int process_trace (int argc, char **argv)
+{
+  double stop_tm;
+  
+  if (argc != 3) {
+    fprintf (stderr, "Usage: %s <file> <stop-time-in-ns>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  stop_tm = atof (argv[2]);
+  if (glob_sim->initTracing (argv[1], stop_tm*1e-9)) {
+    return LISP_RET_TRUE;
+  }
+  else {
+    return LISP_RET_ERROR;
+  }
+}
+
+int process_timescale (int argc, char **argv)
+{
+  double tm;
+  
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <t>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  tm = atof (argv[1]);
+  if (tm <= 0) {
+    fprintf (stderr, "Timescale value has to be positive!");
+    return LISP_RET_ERROR;
+  }
+  glob_sim->setTimescale (tm);
+  return LISP_RET_TRUE;
+}
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
@@ -948,6 +980,9 @@ struct LispCliCommand Cmds[] = {
   { "resume-on-warn", "- like break-on-warn, but exit", process_resume_on_warn },
 
   { "status", "0|1|X - list all nodes with specified value", process_status },
+
+  { "trace", "<file> <stop-time> - Create atrace file upto <stop-time> duration", process_trace },
+  { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
   
 #if 0  
   { "pending", "- dump pending events", process_pending },

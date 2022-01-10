@@ -24,6 +24,7 @@
 
 #include <common/bitset.h>
 #include <common/simdes.h>
+#include <common/atrace.h>
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
@@ -481,6 +482,36 @@ public:
   void restoreSim (FILE *);
 
   ActInstTable *getInstTable () { return &I; }
+
+  int initTracing (const char *file, double tm); // return 1 if
+						 // success, 0 if fail
+  
+  void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
+
+  inline void updateTracing() {
+    if (_trace_file) {
+      /* XXX: assumption: max delay of a gate is < 2^32 */
+      unsigned long tm = SimDES::CurTimeLo();
+      if (tm  < _stop_time) {
+	_wrap = 0;
+      }
+      else if (_wrap == 1) {
+	/* fine, need low order bits to wrap */
+      }
+      else {
+	/* done tracing */
+	atrace_close (_trace_file);
+	_trace_file = NULL;
+      }
+    }
+  }
+    
+protected:
+  atrace *_trace_file;		 // output atrace file, if any
+  float _int_to_float_timescale; // units to convert integer units
+				 // to time
+  unsigned long _stop_time;	 // stop time for tracing
+  unsigned int _wrap;		 // 
   
 private:
   list_t *_init_simobjs;

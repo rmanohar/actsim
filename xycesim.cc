@@ -672,7 +672,7 @@ XyceSim::~XyceSim()
   XyceActInterface::stopXyce();
 }
 
-int XyceSim::Step (int ev_type)
+int XyceSim::Step (Event * /*ev*/)
 {
   /* run simulation for X units of delay */
   XyceActInterface::getXyceInterface()->step ();

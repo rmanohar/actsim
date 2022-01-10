@@ -735,8 +735,9 @@ void ChpSim::_remove_me (int pc)
   }
 }
 
-int ChpSim::Step (int ev_type)
+int ChpSim::Step (Event *ev)
 {
+  int ev_type = ev->getType ();
   int pc = SIM_EV_TYPE (ev_type);
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;

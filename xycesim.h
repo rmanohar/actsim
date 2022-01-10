@@ -133,7 +133,7 @@ class XyceSim : public ActSimObj {
      /* initialize simulation, and create initial event */
   ~XyceSim ();
 
-  int Step (int ev_type);	/* run a step of the simulation */
+  int Step (Event *ev);		/* run a step of the simulation */
 
   void computeFanout ();
 

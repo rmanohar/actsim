@@ -1398,6 +1398,15 @@ ActSim::ActSim (Process *root) : ActSimCore (root)
 {
   /* nothing */
   _init_simobjs = NULL;
+  _trace_file = NULL;
+  if (config_exists ("sim.device.timescale")) {
+    _int_to_float_timescale = config_get_real ("sim.device.timescale");
+  }
+  else {
+    /* 10ps default */
+    _int_to_float_timescale = 10e-12;
+  }
+  _stop_time = 0;
 }
 
 ActSim::~ActSim()
@@ -2431,4 +2440,34 @@ ActExclConstraint *ActExclConstraint::getNext (int nid)
     }
   }
   return NULL;
+}
+
+
+int ActSim::initTracing (const char *file, double tm)
+{
+  double cur_time = 0;
+  BigInt curtm = SimDES::CurTime ();
+  for (int i=curtm.getLen()-1; i >= 0; i--) {
+    cur_time *= (1UL << 32);
+    cur_time *= (1UL << 32);
+    cur_time += _int_to_float_timescale*curtm.getVal (i);
+  }
+  if (tm <= cur_time) {
+    fprintf (stderr, "Current time (%g) is already at or beyond the stop time (%g)\n", cur_time, tm);
+    return 0;
+  }
+  printf ("Creating trace file, %gns in duration (~ %lu transition delays)\n",
+	  tm*1e9, (unsigned long)(tm/_int_to_float_timescale));
+
+  _stop_time = curtm.getVal (0) + (unsigned long)(tm/_int_to_float_timescale);
+  if (_stop_time < curtm.getVal (0)) {
+    _wrap = 1;
+  }
+  else {
+    _wrap = 0;
+  }
+  if (_trace_file) {
+    atrace_close (_trace_file);
+  }
+  return 1;
 }
