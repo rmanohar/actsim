@@ -1935,9 +1935,74 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
   }
 }
 
-static void *dl_extern_files;
+struct extern_libs {
+  char *name;			/* name of library */
+  char *path;			/* path to library */
+  void *dl;			/* open dl */
+};
+
+L_A_DECL (struct extern_libs, dl_extern_files);
 
 typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
+
+static void _read_externs (void)
+{
+  int i, n;
+  char buf[1024];
+  char **tab;
+  n = config_get_table_size ("sim.extern.libs");
+
+  if (n == 0) {
+    return;
+  }
+  tab = config_get_table_string ("sim.extern.libs");
+  for (i=0; i < n; i++) {
+    A_NEW (dl_extern_files, struct extern_libs);
+    A_NEXT (dl_extern_files).name = tab[i];
+    snprintf (buf, 1024, "sim.extern.%s.path", tab[i]);
+    A_NEXT (dl_extern_files).path = config_get_string (buf);
+    A_NEXT (dl_extern_files).dl = NULL;
+    A_INC (dl_extern_files);
+  }
+}
+
+
+
+EXTFUNC _find_dl_call (const char *s)
+{
+  int i;
+  char buf[1024];
+  EXTFUNC f;
+
+  f = NULL;
+  for (i=0; i < A_LEN (dl_extern_files); i++) {
+    snprintf (buf, 1024, "sim.extern.%s.%s", dl_extern_files[i].name,
+	      s);
+    buf[strlen(buf)-2] = '\0';
+    
+    if (config_exists (buf)) {
+      if (!dl_extern_files[i].dl) {
+	dl_extern_files[i].dl = dlopen (dl_extern_files[i].path, RTLD_LAZY);
+	if (!dl_extern_files[i].dl) {
+	  fprintf (stderr, "Expected to find `%s' as `%s' in library `%s'\n",
+		   s, config_get_string (buf), dl_extern_files[i].path);
+	  if (dlerror()) {
+	    fprintf (stderr, "%s\n", dlerror());
+	  }
+	  fatal_error ("Could not open dynamic library `%s'", dl_extern_files[i].path);
+	}
+      }
+      f = (EXTFUNC) dlsym (dl_extern_files[i].dl, config_get_string (buf));
+      if (!f) {
+	fprintf (stderr, "Expected to find `%s' as `%s' in library `%s'\n",
+		 s, config_get_string (buf), dl_extern_files[i].path);
+	fatal_error ("Could not find function in library", s, config_get_string (buf), dl_extern_files[i].path);
+      }
+      return f;
+    }
+  }      
+  return NULL;
+}
 
 BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 {
@@ -2005,23 +2070,13 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
     char buf[10240];
     EXTFUNC extcall = NULL;
 
-    if (!dl_extern_files) {
-      if (config_exists ("actsim.extern")) {
-	dl_extern_files = dlopen (config_get_string ("actsim.extern"),
-				  RTLD_LAZY);
+    if (A_LEN (dl_extern_files) == 0) {
+      if (config_exists ("sim.extern.libs")) {
+	_read_externs ();
       }
     }
-    extcall = NULL;
-    snprintf (buf, 10240, "actsim.%s", f->getName());
-    buf[strlen(buf)-2] = '\0';
+    extcall = _find_dl_call (f->getName());
 
-    if (dl_extern_files && config_exists (buf)) {
-      extcall = (EXTFUNC) dlsym (dl_extern_files, config_get_string (buf));
-      if (!extcall) {
-	fatal_error ("Could not find external function `%s'",
-		     config_get_string (buf));
-      }
-    }
     if (!extcall) {
       fatal_error ("Function `%s' missing chp body as well as external definition.", f->getName());
     }
