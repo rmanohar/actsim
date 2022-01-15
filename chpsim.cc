@@ -46,10 +46,10 @@ int ChpSimGraph::max_pending_count = 0;
 static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 {
   char buf[1024];
-  const char *nsname;
+  char *nsname;
  
   if (si->bnl->p->getns() != ActNamespace::Global()) {
-    nsname = si->bnl->p->getns()->getName();
+    nsname = si->bnl->p->getns()->Name();
   }
   else {
     nsname = NULL;
@@ -57,7 +57,9 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   char tmpbuf[900];
 
   if (nsname) {
-    snprintf (tmpbuf, 900, "%s::%s", nsname, si->bnl->p->getName());
+    snprintf (tmpbuf, 900, "%s::%s", nsname+2, si->bnl->p->getName());
+    FREE (nsname);
+    nsname = NULL;
   }
   else {
     snprintf (tmpbuf, 900, "%s", si->bnl->p->getName());
@@ -103,10 +105,10 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _frag_ch = NULL;
 
   if (p) {
-    const char *nsname;
+    char *nsname;
  
     if (p->getns() != ActNamespace::Global()) {
-      nsname = p->getns()->getName();
+      nsname = p->getns()->Name();
     }
     else {
       nsname = NULL;
@@ -114,7 +116,8 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     char tmpbuf[900];
 
     if (nsname) {
-      snprintf (tmpbuf, 900, "%s::%s", nsname, p->getName());
+      snprintf (tmpbuf, 900, "%s::%s", nsname+2, p->getName());
+      FREE (nsname);
     }
     else {
       snprintf (tmpbuf, 900, "%s", p->getName());
@@ -1968,24 +1971,33 @@ static void _read_externs (void)
 
 
 
-EXTFUNC _find_dl_call (const char *s)
+EXTFUNC _find_dl_call (ActNamespace *ns, const char *s)
 {
   int i;
-  char buf[1024];
+  char buf[2048];
   EXTFUNC f;
+  char *ns_name;
+
+  if (ns == ActNamespace::Global()) {
+    ns_name = NULL;
+  }
+  else {
+    ns_name = ns->Name(true);
+  }
 
   f = NULL;
   for (i=0; i < A_LEN (dl_extern_files); i++) {
-    snprintf (buf, 1024, "sim.extern.%s.%s", dl_extern_files[i].name,
-	      s);
+    snprintf (buf, 1024, "sim.extern.%s.%s%s", dl_extern_files[i].name,
+	      ns_name ? (ns_name+2) : "", s);
     buf[strlen(buf)-2] = '\0';
     
     if (config_exists (buf)) {
       if (!dl_extern_files[i].dl) {
 	dl_extern_files[i].dl = dlopen (dl_extern_files[i].path, RTLD_LAZY);
 	if (!dl_extern_files[i].dl) {
-	  fprintf (stderr, "Expected to find `%s' as `%s' in library `%s'\n",
-		   s, config_get_string (buf), dl_extern_files[i].path);
+	  fprintf (stderr, "Expected to find `%s%s' as `%s' in library `%s'\n",
+		   ns_name ? (ns_name+2) : "", s,
+		   config_get_string (buf), dl_extern_files[i].path);
 	  if (dlerror()) {
 	    fprintf (stderr, "%s\n", dlerror());
 	  }
@@ -1994,13 +2006,20 @@ EXTFUNC _find_dl_call (const char *s)
       }
       f = (EXTFUNC) dlsym (dl_extern_files[i].dl, config_get_string (buf));
       if (!f) {
-	fprintf (stderr, "Expected to find `%s' as `%s' in library `%s'\n",
-		 s, config_get_string (buf), dl_extern_files[i].path);
+	fprintf (stderr, "Expected to find `%s%s' as `%s' in library `%s'\n",
+		 ns_name ? (ns_name+2) : "", s,
+		 config_get_string (buf), dl_extern_files[i].path);
 	fatal_error ("Could not find function in library", s, config_get_string (buf), dl_extern_files[i].path);
+      }
+      if (ns_name) {
+	FREE (ns_name);
       }
       return f;
     }
   }      
+  if (ns_name) {
+    FREE (ns_name);
+  }
   return NULL;
 }
 
@@ -2075,10 +2094,13 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 	_read_externs ();
       }
     }
-    extcall = _find_dl_call (f->getName());
+    extcall = _find_dl_call (f->getns(), f->getName());
 
     if (!extcall) {
-      fatal_error ("Function `%s' missing chp body as well as external definition.", f->getName());
+      fatal_error ("Function `%s%s' missing chp body as well as external definition.",
+		   f->getns() == ActNamespace::Global() ? "" :
+		   f->getns()->Name(true) + 2,
+		   f->getName());
     }
 
     expr_res *extargs;

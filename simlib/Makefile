@@ -18,26 +18,20 @@
 #  Boston, MA  02110-1301, USA.
 #
 #-------------------------------------------------------------------------
-EXE=actsim.$(EXT)
+SHLIB=libactsimext_sh_$(EXT).so
 
-SUBDIRS=simlib
-TARGETS=$(EXE)
-TARGETINCS=actsim_ext.h
-TARGETINCSUBDIR=act
+TARGETLIBS=$(SHLIB)
+TARGETCONF=actsim.conf
+TARGETACT=rand.act _all_.act
+TARGETACTSUBDIR=sim
 
-OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o xycesim.o
+OBJS=random.os
 
-SRCS=$(OBJS:.o=.cc)
-
-include config.mk
-
-ifdef N_CIR_XyceCInterface_INCLUDE
-include xyce.in
-endif
+SRCS=$(OBJS:.os=.c)
 
 include $(ACT_HOME)/scripts/Makefile.std
 
-$(EXE): $(OBJS) $(ACTPASSDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit $(LIBXYCE)
+$(SHLIB): $(OBJS)
+	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS)
 
 -include Makefile.deps

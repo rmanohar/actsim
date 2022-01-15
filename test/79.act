@@ -1,0 +1,21 @@
+import sim;
+
+namespace foo {
+
+export defproc test()
+{
+  int i, x;
+  int idx;
+  chp {
+     i := 0;
+     idx := sim::rand::init_range(8, 18, 68);
+    *[ i < 10 -> x := sim::rand::get(idx); log (i); i := i + 1 ]
+  }
+}
+
+}
+
+defproc test()
+{
+   foo::test t;
+}
