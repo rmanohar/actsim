@@ -18,5 +18,22 @@
  *
  **************************************************************************
  */
-import "sim/sim.act";
-import "sim/rand.act";
+namespace sim {
+
+export template<pint W, V>
+defproc source (chan!(int<W>) O)
+{
+  chp {
+    *[ O!V ]
+  }
+}
+
+export template<pint W>
+defproc sink(chan?(int<W>) I)
+{
+  chp {
+    *[ I? ]
+  }
+}
+
+}

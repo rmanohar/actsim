@@ -26,6 +26,16 @@ export function init_range(int<8> width; int<32> minval, maxval) : int<32>;
 export function get(int<32> idx) : int<64>;
 export function seed(int<32> idx; int<32> val) : bool;
 
+export template<pint W>
+defproc source(chan!(int<W>) O)
+{
+  int idx;
+  chp {
+    idx := init(W);
+    *[ O!get(idx) ]
+  }
+}
+
 }
 
 }
