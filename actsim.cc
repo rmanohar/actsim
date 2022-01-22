@@ -845,7 +845,6 @@ void ActSimCore::_add_language (int lev, act_languages *l)
   if (_curI->obj) {
     _cursuffix = NULL;
     _add_spec (_curI->obj, l->getspec());
-    _curI->obj->computeFanout();
   }
 }
 
@@ -1228,6 +1227,22 @@ void ActSimCore::_add_all_inst (Scope *sc)
 }
 
 
+void ActSimCore::computeFanout (ActInstTable *I)
+{
+  if (I->obj) {
+    _cursi = sp->getStateInfo (I->obj->getProc());
+    I->obj->computeFanout();
+  }
+  if (I->H) {
+    hash_bucket_t *b;
+    hash_iter_t it;
+    hash_iter_init (I->H, &it);
+    while ((b = hash_iter_next (I->H, &it))) {
+      computeFanout ((ActInstTable *)b->v);
+    }
+  }
+}
+
 void ActSimCore::_initSim ()
 {
   /* 
@@ -1319,6 +1334,11 @@ void ActSimCore::_initSim ()
 
   list_free (_si_stack);
   list_free (_obj_stack);
+
+  /*
+    Now compute all the fanout dependencies
+  */
+  computeFanout(&I);
 
   /* 
      Add the initialization environment, if needed:
@@ -1571,7 +1591,7 @@ int ActSimObj::getGlobalOffset (int loc, int type)
     fatal_error ("Unknown type: has to be 0, 1, or 2");
     break;
   }
-  
+
   if (loc >= 0) {
 #if 0
     printf (" -> %d var\n", locoff + loc);

@@ -830,7 +830,9 @@ void OnePrsSim::propagate ()
 	  DO_SET_VAL (_me->vid, 1);
 	}
 	else {
-	  WARNING_MSG ("weak-interference", "");
+	  if (!_proc->isResetMode()) {
+	    WARNING_MSG ("weak-interference", "");
+	  }
 	  MAKE_NODE_X (_me->vid);
 	}
 	break;
@@ -864,7 +866,9 @@ void OnePrsSim::propagate ()
 	  DO_SET_VAL (_me->vid, 0);
 	}
 	else {
-	  WARNING_MSG ("weak-interference", "");
+	  if (!_proc->isResetMode()) {
+	    WARNING_MSG ("weak-interference", "");
+	  }
 	  MAKE_NODE_X (_me->vid);
 	}
 	break;

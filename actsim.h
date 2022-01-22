@@ -361,6 +361,8 @@ class ActSimCore {
 
   int infLoopOpt() { return _inf_loop_opt; }
 
+  void computeFanout (ActInstTable *inst);
+
 protected:
   Act *a;
 

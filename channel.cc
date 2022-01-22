@@ -74,6 +74,9 @@ static void _hse_record_ids (act_channel_state *ch,
 
     off = sc->getLocalOffset (ntmp, mysi, &type);
     Assert (type == 0, "HSE in channel has non-boolean ops?");
+    if (myc != c && (off < 0 && ((-off) & 1))) {
+      warning ("hse_record_ids: parent port is likely incorrect");
+    }
     off = myc->getGlobalOffset (off, 0);
     b->i = off;
 

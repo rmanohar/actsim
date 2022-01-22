@@ -783,7 +783,9 @@ int ChpSim::Step (Event *ev)
 
 #ifdef DUMP_ALL  
   printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
-  name->Print (stdout);
+  if (name) {
+    name->Print (stdout);
+  }
   printf ("> ");
 #endif
 
@@ -964,7 +966,7 @@ int ChpSim::Step (Event *ev)
 	  vs.setSingle (v);
 	}
 #ifdef DUMP_ALL      
-	printf ("send val=%lu", v.getVal (0));
+	printf ("send val=%lu ", v.getVal (0));
 #endif
       }
       /*-- attempt to send; suceeds if there is a receiver waiting,
