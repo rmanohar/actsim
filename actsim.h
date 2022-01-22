@@ -275,7 +275,12 @@ class ActSimCore {
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
   stateinfo_t *getsi(Process *p) { return sp->getStateInfo (p); }
+  ActId *curinst() { return _curinst; }
+  list_t *sistack() { return _si_stack; }
+  list_t *objstack() { return _obj_stack; }
 
+  int hasLocalOffset (ActId *id, stateinfo_t *si);
+  int hasLocalOffset (act_connection *c, stateinfo_t *si);
   int getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width = NULL);
   int getLocalOffset (act_connection *c, stateinfo_t *si, int *type, int *width = NULL);
   /* encoding: >= 0 = local state. Add to process offset to get global
@@ -393,6 +398,9 @@ protected:
   state_counts _curoffset;	/* offset of parent process */
   stateinfo_t *_cursi;		/* current state info */
   ActInstTable *_curI;		/* current inst table */
+
+  list_t *_si_stack;		// stack of state info
+  list_t *_obj_stack;		// object stack
 
   int *_cur_abs_port_bool;	/* index of ports: absolute scale */
   int *_cur_abs_port_chan;

@@ -959,8 +959,10 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
 
     if (type == 2 || type == 3) {
+      int old_frag = 0;
       loff = ps->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
+      old_frag = ch->fragmented;
       if (type == 2) {
 	/* input */
 	ch->fragmented |= 1;
@@ -969,9 +971,11 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 	ch->fragmented |= 2;
 	/* output */
       }
-      sim_recordChannel (sc, ps, tmp);
-      sc->registerFragmented (ch->ct);
-      ch->cm = sc->getFragmented (ch->ct);
+      if (!old_frag) {
+	sim_recordChannel (sc, ps, tmp);
+	sc->registerFragmented (ch->ct);
+	ch->cm = sc->getFragmented (ch->ct);
+      }
     }
     delete tmp;
   }

@@ -493,6 +493,11 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
       }
       
       r = _parent_canonical (sc, _cursuffix, p_tl, s->ids[0]);
+      if (!hasLocalOffset (r, si)) {
+	/* just skip it! */
+	s = s->next;
+	continue;
+      }
       roff = getLocalOffset (r, si, &type, NULL);
       Assert (type == 0, "Non-boolean in timing spec");
       //roff = obj->getGlobalOffset (roff, 0);
@@ -517,14 +522,16 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
 	b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
 
-	aoff = getLocalOffset (a, si, &type, NULL);
-	Assert (type == 0, "Non-boolean in timing spec");
-	//aoff = obj->getGlobalOffset (aoff, 0);
-	boff = getLocalOffset (b, si, &type, NULL);
-	Assert (type == 0, "Non-boolean in timing spec");
-	//boff = obj->getGlobalOffset (boff, 0);
+	if (hasLocalOffset (a, si) && hasLocalOffset (b, si)) {
+	  aoff = getLocalOffset (a, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  //aoff = obj->getGlobalOffset (aoff, 0);
+	  boff = getLocalOffset (b, si, &type, NULL);
+	  Assert (type == 0, "Non-boolean in timing spec");
+	  //boff = obj->getGlobalOffset (boff, 0);
 
-	_add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
+	  _add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
+	}
       }
       else {
 	for (int i=1; i < 3; i++) {
@@ -549,15 +556,17 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 
 	  a = _parent_canonical (sc, _cursuffix, p_tl, s->ids[1]);
 	  b = _parent_canonical (sc, _cursuffix, p_tl, s->ids[2]);
-	  
-	  aoff = getLocalOffset (a, si, &type, NULL);
-	  Assert (type == 0, "Non-boolean in timing spec");
-	  //aoff = obj->getGlobalOffset (aoff, 0);
-	  boff = getLocalOffset (b, si, &type, NULL);
-	  Assert (type == 0, "Non-boolean in timing spec");
-	  //boff = obj->getGlobalOffset (boff, 0);
 
-	  _add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
+	  if (hasLocalOffset (a, si) && hasLocalOffset (b, si)) {
+	    aoff = getLocalOffset (a, si, &type, NULL);
+	    Assert (type == 0, "Non-boolean in timing spec");
+	    //aoff = obj->getGlobalOffset (aoff, 0);
+	    boff = getLocalOffset (b, si, &type, NULL);
+	    Assert (type == 0, "Non-boolean in timing spec");
+	    //boff = obj->getGlobalOffset (boff, 0);
+
+	    _add_timing_fork (obj, si, roff, aoff, boff, (Expr *)s->ids[3], s->extra);
+	  }
 
 	  for (int i=1; i < 3; i++) {
 	    if (ta[i-1]) {
@@ -931,10 +940,15 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myoffset = _curoffset;
   myI = _curI;
 
+
   /* -- increment cur offset after allocating all the items -- */
   if (!_cursi) {
     return;
   }
+
+  stack_push (_si_stack, mysi);
+  stack_push (_obj_stack, myI->obj);
+  
   _curoffset.addVar (_cursi->local);
 
   ActUniqProcInstiter ipt(sc);
@@ -1165,7 +1179,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	}
 	printf ("\n");
 #endif
-
+	
 	_add_language (lev, x->getlang());
 	if (lev != ACT_MODEL_DEVICE) {
 	  /* a device level model applies to the *entire* sub-tree */
@@ -1208,6 +1222,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
       _check_add_spec (vx->getName(), vx->t, myI->obj);
     }
   }
+
+  stack_pop (_si_stack);
+  stack_pop (_obj_stack);
 }
 
 
@@ -1294,8 +1311,14 @@ void ActSimCore::_initSim ()
     warning ("Modeling the entire design at device level is unsupported; use a circuit simulator instead!");
   }
 
+  _si_stack = list_new ();
+  _obj_stack = list_new ();
+
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
+
+  list_free (_si_stack);
+  list_free (_obj_stack);
 
   /* 
      Add the initialization environment, if needed:
@@ -1444,6 +1467,28 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
   }
   return 0;
 }
+
+int ActSimCore::hasLocalOffset (ActId *id, stateinfo_t *si)
+{
+  act_connection *c = id->Canonical (si->bnl->cur);
+  return hasLocalOffset (c, si);
+}
+
+int ActSimCore::hasLocalOffset (act_connection *c, stateinfo_t *si)
+{
+  int res;
+  int offset, type;
+
+  res = sp->getTypeOffset (si, c, &offset, &type, NULL);
+
+  if (res) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
 
 int ActSimCore::getLocalDynamicStructOffset (act_connection *c,
 					     stateinfo_t *si,

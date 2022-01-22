@@ -48,10 +48,41 @@ static void _hse_record_ids (act_channel_state *ch,
     }
     tmp->Append (id);
 
-    off = sc->getLocalOffset (tmp, sc->cursi(), &type);
+    stateinfo_t *mysi = sc->cursi();
+    listitem_t *li = list_first (sc->sistack());
+    listitem_t *lo = list_first (sc->objstack());
+    ActId *ntmp = tmp;
+    ActSimObj *myc = c;
+
+    while (!sc->hasLocalOffset (ntmp, mysi) && li) {
+      /* need to find this variable in the parent! */
+      mysi = (stateinfo_t *) list_value (li);
+      myc = (ActSimObj *) list_value (lo);
+
+      li = list_next (li);
+      lo = list_next (lo);
+
+      ActId *newtmp = sc->curinst();
+      while (newtmp->Rest() != ntmp && newtmp->Rest()) {
+	newtmp = newtmp->Rest();
+      }
+      if (!newtmp->Rest()) {
+	newtmp->Append (tmp);
+      }
+      ntmp = newtmp;
+    }
+
+    off = sc->getLocalOffset (ntmp, mysi, &type);
     Assert (type == 0, "HSE in channel has non-boolean ops?");
-    off = c->getGlobalOffset (off, 0);
+    off = myc->getGlobalOffset (off, 0);
     b->i = off;
+
+    if (ntmp != tmp) {
+      while (ntmp->Rest() != tmp) {
+	ntmp = ntmp->Rest();
+      }
+      ntmp->prune();
+    }
 
     tmp->prune();
   }
