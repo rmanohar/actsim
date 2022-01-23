@@ -94,7 +94,7 @@ public:
   static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs_lang_t *);
-  static void checkFragmentation (ActSimCore *, PrsSim *, ActId *);
+  static void checkFragmentation (ActSimCore *, PrsSim *, ActId *, int);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs_expr_t *);
   
 };

@@ -4354,32 +4354,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   return ret;
 }
 
-void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id)
+void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, ActId *id, int read_only)
 {
-  if (id->isFragmented (sc->cursi()->bnl->cur)) {
-    ActId *tmp = id->unFragment (sc->cursi()->bnl->cur);
-    /*--  tmp is the unfragmented identifier --*/
-
-    int type;
-    int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
-
-    if (type == 2 || type == 3) {
-      loff = c->getGlobalOffset (loff, 2);
-      act_channel_state *ch = sc->getChan (loff);
-      if (type == 2) {
-	/* input */
-	ch->fragmented |= 1;
-      }
-      else {
-	ch->fragmented |= 2;
-	/* output */
-      }
-      sim_recordChannel (sc, c, tmp);
-      sc->registerFragmented (ch->ct);
-      ch->cm = sc->getFragmented (ch->ct);
-    }
-    delete tmp;
-  }
+  sc->checkFragmentation (id, c, sc->cursi(), read_only);
 }
 
 void ChpSimGraph::recordChannel (ActSimCore *sc, ChpSim *c, ActId *id)
@@ -4444,11 +4421,11 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
     break;
 
   case E_BITFIELD:
-    checkFragmentation (sc, c, (ActId *)e->u.e.l);
+    checkFragmentation (sc, c, (ActId *)e->u.e.l, 1);
     break;
 
   case E_VAR:
-    checkFragmentation (sc, c, (ActId *)e->u.e.l);
+    checkFragmentation (sc, c, (ActId *)e->u.e.l, 1);
     break;
 
   case E_PROBE:
@@ -4511,7 +4488,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
       checkFragmentation (sc, cc, c->u.comm.e);
     }
     if (c->u.comm.var) {
-      checkFragmentation (sc, cc,c->u.comm.var);
+      checkFragmentation (sc, cc,c->u.comm.var, 0);
     }
     break;
     
@@ -4519,7 +4496,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
     break;
     
   case ACT_CHP_ASSIGN:
-    checkFragmentation (sc, cc, c->u.assign.id);
+    checkFragmentation (sc, cc, c->u.assign.id, 1);
     checkFragmentation (sc, cc, c->u.assign.e);
     break;
 

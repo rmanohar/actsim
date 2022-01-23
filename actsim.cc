@@ -917,6 +917,23 @@ void ActSimCore::_check_add_spec (const char *name, InstType *it,
   }
 }
 
+static void _prop_used_flags (act_boolean_netlist_t *bnl, act_connection *c)
+{
+  for (int i=0; i < A_LEN (bnl->ports); i++) {
+    if (bnl->ports[i].c == c) {
+      bnl->ports[i].used = 1;
+      break;
+    }
+  }
+  for (int i=0; i < A_LEN (bnl->chpports); i++) {
+    if (bnl->chpports[i].c == c) {
+      bnl->chpports[i].used = 1;
+      break;
+    }
+  }
+}
+
+
 void ActSimCore::_add_all_inst (Scope *sc)
 {
   int lev;
@@ -1058,12 +1075,18 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	}
 
 	int ibool = 0;
+	int iportbool_orig = iportbool;
 	if (ports_exist) {
 	  for (int i=0; i < A_LEN (bnl->ports); i++) {
 	    if (bnl->ports[i].omit) continue;
 	    Assert (iportbool < A_LEN (mynl->instports), "What?");
 
 	    act_connection *c = mynl->instports[iportbool];
+
+	    if (bnl->ports[i].used) {
+	      checkFragmentation (c, myI->obj, mysi, bnl->ports[i].input);
+	    }
+
 	    int off = getLocalOffset (c, mysi, NULL);
 
 	    if (sp->isGlobalOffset (off)) {
@@ -1084,6 +1107,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	
 	int ichan = 0;
 	int iint = 0;
+	int iportchp_orig = iportchp;
 	if (chpports_exist_int|| chpports_exist_bool || chpports_exist_chan) {
 	  /* then we use the chp instports */
 	  for (int i=0; i < A_LEN (bnl->chpports); i++) {
@@ -1093,6 +1117,11 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    Assert (lvx, "Hmm");
 
 	    act_connection *c = mynl->instchpports[iportchp];
+
+	    if (bnl->chpports[i].used) {
+	      checkFragmentation (c, myI->obj, mysi, bnl->chpports[i].input);
+	    }
+
 	    iportchp++;
 
 	    ihash_bucket_t *xb = ihash_lookup (bnl->cH, (long)bnl->chpports[i].c);
@@ -1178,11 +1207,44 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	}
 	printf ("\n");
 #endif
-	
+
 	_add_language (lev, x->getlang());
+
 	if (lev != ACT_MODEL_DEVICE) {
 	  /* a device level model applies to the *entire* sub-tree */
 	  _add_all_inst (x->CurScope());
+	}
+
+
+	iportbool = iportbool_orig;
+	if (ports_exist) {
+	  for (int i=0; i < A_LEN (bnl->ports); i++) {
+	    if (bnl->ports[i].omit) continue;
+	    Assert (iportbool < A_LEN (mynl->instports), "What?");
+	    act_connection *c = mynl->instports[iportbool];
+
+	    if (bnl->ports[i].used) {
+	      //_prop_used_flags (mysi->bnl, c);
+	      checkFragmentation (c, myI->obj, mysi, bnl->ports[i].input);
+	    }
+	    iportbool++;
+	  }
+	}
+	iportchp = iportchp_orig;
+	if (chpports_exist_int|| chpports_exist_bool || chpports_exist_chan) {
+	  /* then we use the chp instports */
+	  for (int i=0; i < A_LEN (bnl->chpports); i++) {
+	    if (bnl->chpports[i].omit) continue;
+	    Assert (iportchp < A_LEN (mynl->instchpports), "What?");
+	    act_connection *c = mynl->instchpports[iportchp];
+
+	    if (bnl->chpports[i].used) {
+	      //_prop_used_flags (mysi->bnl, c);
+	      checkFragmentation (c, myI->obj, mysi, bnl->chpports[i].input);
+	    }
+
+	    iportchp++;
+	  }
 	}
 
 	if (as) {
@@ -2535,4 +2597,125 @@ int ActSim::initTracing (const char *file, double tm)
     atrace_close (_trace_file);
   }
   return 1;
+}
+
+
+void ActSimCore::checkFragmentation (ActId *id, ActSimObj *obj, stateinfo_t *si, int read_only)
+{
+  act_boolean_netlist_t *bn = si->bnl;
+  act_connection *tmpc = id->Canonical (bn->cur);
+  checkFragmentation (tmpc, obj, si, read_only);
+}
+
+void ActSimCore::checkFragmentation (act_connection *idc, ActSimObj *obj, stateinfo_t *si, int read_only)
+{
+  act_boolean_netlist_t *bn = si->bnl;
+  int is_global;
+
+  _prop_used_flags (bn, idc);
+
+  ActConniter it(idc);
+
+#if 0
+  printf ("[ %s ] check frag: ", si->bnl->p ? si->bnl->p->getName() : "-none-");
+  idc->toid()->Print (stdout);
+  printf ("\n");
+#endif
+
+  is_global = idc->isglobal();
+
+  /*
+     If the connection is a global, then we are actually walking
+     through different scopes as we walk through the connection list
+  */
+
+  for (it = it.begin(); it != it.end(); it++) {
+    act_connection *c = (*it);
+
+    ActId *id;
+    if (is_global) {
+      id = c->toid();
+    }
+    else {
+      id = idc->toid();
+    }
+
+    if (id->isFragmented (si->bnl->cur)) {
+      ActId *tmp = id->unFragment (si->bnl->cur);
+      /*--  tmp is the unfragmented identifier --*/
+
+      int type;
+
+      if (hasLocalOffset (tmp, si)) {
+	int loff = getLocalOffset (tmp, si, &type);
+
+#if 0
+	printf ("[ %s ] Unfragment: ", si->bnl->p ? si->bnl->p->getName() : "-none-");
+	tmp->Print (stdout);
+	printf ("\n");
+	printf ("  -> original: ");
+	id->Print (stdout);
+	printf (" (type = %d, read_only = %d)\n", type, read_only);
+#endif
+
+	if (type == 2 || type == 3) {
+	  stateinfo_t *mysi = cursi();
+	  setsi (si);
+	  loff = obj->getGlobalOffset (loff, 2);
+
+	  act_channel_state *ch = getChan (loff);
+
+	  sim_recordChannel (this, obj, tmp);
+	  registerFragmented (ch->ct);
+	  ch->cm = getFragmented (ch->ct);
+	  setsi (mysi);
+
+	  ActId *xtmp = tmp;
+	  ActId *tail = id;
+	  while (tmp) {
+	    tmp = tmp->Rest();
+	    tail = tail->Rest();
+	    Assert (tail, "What?");
+	  }
+
+	  InstType *chit = ch->ct->CurScope()->FullLookup (tail, NULL);
+	  Assert (chit, "Channel didn't have pieces?");
+	  if (chit->getDir() == Type::INOUT) {
+	    if (read_only) {
+	      ch->fragmented |= 1;
+	    }
+	    else {
+	      ch->fragmented |= 2;
+	    }
+	  }
+	  else if (chit->getDir() == Type::OUTIN) {
+	    if (read_only) {
+	      ch->fragmented |= 2;
+	    }
+	    else {
+	      ch->fragmented |= 1;
+	    }
+	  }
+	  else {
+	    /* guessing channel fragmentation */
+	    if (type == 2) {
+	      /* input */
+	      ch->fragmented |= 1;
+	    }
+	    else {
+	      /* output: reading a fragment */
+	      ch->fragmented |= 2;
+	    }
+	  }
+	}
+      }
+      delete tmp;
+    }
+    delete id;
+    if (is_global) {
+      /* don't go looking through the global connection list, since
+	 that can be in varied scopes */
+      return;
+    }
+  }
 }

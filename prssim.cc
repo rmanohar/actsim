@@ -990,30 +990,9 @@ bool PrsSim::setBool (int lid, int v)
 }
 
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
-				      ActId *id)
+				      ActId *id, int read_only)
 {
-  if (id->isFragmented (sc->cursi()->bnl->cur)) {
-    ActId *tmp = id->unFragment (sc->cursi()->bnl->cur);
-    int type;
-    int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
-
-    if (type == 2 || type == 3) {
-      loff = ps->getGlobalOffset (loff, 2);
-      act_channel_state *ch = sc->getChan (loff);
-      if (type == 2) {
-	/* input */
-	ch->fragmented |= 1;
-      }
-      else {
-	ch->fragmented |= 2;
-	/* output */
-      }
-      sim_recordChannel (sc, ps, tmp);
-      sc->registerFragmented (ch->ct);
-      ch->cm = sc->getFragmented (ch->ct);
-    }
-    delete tmp;
-  }
+  sc->checkFragmentation (id, ps, sc->cursi(), read_only);
 }
 
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
@@ -1032,7 +1011,7 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     break;
 
   case ACT_PRS_EXPR_VAR:
-    checkFragmentation (sc, ps, e->u.v.id);
+    checkFragmentation (sc, ps, e->u.v.id, 1);
     break;
 
   case ACT_PRS_EXPR_LABEL:
@@ -1054,15 +1033,15 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     case ACT_PRS_RULE:
       checkFragmentation (sc, ps, p->u.one.e);
       if (!p->u.one.label) {
-	checkFragmentation (sc, ps, p->u.one.id);
+	checkFragmentation (sc, ps, p->u.one.id, 0);
       }
       break;
 
     case ACT_PRS_GATE:
-      checkFragmentation (sc, ps, p->u.p.g);
-      checkFragmentation (sc, ps, p->u.p._g);
-      checkFragmentation (sc, ps, p->u.p.s);
-      checkFragmentation (sc, ps, p->u.p.d);
+      checkFragmentation (sc, ps, p->u.p.g, 0);
+      checkFragmentation (sc, ps, p->u.p._g, 0);
+      checkFragmentation (sc, ps, p->u.p.s, 0);
+      checkFragmentation (sc, ps, p->u.p.d, 1);
       break;
 
     case ACT_PRS_TREE:

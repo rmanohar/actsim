@@ -51,7 +51,7 @@ static void _hse_record_ids (act_channel_state *ch,
     stateinfo_t *mysi = sc->cursi();
     listitem_t *li = list_first (sc->sistack());
     listitem_t *lo = list_first (sc->objstack());
-    ActId *ntmp = tmp;
+    ActId *ntmp = ch_name;
     ActSimObj *myc = c;
 
     while (!sc->hasLocalOffset (ntmp, mysi) && li) {
@@ -86,8 +86,8 @@ static void _hse_record_ids (act_channel_state *ch,
       b->i = off;
     }
 
-    if (ntmp != tmp) {
-      while (ntmp->Rest() != tmp) {
+    if (ntmp != ch_name) {
+      while (ntmp->Rest() != ch_name) {
 	ntmp = ntmp->Rest();
       }
       ntmp->prune();
@@ -442,6 +442,9 @@ int ChanMethods::runMethod (ActSimCore *sim,
       v = ch->_dummy->getBool (b->i);
       if (_ops[idx].op[from].type == CHAN_OP_BOOL_T) {
 	if (v != 1) {
+#ifdef DUMP_ALL
+	  printf ("nm:g#%d := 1\n", b->i);
+#endif	  
 	  ch->_dummy->setBool (b->i, 1);
 	  v = -1;
 	}
@@ -449,6 +452,9 @@ int ChanMethods::runMethod (ActSimCore *sim,
       else {
 	if (v != 0) {
 	  ch->_dummy->setBool (b->i, 0);
+#ifdef DUMP_ALL
+	  printf ("nm:g#%d := 0\n", b->i);
+#endif	  
 	  v = -1;
 	}
       }

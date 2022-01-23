@@ -280,6 +280,10 @@ class ActSimCore {
   list_t *sistack() { return _si_stack; }
   list_t *objstack() { return _obj_stack; }
 
+  void checkFragmentation (ActId *id, ActSimObj *obj, stateinfo_t *si, int read_only);
+  void checkFragmentation (act_connection *idc, ActSimObj *obj, stateinfo_t *si, int read_only);
+  
+
   int hasLocalOffset (ActId *id, stateinfo_t *si);
   int hasLocalOffset (act_connection *c, stateinfo_t *si);
   int getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *width = NULL);

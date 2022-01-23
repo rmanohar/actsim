@@ -114,7 +114,7 @@ class ChpSimGraph {
 
   static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
   static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
-  static void checkFragmentation (ActSimCore *, ChpSim *, ActId *);
+  static void checkFragmentation (ActSimCore *, ChpSim *, ActId *, int);
   static void recordChannel (ActSimCore *, ChpSim *, ActId *);
   static void recordChannel (ActSimCore *, ChpSim *, act_chp_lang_t *);
 private:
