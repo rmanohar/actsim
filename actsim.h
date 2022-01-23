@@ -274,6 +274,7 @@ class ActSimCore {
 
   Scope *CurScope() { return _curproc ? _curproc->CurScope() : root_scope; }
   stateinfo_t *cursi() { return _cursi; }
+  void setsi(stateinfo_t *si) { _cursi = si; }
   stateinfo_t *getsi(Process *p) { return sp->getStateInfo (p); }
   ActId *curinst() { return _curinst; }
   list_t *sistack() { return _si_stack; }

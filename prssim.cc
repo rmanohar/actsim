@@ -23,6 +23,8 @@
 #include "prssim.h"
 #include <common/qops.h>
 
+//#define DUMP_ALL
+
 PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
 {
@@ -918,6 +920,9 @@ bool PrsSim::setBool (int lid, int v)
   int oval;
 
   verb = 0;
+#ifdef DUMP_ALL
+  verb = 1;
+#endif  
   if ((nm = isWatched (0, lid))) {
     verb = 1;
   }
@@ -927,6 +932,15 @@ bool PrsSim::setBool (int lid, int v)
   if (verb) {
     oval = _sc->getBool (off);
   }
+
+#ifdef DUMP_ALL
+  char buf[100];
+  if (!nm) {
+    snprintf (buf, 100, "nm#%d:g%d", lid, off);
+    nm = buf;
+  }
+#endif  
+  
   if (_sc->setBool (off, v)) {
     if (verb) {
       if (oval != v) {
@@ -942,9 +956,30 @@ bool PrsSim::setBool (int lid, int v)
       }
     }
     arr = _sc->getFO (off, 0);
+#ifdef DUMP_ALL
+    printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+#endif
     for (int i=0; i < _sc->numFanout (off, 0); i++) {
       ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
       Assert (p, "What?");
+#ifdef DUMP_ALL
+      printf ("   prop: ");
+      {
+	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+	if (obj) {
+	  if (obj->getName()) {
+	    obj->getName()->Print (stdout);
+	  }
+	  else {
+	    printf ("-none-");
+	  }
+	}
+	else {
+	  printf ("#%p", p);
+	}
+      }
+      printf ("\n");
+#endif      
       p->propagate ();
     }
     return true;
@@ -963,10 +998,8 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
     int loff = sc->getLocalOffset (tmp, sc->cursi(), &type);
 
     if (type == 2 || type == 3) {
-      int old_frag = 0;
       loff = ps->getGlobalOffset (loff, 2);
       act_channel_state *ch = sc->getChan (loff);
-      old_frag = ch->fragmented;
       if (type == 2) {
 	/* input */
 	ch->fragmented |= 1;
@@ -975,11 +1008,9 @@ void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 	ch->fragmented |= 2;
 	/* output */
       }
-      if (!old_frag) {
-	sim_recordChannel (sc, ps, tmp);
-	sc->registerFragmented (ch->ct);
-	ch->cm = sc->getFragmented (ch->ct);
-      }
+      sim_recordChannel (sc, ps, tmp);
+      sc->registerFragmented (ch->ct);
+      ch->cm = sc->getFragmented (ch->ct);
     }
     delete tmp;
   }

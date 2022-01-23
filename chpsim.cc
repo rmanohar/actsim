@@ -4936,9 +4936,31 @@ void ChpSim::boolProp (int glob_off)
 {
   SimDES **arr;
   arr = _sc->getFO (glob_off, 0);
+
+#ifdef DUMP_ALL
+  printf ("  >>> propagate %d\n", _sc->numFanout (glob_off, 0));
+#endif  
   for (int i=0; i < _sc->numFanout (glob_off, 0); i++) {
     ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
     Assert (p, "What?");
+#ifdef DUMP_ALL
+      printf ("   prop: ");
+      {
+	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+	if (obj) {
+	  if (obj->getName()) {
+	    obj->getName()->Print (stdout);
+	  }
+	  else {
+	    printf ("-none-");
+	  }
+	}
+	else {
+	  printf ("#%p", p);
+	}
+      }
+      printf ("\n");
+#endif      
     p->propagate ();
   }
 }

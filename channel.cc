@@ -31,7 +31,7 @@ static void _hse_record_ids (act_channel_state *ch,
   if (!id->Rest() && (strcmp (id->getName(), "self") == 0)) {
     return;
   }
-  
+
   act_connection *ac = id->Canonical (ch->ct->CurScope());
   ihash_bucket_t *b;
 
@@ -75,10 +75,16 @@ static void _hse_record_ids (act_channel_state *ch,
     off = sc->getLocalOffset (ntmp, mysi, &type);
     Assert (type == 0, "HSE in channel has non-boolean ops?");
     if (myc != c && (off < 0 && ((-off) & 1))) {
-      warning ("hse_record_ids: parent port is likely incorrect");
+      stateinfo_t *saved = sc->cursi();
+      sc->setsi (mysi);
+      off = myc->getGlobalOffset (off, 0);
+      b->i = off;
+      sc->setsi (saved);
     }
-    off = myc->getGlobalOffset (off, 0);
-    b->i = off;
+    else {
+      off = myc->getGlobalOffset (off, 0);
+      b->i = off;
+    }
 
     if (ntmp != tmp) {
       while (ntmp->Rest() != tmp) {
@@ -222,20 +228,22 @@ void sim_recordChannel (ActSimCore *sc, ActSimObj *c, ActId *id)
     /* now find each boolean, and record it in the channel state! */
     if (!ch->fH) {
       ch->fH = ihash_new (4);
-      ch->ct = ct;
-      ch->inst_id = id->Clone();
-
-      for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
-	act_chp_lang_t *x = ct->getMethod (i);
-	if (x) {
-	  _hse_record_ids (ch, sc, c, id, x);
-	}
+    }
+    ch->ct = ct;
+    if (!ch->inst_id) {
+       ch->inst_id = id->Clone();
+    }
+ 
+    for (int i=0; i < ACT_NUM_STD_METHODS; i++) {
+      act_chp_lang_t *x = ct->getMethod (i);
+      if (x) {
+	_hse_record_ids (ch, sc, c, id, x);
       }
-      for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
-	Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
-	if (e) {
-	  _hse_record_ids (ch, sc, c, id, e);
-	}
+    }
+    for (int i=0; i < ACT_NUM_EXPR_METHODS; i++) {
+      Expr *e = ct->geteMethod (i+ACT_NUM_STD_METHODS);
+      if (e) {
+	_hse_record_ids (ch, sc, c, id, e);
       }
     }
   }
@@ -515,6 +523,7 @@ act_channel_state::act_channel_state(expr_multires &vinit)
   use_flavors = 0;
   send_flavor = 0;
   recv_flavor = 0;
+  inst_id = NULL;
 }
 
 act_channel_state::~act_channel_state()
