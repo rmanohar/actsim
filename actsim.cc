@@ -2631,14 +2631,17 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActSimObj *obj, statei
 
   for (it = it.begin(); it != it.end(); it++) {
     act_connection *c = (*it);
-
     ActId *id;
-    if (is_global) {
-      id = c->toid();
+
+    /*
+       If the canonical name is a global, then only check global
+       scopes for this particular degragmentation check. Other
+       elements may not be in the current scope.
+    */
+    if (is_global && !c->isglobal()) {
+      continue;
     }
-    else {
-      id = idc->toid();
-    }
+    id = c->toid();
 
     if (id->isFragmented (si->bnl->cur)) {
       ActId *tmp = id->unFragment (si->bnl->cur);
@@ -2712,10 +2715,5 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActSimObj *obj, statei
       delete tmp;
     }
     delete id;
-    if (is_global) {
-      /* don't go looking through the global connection list, since
-	 that can be in varied scopes */
-      return;
-    }
   }
 }
