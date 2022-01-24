@@ -1084,7 +1084,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    act_connection *c = mynl->instports[iportbool];
 
 	    if (bnl->ports[i].used) {
-	      checkFragmentation (c, myI->obj, mysi, bnl->ports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->ports[i].input);
 	    }
 
 	    int off = getLocalOffset (c, mysi, NULL);
@@ -1119,7 +1119,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    act_connection *c = mynl->instchpports[iportchp];
 
 	    if (bnl->chpports[i].used) {
-	      checkFragmentation (c, myI->obj, mysi, bnl->chpports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->chpports[i].input);
 	    }
 
 	    iportchp++;
@@ -1225,7 +1225,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
 	    if (bnl->ports[i].used) {
 	      //_prop_used_flags (mysi->bnl, c);
-	      checkFragmentation (c, myI->obj, mysi, bnl->ports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->ports[i].input);
 	    }
 	    iportbool++;
 	  }
@@ -1240,7 +1240,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
 	    if (bnl->chpports[i].used) {
 	      //_prop_used_flags (mysi->bnl, c);
-	      checkFragmentation (c, myI->obj, mysi, bnl->chpports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->chpports[i].input);
 	    }
 
 	    iportchp++;
@@ -2604,10 +2604,10 @@ void ActSimCore::checkFragmentation (ActId *id, ActSimObj *obj, stateinfo_t *si,
 {
   act_boolean_netlist_t *bn = si->bnl;
   act_connection *tmpc = id->Canonical (bn->cur);
-  checkFragmentation (tmpc, obj, si, read_only);
+  checkFragmentation (tmpc, id, obj, si, read_only);
 }
 
-void ActSimCore::checkFragmentation (act_connection *idc, ActSimObj *obj, stateinfo_t *si, int read_only)
+void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj *obj, stateinfo_t *si, int read_only)
 {
   act_boolean_netlist_t *bn = si->bnl;
   int is_global;
@@ -2638,10 +2638,20 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActSimObj *obj, statei
        scopes for this particular degragmentation check. Other
        elements may not be in the current scope.
     */
+    
     if (is_global && !c->isglobal()) {
-      continue;
+      if (!rid) {
+	continue;
+      }
+      id = c->toid();
+      if (!rid->isEqual (id)) {
+	delete id;
+	continue;
+      }
     }
-    id = c->toid();
+    else {
+      id = c->toid();
+    }
 
     if (id->isFragmented (si->bnl->cur)) {
       ActId *tmp = id->unFragment (si->bnl->cur);
