@@ -4879,7 +4879,10 @@ void expr_multires::setField (ActId *x, BigInt *val)
   int off = _d->getStructOffset (x, NULL);
   Assert (0 <= off && off < nvals, "Hmm");
 
+  int w = v[off].getWidth();
+
   v[off] = *val;
+  v[off].setWidth (w);
 }
 
 void expr_multires::setField (ActId *x, expr_multires *m)
@@ -4894,7 +4897,9 @@ void expr_multires::setField (ActId *x, expr_multires *m)
     Assert (0 <= off && off < nvals, "Hmm");
     Assert (off + m->nvals <= nvals, "What?");
     for (int i=0; i < m->nvals; i++) {
+      int w = v[off + i].getWidth ();
       v[off + i] = m->v[i];
+      v[off + i].setWidth (w);
     }
   }
 }

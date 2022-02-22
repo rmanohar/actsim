@@ -1,3 +1,4 @@
 In expanding mem<32> (19.act:5)
+Error on or near line number 11.
 In CHP, fragmented access `i.rd.d0' to base identifier `i.rd'
 FATAL: Cannot access channel/integer fragments in CHP!
