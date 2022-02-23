@@ -1,0 +1,53 @@
+deftype foo (int<55> m){}
+deftype bar (int<55> m){}
+
+function why (int<64> x) : foo
+{
+  foo b;
+
+  chp {
+    b.m := x{54..0};
+    self := b
+  } 
+}
+
+function whywhy (foo a,b): bar
+{
+  bar f;
+
+  int<55> h;
+
+  chp {
+    a.m := 0; //this is the problem.
+    log ("%x", a.m, " a.m");
+//    a.m := int(0, 64); //this is the solution
+    log ("%x", a.m, " a.m");
+//    b.m := 0; //this does not change anything
+    f.m := a.m + b.m;
+    h := f.m;
+    log("%x",f.m{53..52}, "%x ", h, "%x f.m = ", f.m);
+    [ f.m{53..52} != 0 -> log("%x",f.m{53..52}); f.m := f.m << 1
+    []else -> skip
+    ];
+    log("%x",f.m{53..52});
+    self := f
+  }
+}
+
+defproc test () 
+{
+
+  foo a,c;
+  bar b;
+  int<64> x,y;
+
+  chp {
+    x := int(0x10000000000000,64);
+    y := int(0x10000000000000,64);
+    a := why(x);
+    c := why(y);
+    b := whywhy(a,c)
+  }
+}
+
+test t;
