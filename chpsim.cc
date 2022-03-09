@@ -2445,7 +2445,17 @@ BigInt ChpSim::exprEval (Expr *e)
       l = varEval (off, 1);
       l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
       l >>= lo;
-      l.setWidth (hi - lo + 1);
+
+      if (hi < lo) {
+	msgPrefix();
+	printf ("bit-field {%d..%d} is invalid; using one-bit result",
+		hi, lo);
+	printf ("\n");
+	l.setWidth (1);
+      }
+      else {
+	l.setWidth (hi - lo + 1);
+      }
     }
     break;
     
@@ -2561,7 +2571,16 @@ BigInt ChpSim::exprEval (Expr *e)
 	lo = hi;
       }
       l >>= lo;
-      l.setWidth (hi - lo + 1);
+      if (hi < lo) {
+	msgPrefix();
+	printf ("bit-field {%d..%d} is invalid; using one-bit result",
+		hi, lo);
+	printf ("\n");
+	l.setWidth (1);
+      }
+      else {
+	l.setWidth (hi - lo + 1);
+      }
     }
     break;
 
