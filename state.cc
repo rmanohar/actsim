@@ -40,6 +40,7 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   else {
     bits = NULL;
   }
+  hazards = NULL;
 
   nints = ints;
   if (nints > 0) {

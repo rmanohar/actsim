@@ -80,8 +80,25 @@ public:
   int numChans () { return nchans; }
 
   void *allocState (int sz);
-  
+
+  void mkHazard (int v) {
+    if (!hazards && nbools > 0) {
+      hazards = bitset_new (nbools);
+      bitset_set (hazards, v);
+    }
+  }
+  bool isHazard (int v) {
+    if (!hazards) return false;
+    if (bitset_tst (hazards, v)) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+
 private:
+  bitset_t *hazards;		/* hazard information */
   bitset_t *bits;		/* Booleans */
   int nbools;			/* # of Booleans */
   
@@ -269,6 +286,7 @@ class ActSimCore {
   int getBool (int x) { return state->getBool (x); }
   bool setBool (int x, int v) { return state->setBool (x, v); }
   int isSpecialBool (int x)  { return state->isSpecialBool (x); }
+  bool isHazard (int x) { return state->isHazard (x); }
   
   act_channel_state *getChan (int x) { return state->getChan (x); }
 
@@ -445,6 +463,7 @@ protected:
 			 int root, int a, int b, Expr *, int *extra);
   void _add_excl (int type, int *ids, int sz);
   void _add_rand_init (int *ids, int sz);
+  void _add_hazard (int *ids, int sz);
 
   void _register_prssim_with_excl (ActInstTable *);
 

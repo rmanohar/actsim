@@ -111,6 +111,9 @@ class PrsSim : public ActSimObj {
 
   int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
   int isSpecialBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isSpecialBool (off); }
+
+  bool isHazard (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isHazard (off); }
+  
   int myGid (int lid) { return getGlobalOffset (lid, 0); }
     
   bool setBool (int lid, int v);

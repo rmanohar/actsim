@@ -768,7 +768,9 @@ void OnePrsSim::propagate ()
     if (flags == PENDING_1 && u_state != 1) {
       if (u_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
-	  WARNING_MSG ("weak-unstable transition", "+");
+	  if (!_proc->isHazard (_me->vid)) {
+	    WARNING_MSG ("weak-unstable transition", "+");
+	  }
 	}
       }
       else {
@@ -789,11 +791,13 @@ void OnePrsSim::propagate ()
     if (flags == PENDING_0 && d_state != 1) {
       if (d_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
-	  WARNING_MSG ("weak-unstable transition", "-");
+	  if (!_proc->isHazard (_me->vid)) {
+	    WARNING_MSG ("weak-unstable transition", "-");
+	  }
 	}
       }
       else {
-	if (!_me->unstab) {
+	if (!_me->unstab && !_proc->isHazard (_me->vid)) {
 	  WARNING_MSG ("unstable transition", "-");
 	}
       }

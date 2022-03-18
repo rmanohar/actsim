@@ -615,7 +615,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
     else {
       const char *tmp = act_spec_string (s->type);
       if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0 ||
-	  strcmp (tmp, "rand_init") == 0) {
+	  strcmp (tmp, "rand_init") == 0 || strcmp (tmp, "hazard") == 0) {
 	
 	/*-- signal list --*/
 	for (int i=0; i < s->count; i++) {
@@ -676,9 +676,11 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	else if (strcmp (tmp, "mk_excllo") == 0) {
 	  _add_excl (0, idx, A_LEN (idx));
 	}
-	else {
+	else if (strcmp (tmp, "rand_init") == 0) {
 	  _add_rand_init (idx, A_LEN (idx));
-	  /*-- rand init --*/
+	}
+	else {
+	  _add_hazard (idx, A_LEN (idx));
 	}
 	A_LEN_RAW (idx) = 0;
       }
@@ -2122,6 +2124,14 @@ void ActSimCore::_add_rand_init (int *ids, int sz)
     A_INC (_rand_init);
   }
 }
+
+void ActSimCore::_add_hazard (int *ids, int sz)
+{
+  for (int i=0; i < sz; i++) {
+    state->mkHazard (ids[i]);
+  }
+}
+
 
 /*-------------------------------------------------------------------------
  * Logging
