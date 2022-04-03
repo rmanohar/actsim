@@ -1940,90 +1940,8 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
   }
 }
 
-struct extern_libs {
-  char *name;			/* name of library */
-  char *path;			/* path to library */
-  void *dl;			/* open dl */
-};
-
-L_A_DECL (struct extern_libs, dl_extern_files);
-
 typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
-
-static void _read_externs (void)
-{
-  int i, n;
-  char buf[1024];
-  char **tab;
-  n = config_get_table_size ("sim.extern.libs");
-
-  if (n == 0) {
-    return;
-  }
-  tab = config_get_table_string ("sim.extern.libs");
-  for (i=0; i < n; i++) {
-    A_NEW (dl_extern_files, struct extern_libs);
-    A_NEXT (dl_extern_files).name = tab[i];
-    snprintf (buf, 1024, "sim.extern.%s.path", tab[i]);
-    A_NEXT (dl_extern_files).path = config_get_string (buf);
-    A_NEXT (dl_extern_files).dl = NULL;
-    A_INC (dl_extern_files);
-  }
-}
-
-
-
-EXTFUNC _find_dl_call (ActNamespace *ns, const char *s)
-{
-  int i;
-  char buf[2048];
-  EXTFUNC f;
-  char *ns_name;
-
-  if (ns == ActNamespace::Global()) {
-    ns_name = NULL;
-  }
-  else {
-    ns_name = ns->Name(true);
-  }
-
-  f = NULL;
-  for (i=0; i < A_LEN (dl_extern_files); i++) {
-    snprintf (buf, 1024, "sim.extern.%s.%s%s", dl_extern_files[i].name,
-	      ns_name ? (ns_name+2) : "", s);
-    buf[strlen(buf)-2] = '\0';
-    
-    if (config_exists (buf)) {
-      if (!dl_extern_files[i].dl) {
-	dl_extern_files[i].dl = dlopen (dl_extern_files[i].path, RTLD_LAZY);
-	if (!dl_extern_files[i].dl) {
-	  fprintf (stderr, "Expected to find `%s%s' as `%s' in library `%s'\n",
-		   ns_name ? (ns_name+2) : "", s,
-		   config_get_string (buf), dl_extern_files[i].path);
-	  if (dlerror()) {
-	    fprintf (stderr, "%s\n", dlerror());
-	  }
-	  fatal_error ("Could not open dynamic library `%s'", dl_extern_files[i].path);
-	}
-      }
-      f = (EXTFUNC) dlsym (dl_extern_files[i].dl, config_get_string (buf));
-      if (!f) {
-	fprintf (stderr, "Expected to find `%s%s' as `%s' in library `%s'\n",
-		 ns_name ? (ns_name+2) : "", s,
-		 config_get_string (buf), dl_extern_files[i].path);
-	fatal_error ("Could not find function in library", s, config_get_string (buf), dl_extern_files[i].path);
-      }
-      if (ns_name) {
-	FREE (ns_name);
-      }
-      return f;
-    }
-  }      
-  if (ns_name) {
-    FREE (ns_name);
-  }
-  return NULL;
-}
+struct ExtLibs *_chp_ext = NULL;
 
 BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 {
@@ -2088,15 +2006,12 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 
   /* --- run body -- */
   if (f->isExternal()) {
-    char buf[10240];
     EXTFUNC extcall = NULL;
 
-    if (A_LEN (dl_extern_files) == 0) {
-      if (config_exists ("sim.extern.libs")) {
-	_read_externs ();
-      }
+    if (!_chp_ext) {
+      _chp_ext = act_read_extern_table ("sim.extern");
     }
-    extcall = _find_dl_call (f->getns(), f->getName());
+    extcall = (EXTFUNC) act_find_dl_func (_chp_ext, f->getns(), f->getName());
 
     if (!extcall) {
       fatal_error ("Function `%s%s' missing chp body as well as external definition.",
