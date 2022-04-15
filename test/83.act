@@ -1,0 +1,40 @@
+import globals;
+import std;
+open std::channel;
+
+defproc src (ledr! x)
+{
+  chp {
+    *[ x!true; x!false ]
+  }
+}
+
+defproc buffer(ledr? l; ledr! r)
+{
+  bool b;
+  int k;
+  chp {
+     k := 0;
+    *[ k < 100 -> l?b; log("got ", b); r!b; k := k + 1 ]
+  }
+}
+
+defproc sink (ledr? x)
+{
+  prs {
+  ~Reset & (x.data & ~x.rep | ~x.data & x.rep) -> x.a+
+  Reset | ~(x.data & ~x.rep | ~x.data & x.rep) -> x.a-
+  }
+}
+
+defproc test ()
+{
+   src s;
+   buffer b(s.x);
+   sink t(b.r);
+}
+
+Initialize {
+  actions { Reset+ };
+  actions { Reset- }
+}

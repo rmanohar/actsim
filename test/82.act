@@ -1,0 +1,40 @@
+import globals;
+import std;
+open std::channel;
+
+defproc src (ts_bd!<1> x)
+{
+  chp {
+    *[ x!1; x!0 ]
+  }
+}
+
+defproc buffer(ts_bd?<1> l; ts_bd!<1> r)
+{
+  int b;
+  int k;
+  chp {
+     k := 0;
+    *[ k < 100 -> l?b; log("got ", b); r!b; k := k + 1 ]
+  }
+}
+
+defproc sink (ts_bd?<1> x)
+{
+  prs {
+  ~Reset & x.r -> x.a+
+   Reset | ~x.r -> x.a-
+  }
+}
+
+defproc test ()
+{
+   src s;
+   buffer b(s.x);
+   sink t(b.r);
+}
+
+Initialize {
+  actions { Reset+ };
+  actions { Reset- }
+}
