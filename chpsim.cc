@@ -448,6 +448,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     break;
 
   case E_SELF:
+  case E_SELF_ACK:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
@@ -2608,6 +2609,17 @@ BigInt ChpSim::exprEval (Expr *e)
       l.setVal (0, 0);
     }
     break;
+
+  case E_SELF_ACK:
+    if (_frag_ch) {
+      l = _frag_ch->data2.v[0];
+    }
+    else {
+      Assert (0, "E_SELF_ACK used?!");
+      l.setWidth (1);
+      l.setVal (0, 0);
+    }
+    break;
     
   default:
     l.setVal (0, 0);
@@ -3184,6 +3196,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     break;
 
   case E_SELF:
+  case E_SELF_ACK:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
@@ -3821,6 +3834,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     break;
 
   case E_SELF:
+  case E_SELF_ACK:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
@@ -4380,6 +4394,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
     break;
     
   case E_SELF:
+  case E_SELF_ACK:
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;

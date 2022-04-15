@@ -126,7 +126,8 @@ enum channel_op_types {
       CHAN_OP_BOOL_F = 2,
       CHAN_OP_SELF = 3,
       CHAN_OP_GOTO = 4,
-      CHAN_OP_SEL = 5
+      CHAN_OP_SEL = 5,
+      CHAN_OP_SELFACK = 6
 };
       
 struct one_chan_op {

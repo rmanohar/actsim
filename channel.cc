@@ -27,8 +27,9 @@ static void _hse_record_ids (act_channel_state *ch,
 			     ActId *ch_name,
 			     ActId *id)
 {
-  /*-- self is a special case --*/
-  if (!id->Rest() && (strcmp (id->getName(), "self") == 0)) {
+  /*-- self/selfack is a special case --*/
+  if (!id->Rest() && (strcmp (id->getName(), "self") == 0 ||
+		      strcmp (id->getName(), "selfack") == 0)) {
     return;
   }
 
@@ -155,6 +156,7 @@ static void _hse_record_ids (act_channel_state *ch,
     break;
     
   case E_SELF:
+  case E_SELF_ACK:
     break;
 
   default:
@@ -293,6 +295,10 @@ void ChanMethods::_compile (int idx, act_chp_lang *hse)
     A_NEW (_ops[idx].op, one_chan_op);
     if (strcmp (hse->u.assign.id->getName(), "self") == 0) {
       A_NEXT (_ops[idx].op).type = CHAN_OP_SELF;
+      A_NEXT (_ops[idx].op).e = hse->u.assign.e;
+    }
+    else if (strcmp (hse->u.assign.id->getName(), "selfack") == 0) {
+      A_NEXT (_ops[idx].op).type = CHAN_OP_SELFACK;
       A_NEXT (_ops[idx].op).e = hse->u.assign.e;
     }
     else {
@@ -481,6 +487,13 @@ int ChanMethods::runMethod (ActSimCore *sim,
       from++;
       break;
 
+    case CHAN_OP_SELFACK:
+      /* expression evaluation!!! */
+      r = ch->_dummy->exprEval (_ops[idx].op[from].e);
+      ch->data2.setSingle (r);
+      from++;
+      break;
+      
     case CHAN_OP_SEL:
       /* expression evaluation! */
       r = ch->_dummy->exprEval (_ops[idx].op[from].e);
