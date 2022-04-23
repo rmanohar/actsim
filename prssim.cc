@@ -57,7 +57,12 @@ void PrsSim::printStatus (int val)
   for (li = list_first (_sim); li; li = list_next (li)) {
     if (((OnePrsSim *)list_value (li))->matches (val)) {
       if (!emit_name) {
-	name->Print (stdout);
+	if (name) {
+	  name->Print (stdout);
+	}
+	else {
+	  printf ("-top-");
+	}
 	printf (" { ");
 	emit_name = 1;
       }

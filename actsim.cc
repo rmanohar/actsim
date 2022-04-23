@@ -616,22 +616,23 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
       const char *tmp = act_spec_string (s->type);
       if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0 ||
 	  strcmp (tmp, "rand_init") == 0 || strcmp (tmp, "hazard") == 0) {
-	
-	/*-- signal list --*/
-	for (int i=0; i < s->count; i++) {
+
+	/* helper function to add the ID to the list */
+	auto add_id_to_idx = [&] (ActId *id_val)
+        {
 	  Array *aref;
 	  InstType *it;
 	  Arraystep *astep;
 	  int off;
 	  act_connection *cx;
-
+	    
 	  if (p_tl) {
-	    p_tl->Append (s->ids[i]);
+	    p_tl->Append (id_val);
 	    it = sc->FullLookup (_cursuffix, &aref);
 	    p_tl->prune();
 	  }
 	  else {
-	    it = sc->FullLookup (s->ids[i], &aref);
+	    it = sc->FullLookup (id_val, &aref);
 	  }
 
 	  astep = NULL;
@@ -644,7 +645,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	    }
 	  }
 	  if (!astep) {
-	    cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	    cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
 	    off = getLocalOffset (cx, si, &type, NULL);
 	    Assert (type == 0, "Non-boolean in signal list");
 	    off = obj->getGlobalOffset (off, 0);
@@ -653,11 +654,11 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	    A_INC (idx);
 	  }
 	  else {
-	    ActId *tl = s->ids[i]->Tail();
+	    ActId *tl = id_val->Tail();
 	    while (!astep->isend()) {
 	      Array *a = astep->toArray();
 	      tl->setArray (a);
-	      cx = _parent_canonical (sc, _cursuffix, p_tl, s->ids[i]);
+	      cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
 	      off = getLocalOffset (cx, si, &type, NULL);
 	      Assert (type == 0, "Non-boolean in signal list");
 	      off = obj->getGlobalOffset (off, 0);
@@ -667,6 +668,23 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	      tl->setArray (NULL);
 	      delete a;
 	      astep->step();
+	    }
+	  }
+	};
+	
+	/*-- signal list --*/
+	for (int i=0; i < s->count; i++) {
+	  add_id_to_idx (s->ids[i]);
+	}
+	if (s->count < 0) {
+	  ActInstiter it(sc);
+	  for (it = it.begin(); it != it.end(); it++) {
+	    ValueIdx *vx = *it;
+	    if (TypeFactory::isBoolType (vx->t) &&
+		(vx->t->getDir() != Type::IN)) {
+	      ActId *tmp = new ActId (vx->getName());
+	      add_id_to_idx (tmp);
+	      delete tmp;
 	    }
 	  }
 	}

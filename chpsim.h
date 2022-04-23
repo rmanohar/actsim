@@ -59,6 +59,7 @@ struct chpsimderef {
 struct chpsimstmt {
   int type;
   int delay_cost;
+  int bw_cost;			// can be used for channels
   int energy_cost;
   union {
     int fork;			/* # of forks */

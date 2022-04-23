@@ -71,6 +71,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 
   snprintf (buf, 1024, "sim.chp.%s.%s.D", tmpbuf, id->getName());
   if (config_exists (buf)) {
+    if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->delay_cost = config_get_int (buf);
   }
   else {
@@ -78,8 +79,18 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     stmt->delay_cost = config_get_int ("sim.chp.default_delay");
   }
 
+  snprintf (buf, 1024, "sim.chp.%s.%s.D_bw", tmpbuf, id->getName());
+  if (config_exists (buf)) {
+    if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
+    stmt->bw_cost = config_get_int (buf);
+  }
+  else {
+    stmt->bw_cost = 0;
+  }
+  
   snprintf (buf, 1024, "sim.chp.%s.%s.E", tmpbuf, id->getName());
   if (config_exists (buf)) {
+    if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->energy_cost = config_get_int (buf);
   }
   else {
@@ -1744,7 +1755,9 @@ BigInt ChpSim::varEval (int id, int type)
     if (val == 2) {
 #if 0      
       fprintf (stderr, "[%8lu] <", CurTimeLo());
-      name->Print (stderr);
+      if (name) {
+	name->Print (stderr);
+      }
       fprintf (stderr, "> ");
 #endif      
       warning ("Boolean variable is X");
