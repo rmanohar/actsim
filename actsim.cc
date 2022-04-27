@@ -618,7 +618,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  strcmp (tmp, "rand_init") == 0 || strcmp (tmp, "hazard") == 0) {
 
 	/* helper function to add the ID to the list */
-	auto add_id_to_idx = [&] (ActId *id_val)
+	auto add_id_to_idx = [&] (ActId *id_val, ValueIdx *myvx)
         {
 	  Array *aref;
 	  InstType *it;
@@ -655,18 +655,22 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  }
 	  else {
 	    ActId *tl = id_val->Tail();
+	    int cnt = 0;
 	    while (!astep->isend()) {
-	      Array *a = astep->toArray();
-	      tl->setArray (a);
-	      cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
-	      off = getLocalOffset (cx, si, &type, NULL);
-	      Assert (type == 0, "Non-boolean in signal list");
-	      off = obj->getGlobalOffset (off, 0);
-	      A_NEW (idx, int);
-	      A_NEXT (idx) = off;
-	      A_INC (idx);
-	      tl->setArray (NULL);
-	      delete a;
+	      if (!myvx || myvx->isPrimary (cnt)) {
+		Array *a = astep->toArray();
+		tl->setArray (a);
+		cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
+		off = getLocalOffset (cx, si, &type, NULL);
+		Assert (type == 0, "Non-boolean in signal list");
+		off = obj->getGlobalOffset (off, 0);
+		A_NEW (idx, int);
+		A_NEXT (idx) = off;
+		A_INC (idx);
+		tl->setArray (NULL);
+		delete a;
+	      }
+	      cnt++;
 	      astep->step();
 	    }
 	  }
@@ -674,16 +678,19 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	
 	/*-- signal list --*/
 	for (int i=0; i < s->count; i++) {
-	  add_id_to_idx (s->ids[i]);
+	  add_id_to_idx (s->ids[i], NULL);
 	}
 	if (s->count < 0) {
 	  ActInstiter it(sc);
 	  for (it = it.begin(); it != it.end(); it++) {
 	    ValueIdx *vx = *it;
+	    if (!vx->isPrimary()) {
+	      continue;
+	    }
 	    if (TypeFactory::isBoolType (vx->t) &&
 		(vx->t->getDir() != Type::IN)) {
 	      ActId *tmp = new ActId (vx->getName());
-	      add_id_to_idx (tmp);
+	      add_id_to_idx (tmp, vx);
 	      delete tmp;
 	    }
 	  }
