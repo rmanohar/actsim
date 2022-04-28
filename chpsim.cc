@@ -1726,6 +1726,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int flavor,
       fprintf (stderr, "Instance: ");
       getName()->Print (stderr);
       fprintf (stderr, "\n");
+      fatal_error ("Aborting execution.");
     }
     Assert (c->recv_here == 0, "What?");
     c->recv_here = (pc+1);
