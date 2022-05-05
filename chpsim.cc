@@ -750,6 +750,7 @@ void ChpSim::_remove_me (int pc)
   }
 }
 
+
 int ChpSim::Step (Event *ev)
 {
   int ev_type = ev->getType ();
@@ -878,26 +879,8 @@ int ChpSim::Step (Event *ev)
 #if 0
 	printf (" [glob=%d]", off);
 #endif
-	verb = 0;
-	if ((nm = isWatched (0, my_loff))) {
-	  verb = 1;
-	}
-	if ((nm2 = isBreakPt (0, my_loff))) {
-	  verb |= 2;
-	}
-	if (verb) {
-	  int oval = _sc->getBool (off);
-	  if (oval != v.getVal (0)) {
-	    if (verb & 1) {
-	      msgPrefix ();
-	      printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
-	    }
-	    if (verb & 2) {
-	      msgPrefix ();
-	      printf ("*** breakpoint %s\n", nm2);
-	      _breakpt = 1;
-	    }
-	  }
+	if (chkWatchBreakPt (0, my_loff, off, v)) {
+	  _breakpt = 1;
 	}
 	_sc->setBool (off, v.getVal (0));
 	boolProp (off);
@@ -910,29 +893,11 @@ int ChpSim::Step (Event *ev)
 	v.setWidth (stmt->u.assign.isint);
 	v.toStatic ();
 
-	verb = 0;
-	if ((nm = isWatched (1, my_loff))) {
-	  verb = 1;
-	}
-	if ((nm2 = isBreakPt (1, my_loff))) {
-	  verb |= 2;
-	}
-	if (verb) {
-	  BigInt *otmp = _sc->getInt (off);
-	  unsigned long oval =  otmp->getVal (0);
-	  if (*otmp != v) {
-	    if (verb & 1) {
-	      msgPrefix ();
-	      printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0), v.getVal (0));
-	    }
-	    if (verb & 2) {
-	      msgPrefix ();
-	      printf ("*** breakpoint %s\n", nm2);
-	      _breakpt = 1;
-	    }	    
-	  }
+	if (chkWatchBreakPt (1, my_loff, off, v)) {
+	  _breakpt = 1;
 	}
 	_sc->setInt (off, v);
+	intProp (off);
       }
     }
     break;
@@ -1015,59 +980,23 @@ int ChpSim::Step (Event *ev)
 #if 0	    
 		printf (" [glob=%d]", off);
 #endif
-		verb = 0;
-		if ((nm = isWatched (0, id))) {
-		  verb = 1;
-		}
-		if ((nm2 = isBreakPt (0, id))) {
-		  verb |= 2;
-		}
-		if (verb) {
-		  int oval = _sc->getBool (off);
-		  if (oval != v.getVal (0)) {
-		    if (verb & 1) {
-		      msgPrefix ();
-		      printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' :
-						 ((char)v.getVal (0) + '0')));
-		    }
-		    if (verb & 2) {
-		      msgPrefix ();
-		      printf ("*** breakpoint %s\n", nm2);
-		      _breakpt = 1;
-		    }
-		  }
+
+		if (chkWatchBreakPt (0, id, off, v)) {
+		  _breakpt = 1;
 		}
 		_sc->setBool (off, v.getVal (0));
+		boolProp (off);
 	      }
 	      else {
 		off = getGlobalOffset (id, 1);
 #if 0	    
 		printf (" [glob=%d]", off);
 #endif
-		verb = 0;
-		if ((nm = isWatched (1, id))) {
-		  verb = 1;
-		}
-		if ((nm2 = isBreakPt (1, id))) {
-		  verb |= 2;
-		}
-		if (verb) {
-		  BigInt *otmp = _sc->getInt (off);
-		  unsigned long oval = otmp->getVal (0);
-		  if (*otmp != v) {
-		    if (verb & 1) {
-		      msgPrefix ();
-		      printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0),
-			      v.getVal (0));
-		    }
-		    if (verb & 2) {
-		      msgPrefix ();
-		      printf ("*** breakpoint %s\n", nm2);
-		      _breakpt = 1;
-		    }
-		  }
+		if (chkWatchBreakPt (1, id, off, v)) {
+		  _breakpt = 1;
 		}
 		_sc->setInt (off, v);
+		intProp (off);
 	      }
 	    }
 	    else {
@@ -1208,59 +1137,22 @@ int ChpSim::Step (Event *ev)
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
-	      verb = 0;
-	      if ((nm = isWatched (0, id))) {
-		verb = 1;
-	      }
-	      if ((nm2 = isBreakPt (0, id))) {
-		verb |= 2;
-	      }
-	      if (verb) {
-		int oval = _sc->getBool (off);
-		if (oval != v.getVal (0)) {
-		  if (verb & 1) {
-		    msgPrefix ();
-		    printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' :
-					       ((char)v.getVal (0) + '0')));
-		  }
-		  if (verb & 2) {
-		    msgPrefix ();
-		    printf ("*** breakpoint %s\n", nm2);
-		    _breakpt = 1;
-		  }
-		}
+	      if (chkWatchBreakPt (0, id, off, v)) {
+		_breakpt = 1;
 	      }
 	      _sc->setBool (off, v.getVal (0));
+	      boolProp (off);
 	    }
 	    else {
 	      off = getGlobalOffset (id, 1);
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
-	      verb = 0;
-	      if ((nm = isWatched (1, id))) {
-		verb = 1;
-	      }
-	      if ((nm2 = isBreakPt (1, id))) {
-		verb |= 2;
-	      }
-	      if (verb) {
-		BigInt *otmp = _sc->getInt (off);
-		unsigned long oval = otmp->getVal (0);
-		if (*otmp != v) {
-		  if (verb & 1) {
-		    msgPrefix ();
-		    printf ("%s := %lu (0x%lx)\n", nm, v.getVal (0),
-			    v.getVal (0));
-		  }
-		  if (verb & 2) {
-		    msgPrefix ();
-		    printf ("*** breakpoint %s\n", nm2);
-		    _breakpt = 1;
-		  }
-		}
+	      if (chkWatchBreakPt (1, id, off, v)) {
+		_breakpt = 1;
 	      }
 	      _sc->setInt (off, v);
+	      intProp (off);
 	    }
 	  }
 	  else {
@@ -4816,10 +4708,12 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     if (struct_info[3*i+1] == 1) {
       /* int */
       _sc->setInt (off, v->v[i]);
+      intProp (off);
     }
     else {
       Assert (struct_info[3*i+1] == 0, "What?");
       _sc->setBool (off, v->v[i].getVal (0));
+      boolProp (off);
     }
   }
 
@@ -4909,3 +4803,87 @@ void ChpSim::boolProp (int glob_off)
     p->propagate ();
   }
 }
+
+void ChpSim::intProp (int glob_off)
+{
+  SimDES **arr;
+  arr = _sc->getFO (glob_off, 1);
+
+#ifdef DUMP_ALL
+  printf ("  >>> propagate %d\n", _sc->numFanout (glob_off, 0));
+#endif  
+  for (int i=0; i < _sc->numFanout (glob_off, 1); i++) {
+    ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+    Assert (p, "What?");
+#ifdef DUMP_ALL
+      printf ("   prop: ");
+      {
+	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+	if (obj) {
+	  if (obj->getName()) {
+	    obj->getName()->Print (stdout);
+	  }
+	  else {
+	    printf ("-none-");
+	  }
+	}
+	else {
+	  printf ("#%p", p);
+	}
+      }
+      printf ("\n");
+#endif      
+    p->propagate ();
+  }
+}
+
+
+int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v)
+{
+  int verb = 0;
+  int ret_break = 0;
+  const char *nm, *nm2;
+  if ((nm = isWatched (type, loff))) {
+    verb = 1;
+  }
+  if ((nm2 = isBreakPt (type, loff))) {
+    verb |= 2;
+  }
+  if (verb) {
+    if (type == 0) {
+      /* bool */
+      int oval = _sc->getBool (goff);
+      if (oval != v.getVal (0)) {
+	if (verb & 1) {
+	  msgPrefix ();
+	  printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+	}
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  ret_break = 1;
+	}
+      }
+    }
+    else if (type == 1) {
+      BigInt *otmp = _sc->getInt (goff);
+      if (*otmp != v) {
+	if (verb & 1) {
+	  msgPrefix ();
+	  printf ("%s := ", nm);
+	  v.decPrint (stdout);
+	  printf (" (0x");
+	  v.hexPrint (stdout);
+	  printf (")\n");
+	}
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  ret_break = 1;
+	}	    
+      }
+    }
+  }
+  return ret_break;
+}
+

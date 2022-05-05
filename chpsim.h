@@ -153,6 +153,7 @@ class ChpSim : public ActSimObj {
   int getBool (int glob_off) { return _sc->getBool (glob_off); }
   bool setBool (int glob_off, int val) { return _sc->setBool (glob_off, val); }
   void boolProp (int glob_off);
+  void intProp (int glob_off);
   void setFrag (act_channel_state *f) { _frag_ch = f; }
 
   BigInt exprEval (Expr *e);
@@ -202,6 +203,9 @@ class ChpSim : public ActSimObj {
 	       expr_multires &v, int bidir, expr_multires *xchg, int *frag);
   int varRecv (int pc, int wakeup, int id, int flavor,
 	       expr_multires *v, int bidir, expr_multires &xchg, int *frag);
+
+  int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v);
+  
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);
