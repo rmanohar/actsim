@@ -155,11 +155,11 @@ public:
   virtual void propagate ();
   virtual void computeFanout() { printf ("should not be here\n"); }
 
+  /* manipulate object watchpoint, using local index values */
   void addWatchPoint (int type, int idx, const char *name);
-  void delWatchPoint (int type, int idx);
   void toggleBreakPt (int type, int idx, const char *name);
-  inline const char *isWatched (int type, int idx);
-  inline const char *isBreakPt (int type, int idx);
+  void delWatchPoint (int type, int idx);
+
   void msgPrefix (FILE *fp = NULL);
 
   void sWakeup() { _shared->Notify (MAX_LOCAL_PCS); }
@@ -174,9 +174,6 @@ protected:
   ActId *name;
   Process *_proc;
 
-  struct iHashtable *_W;		/* watchpoints */
-  struct iHashtable *_B;		/* breakpoints */
-  
   int *_abs_port_bool;		/* index of ports: absolute scale */
   int *_abs_port_chan;		/* these arrays are reversed! */
   int *_abs_port_int;
@@ -386,6 +383,67 @@ class ActSimCore {
 
   void computeFanout (ActInstTable *inst);
 
+  inline void addWatchPt (int type, unsigned long off, const char *name) {
+    ihash_bucket_t *b;
+    if (type == 3) { type = 2; }
+    b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
+    if (b) {
+      FREE (b->v);
+    }
+    else {
+      b = ihash_add (_W, ((unsigned long)type) | (off << 2));
+    }
+    b->v = Strdup (name);
+  }
+
+  inline const char *chkWatchPt (int type, unsigned long off) {
+    ihash_bucket_t *b;
+    if (type == 3) { type = 2; }
+    b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
+    if (b) {
+      return (char *)b->v;
+    }
+    else {
+      return nullptr;
+    }
+  }
+
+  inline void delWatchPt (int type, unsigned long off) {
+    ihash_bucket_t *b;
+    if (type == 3) { type = 2; }
+    b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
+    if (b) {
+      ihash_delete (_W, ((unsigned long)type) | (off << 2));
+      FREE (b->v);
+    }
+  }
+
+  inline const char *chkBreakPt (int type, unsigned long off) {
+    ihash_bucket_t *b;
+    if (type == 3) { type = 2; }
+    b = ihash_lookup (_B, ((unsigned long)type) | (off << 2));
+    if (b) {
+      return (char *)b->v;
+    }
+    else {
+      return nullptr;
+    }
+  }
+
+  inline void toggleBreakPt (int type, unsigned long off, const char *name) {
+    ihash_bucket_t *b;
+    if (type == 3) { type = 2; }
+    b = ihash_lookup (_B, ((unsigned long)type) | (off << 2));
+    if (b) {
+      FREE (b->v);
+      ihash_delete (_B, ((unsigned long)type) | (off << 2));
+    }
+    else {
+      b = ihash_add (_B, ((unsigned long)type) | (off << 2));
+      b->v = Strdup (name);
+    }
+  }
+
 protected:
   Act *a;
 
@@ -437,6 +495,8 @@ protected:
   stateinfo_t *_rootsi;		/* root stateinfo; needed for globals
 				   */
 
+  struct iHashtable *_W;		/* watchpoints */
+  struct iHashtable *_B;		/* breakpoints */
 
   /*-- timing forks --*/
   
@@ -559,42 +619,6 @@ void actsim_log_flush (void);
 FILE *actsim_log_fp (void);
 
 extern int debug_metrics;
-
-inline const char *ActSimObj::isWatched (int type, int offset)
-{
-  if (!_W) return 0;
-
-  ihash_bucket_t *b;
-  
-  if (type == 3) {
-    type = 2;
-  }
-  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
-  if (b) {
-    return (const char *)b->v;
-  }
-  else {
-    return NULL;
-  }
-}
-
-inline const char *ActSimObj::isBreakPt (int type, int offset)
-{
-  if (!_B) return 0;
-
-  ihash_bucket_t *b;
-  
-  if (type == 3) {
-    type = 2;
-  }
-  b = ihash_lookup (_B, (unsigned long)type | ((unsigned long)offset << 2));
-  if (b) {
-    return (const char *)b->v;
-  }
-  else {
-    return NULL;
-  }
-}
 
 Act *actsim_Act();
 Process *actsim_top();

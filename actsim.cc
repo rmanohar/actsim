@@ -149,6 +149,10 @@ ActSimCore::ActSimCore (Process *p)
   
   _rootsi = si;
 
+
+  _W = ihash_new (4);
+  _B = ihash_new (4);
+
   _initSim();
 
   _register_prssim_with_excl (&I);
@@ -265,6 +269,19 @@ ActSimCore::~ActSimCore()
 
   /*-- chp objects --*/
   list_free (_chp_sim_objects);
+
+  ihash_bucket_t *b;
+  ihash_iter_t it;
+  ihash_iter_init (_W, &it);
+  while ((b = ihash_iter_next (_W, &it))) {
+    FREE (b->v);
+  }
+  ihash_free (_W);
+  ihash_iter_init (_B, &it);
+  while ((b = ihash_iter_next (_B, &it))) {
+    FREE (b->v);
+  }
+  ihash_free (_B);
 
   /*-- instance tables --*/
   _delete_sim_objs (&I, 0);
@@ -1647,8 +1664,6 @@ ActSimObj::ActSimObj (ActSimCore *sim, Process *p)
   _abs_port_bool = NULL;
   _abs_port_int = NULL;
   _abs_port_chan = NULL;
-  _W = NULL;
-  _B = NULL;
   name = NULL;
   _shared = new WaitForOne(0);
 }
@@ -1777,9 +1792,6 @@ ActSimObj::~ActSimObj()
   if (_abs_port_chan) {
     FREE (_abs_port_chan);
   }
-  if (_W) {
-    ihash_free (_W);
-  }
   delete name;
   delete _shared;
 }
@@ -1787,66 +1799,33 @@ ActSimObj::~ActSimObj()
 
 void ActSimObj::addWatchPoint (int type, int offset, const char *name)
 {
-  ihash_bucket_t *b;
-  
   if (type == 3) {
     type = 2;
   }
 
-  if (!_W) {
-    _W = ihash_new (4);
-  }
-  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
-  if (!b) {
-    b = ihash_add (_W, (unsigned long)type | ((unsigned long)offset << 2));
-    b->v = Strdup (name);
-  }
+  int glob = getGlobalOffset (offset, type);
+  _sc->addWatchPt (type, glob, name);
 }
 
 void ActSimObj::toggleBreakPt (int type, int offset, const char *name)
 {
-  ihash_bucket_t *b;
-  
   if (type == 3) {
     type = 2;
   }
 
-  if (!_B) {
-    _B = ihash_new (4);
-  }
-  b = ihash_lookup (_B, (unsigned long)type | ((unsigned long)offset << 2));
-  if (!b) {
-    b = ihash_add (_B, (unsigned long)type | ((unsigned long)offset << 2));
-    b->v = Strdup (name);
-  }
-  else {
-    FREE (b->v);
-    ihash_delete (_B, (unsigned long)type | ((unsigned long)offset << 2));
-  }
+  int glob = getGlobalOffset (offset, type);
+  _sc->toggleBreakPt (type, glob, name);
 }
 
 
 void ActSimObj::delWatchPoint (int type, int offset)
 {
-  ihash_bucket_t *b;
-  
   if (type == 3) {
     type = 2;
   }
 
-  if (!_W) {
-    return;
-  }
-  b = ihash_lookup (_W, (unsigned long)type | ((unsigned long)offset << 2));
-  if (b) {
-    ihash_delete (_W, (unsigned long)type | ((unsigned long)offset << 2));
-    FREE (b->v);
-
-    if (_W->n == 0) {
-      ihash_free (_W);
-      _W = NULL;
-    }
-  }
+  int glob = getGlobalOffset (offset, type);
+  _sc->delWatchPt (type, glob);
 }
 
 void ActSimObj::msgPrefix (FILE *fp)

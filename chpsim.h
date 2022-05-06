@@ -199,12 +199,12 @@ class ChpSim : public ActSimObj {
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */
 
-  int varSend (int pc, int wakeup, int id, int flavor,
+  int varSend (int pc, int wakeup, int id, int off, int flavor,
 	       expr_multires &v, int bidir, expr_multires *xchg, int *frag);
-  int varRecv (int pc, int wakeup, int id, int flavor,
+  int varRecv (int pc, int wakeup, int id, int off, int flavor,
 	       expr_multires *v, int bidir, expr_multires &xchg, int *frag);
 
-  int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v);
+  int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v, int flag = 0);
   
 
   int _updatepc (int pc);

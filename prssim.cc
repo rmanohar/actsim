@@ -932,10 +932,10 @@ bool PrsSim::setBool (int lid, int v)
 #ifdef DUMP_ALL
   verb = 1;
 #endif  
-  if ((nm = isWatched (0, lid))) {
+  if ((nm = _sc->chkWatchPt (0, off))) {
     verb = 1;
   }
-  if ((nm2 = isBreakPt (0, lid))) {
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
     verb |= 2;
   }
   if (verb) {

@@ -761,7 +761,7 @@ int ChpSim::Step (Event *ev)
   int frag;
   BigInt v;
   expr_multires vs, xchg;
-  int off;
+  int off, goff;
   const char *nm, *nm2;
   int _breakpt = 0;
   int verb;
@@ -948,7 +948,8 @@ int ChpSim::Step (Event *ev)
       }
       /*-- attempt to send; suceeds if there is a receiver waiting,
 	otherwise we have to wait for the receiver --*/
-      rv = varSend (pc, flag, stmt->u.sendrecv.chvar,
+      goff = getGlobalOffset (stmt->u.sendrecv.chvar, 2);
+      rv = varSend (pc, flag, stmt->u.sendrecv.chvar, goff,
 		    stmt->u.sendrecv.flavor, vs, stmt->u.sendrecv.is_structx,
 		    &xchg, &frag);
 
@@ -1005,43 +1006,9 @@ int ChpSim::Step (Event *ev)
 	  }
 	}
       }
-      verb = 0;
-      if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
-	verb = 1;
-      }
-      if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
-	verb |= 2;
-      }
-      if (verb) {
-	if (verb & 1) {
-	  msgPrefix ();
-	  if (rv) {
-	    if (frag) {
-	      printf ("%s : send-blocked\n", nm);
-	    }
-	    else {
-	      printf ("%s : send-blocked; value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
-	    }
-	  }
-	  else {
-	    if (!flag) {
-	      if (frag) {
-		printf ("%s : send\n", nm);
-	      }
-	      else {
-		printf ("%s : send value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
-	      }
-	    }
-	    else {
-	      printf ("%s : send complete\n", nm);
-	    }
-	  }
-	}
-	if (verb & 2) {
-	  msgPrefix ();
-	  printf ("*** breakpoint %s\n", nm2);
-	  _breakpt = 1;
-	}
+      if (chkWatchBreakPt (3, stmt->u.sendrecv.chvar, goff, v,
+			   (frag ? 1 : 0) | ((rv ? 1 : (flag ? 2 : 0)) << 1))) {
+	_breakpt = 1;
       }
     }
     break;
@@ -1084,32 +1051,21 @@ int ChpSim::Step (Event *ev)
 	  }
 	}
       }
-      
-      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar,
+
+      goff = getGlobalOffset (stmt->u.sendrecv.chvar, 2);
+      rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, goff,
 		    stmt->u.sendrecv.flavor, &vs,
 		    stmt->u.sendrecv.is_structx, xchg, &frag);
       
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
       }
-      vchan = 0;
-      if ((nm = isWatched (2, stmt->u.sendrecv.chvar))) {
-	vchan = 1;
-      }
-      if ((nm2 = isBreakPt (2, stmt->u.sendrecv.chvar))) {
-	vchan |= 2;
-      }
       /*-- attempt to receive value --*/
+      if (chkWatchBreakPt (2, stmt->u.sendrecv.chvar, goff, v,
+			   ((rv ? 1 : 0) << 1))) {
+	_breakpt = 1;
+      }
       if (rv) {
-	if (vchan & 1) {
-	  msgPrefix ();
-	  printf ("%s : recv-blocked\n", nm);
-	}
-	if (vchan & 2) {
-	  msgPrefix ();
-	  printf ("*** breakpoint %s\n", nm2);
-	  _breakpt = 1;
-	}
 	/*-- blocked, we have to wait for the sender --*/
 #ifdef DUMP_ALL	
 	printf ("recv blocked");
@@ -1121,15 +1077,6 @@ int ChpSim::Step (Event *ev)
 #ifdef DUMP_ALL	
 	printf ("recv got %lu!", v.getVal (0));
 #endif	
-	if (vchan & 1) {
-	  msgPrefix ();
-	  printf ("%s : recv value: %lu (0x%lx)\n", nm, v.getVal(0), v.getVal(0));
-	}
-	if (vchan & 2) {
-	  msgPrefix ();
-	  printf ("*** breakpoint %s\n", nm2);
-	  _breakpt = 1;
-	}
 	if (type != -1) {
 	  if (stmt->u.sendrecv.is_struct == 0) {
 	    if (type == 0) {
@@ -1291,12 +1238,11 @@ int ChpSim::Step (Event *ev)
 
 
 /* returns 1 if blocked */
-int ChpSim::varSend (int pc, int wakeup, int id, int flavor,
+int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 		     expr_multires &v, int bidir,
 		     expr_multires *xchg, int *frag)
 {
   act_channel_state *c;
-  int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
   if (!c->use_flavors && flavor != 0) {
@@ -1464,12 +1410,11 @@ int ChpSim::varSend (int pc, int wakeup, int id, int flavor,
 }
 
 /* returns 1 if blocked */
-int ChpSim::varRecv (int pc, int wakeup, int id, int flavor,
+int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 		     expr_multires *v, int bidir,
 		     expr_multires &xchg, int *frag)
 {
   act_channel_state *c;
-  int off = getGlobalOffset (id, 2);
   c = _sc->getChan (off);
 
   if (!c->use_flavors && flavor != 0) {
@@ -4838,15 +4783,24 @@ void ChpSim::intProp (int glob_off)
 }
 
 
-int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v)
+/*
+  flag : used for send/recv
+  
+  flag & 0x1 : fragmented channel operation
+  Iflag >> 1) : 0 = normal
+              : 1 = blocked
+	      : 2 = completed
+*/
+int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
+			     int flag)
 {
   int verb = 0;
   int ret_break = 0;
   const char *nm, *nm2;
-  if ((nm = isWatched (type, loff))) {
+  if ((nm = _sc->chkWatchPt (type == 3 ? 2 : type, goff))) {
     verb = 1;
   }
-  if ((nm2 = isBreakPt (type, loff))) {
+  if ((nm2 = _sc->chkBreakPt (type == 3 ? 2 : type, goff))) {
     verb |= 2;
   }
   if (verb) {
@@ -4881,6 +4835,60 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v)
 	  printf ("*** breakpoint %s\n", nm2);
 	  ret_break = 1;
 	}	    
+      }
+    }
+    else if (type == 2) {
+      /* chan-in--recv
+	 recv (flag & 0x1 : fragmented channel operation)
+	 (flag >> 1) : 0 = normal, 1 = blocked
+      */
+      if (verb & 1) {
+	int umode;
+	umode = (flag >> 1);
+	msgPrefix();
+	printf ("%s: recv%s", nm, umode == 1 ? "-blocked" : "");
+	if (umode == 0) {
+	  printf (" value: ");
+	  v.decPrint (stdout);
+	  printf (" (0x");
+	  v.hexPrint (stdout);
+	  printf (")\n");
+	}
+      }
+      if (verb & 2) {
+	msgPrefix ();
+	printf ("*** breakpoint %s\n", nm2);
+	ret_break = 1;
+      }
+    }
+    else if (type == 3) {
+      /* send (flag & 0x1 : fragmented channel operation)
+	 (flag >> 1) : 0 = normal, 1 = blocked, 2 = completed
+      */
+      if (verb & 1) {
+	int umode;
+	msgPrefix ();
+	umode = (flag >> 1);
+	if (umode == 0 || umode == 1) {
+	  printf ("%s : send%s", nm, umode == 1 ? "-blocked" : "");
+	  if (!(flag & 1)) {
+	    /* not fragmented, display value */
+	    printf (" value: ");
+	    v.decPrint (stdout);
+	    printf (" (0x");
+	    v.hexPrint (stdout);
+	    printf (")");
+	  }
+	  printf ("\n");
+	}
+	else {
+	  printf ("%s : send complete\n", nm);
+	}
+	if (verb & 2) {
+	  msgPrefix ();
+	  printf ("*** breakpoint %s\n", nm2);
+	  ret_break = 1;
+	}
       }
     }
   }

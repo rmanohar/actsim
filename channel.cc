@@ -466,13 +466,10 @@ int ChanMethods::runMethod (ActSimCore *sim,
 	}
       }
       if (v == -1) {
-	if (ch->_dummy->isWatched (0, b->i)) {
-	  ActId *tmpid;
+	const char *nm, *nm2;
+	if ((nm = sim->chkWatchPt (0, b->i))) {
 	  ch->_dummy->msgPrefix ();
-	  tmpid = c->toid();
-	  tmpid->Print (stdout);
-	  delete tmpid;
-	  printf (" := %c\n", _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
+	  printf (" %s := %c\n", nm, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
 		  '1' : '0');
 	}
 	ch->_dummy->boolProp (b->i);
