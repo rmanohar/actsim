@@ -941,6 +941,27 @@ int process_timescale (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_get_sim_time (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s <t>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (!glob_sim) { 
+    fprintf (stderr, "%s: No simulation?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  double cur_time = 0;
+  BigInt curtm = SimDES::CurTime ();
+  for (int i=curtm.getLen()-1; i >= 0; i--) {
+    cur_time *= (1UL << 32);
+    cur_time *= (1UL << 32);
+    cur_time += curtm.getVal (i)*(double)glob_sim->getTimescale();
+  }
+  LispSetReturnFloat (cur_time); 
+  return LISP_RET_FLOAT;
+}
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
 
@@ -983,6 +1004,7 @@ struct LispCliCommand Cmds[] = {
 
   { "trace", "<file> <stop-time> - Create atrace file upto <stop-time> duration", process_trace },
   { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
+  { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
   
 #if 0  
   { "pending", "- dump pending events", process_pending },

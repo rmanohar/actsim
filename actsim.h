@@ -581,6 +581,7 @@ public:
 						 // success, 0 if fail
   
   void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
+  float getTimescale() { return _int_to_float_timescale; }
 
   inline void updateTracing() {
     if (_trace_file) {
