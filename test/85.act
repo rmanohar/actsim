@@ -1,0 +1,19 @@
+import sim;
+
+
+defproc one_buffer (chan?(int) L; chan!(int) R)
+{
+  int x;
+  chp {
+   *[ L?x; R!x ]
+  }
+}
+
+
+defproc test()
+{
+  sim::file_source<0,false,32> src;
+  sim::sink<true,32> sink;
+
+  one_buffer b(src.O, sink.I);
+}

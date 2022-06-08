@@ -72,11 +72,11 @@ expr_res actsim_close_rom (int argc, struct expr_res *args)
   ret.width = 64; 
   ret.v = 0;
   if (argc != 1) {
-    fprintf (stderr, "actim_rom_read: should have 1 argument only\n"); 
+    fprintf (stderr, "actsim_close_rom: should have 1 argument only\n"); 
     return ret;
   }
   if (args[0].v >= A_LEN (rom_fp)) {
-    fprintf (stderr, "actim_rom_read: invalid ID %d!\n", (int)args[0].v);
+    fprintf (stderr, "actsim_close_rom: invalid ID %d!\n", (int)args[0].v);
     return ret;
   }
   if (rom_fp[args[0].v]) {

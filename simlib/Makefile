@@ -25,7 +25,7 @@ TARGETCONF=actsim.conf
 TARGETACT=sim.act rand.act _all_.act
 TARGETACTSUBDIR=sim
 
-OBJS=random.os rom.os
+OBJS=random.os rom.os file.os
 
 SRCS=$(OBJS:.os=.c)
 

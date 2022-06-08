@@ -28,11 +28,26 @@ defproc source (chan!(int<W>) O)
   }
 }
 
-export template<pint W>
+export template<pbool LOG; pint W>
 defproc sink(chan?(int<W>) I)
 {
+  int x;
   chp {
-    *[ I? ]
+    *[ I?x; [LOG -> log("sink: ", x, "%x (0x", x, ")") [] else -> skip ] ]
+  }
+}
+
+export function file_read(int<32> idx) : int<64>;
+export function file_eof(int<32> idx) : bool;
+export function file_close(int<32> idx) : bool;
+
+/* this assume that the file has at least one value in it */
+export template<pint ID; pbool LOOP; pint W>
+defproc file_source(chan!(int<W>) O)
+{
+  bool dummy;
+  chp {
+    *[ *[ O!file_read(ID) <- ~file_eof (ID) ]; dummy := file_close(ID) <- LOOP ]
   }
 }
 
