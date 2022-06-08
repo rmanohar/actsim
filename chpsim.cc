@@ -4854,6 +4854,9 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  v.hexPrint (stdout);
 	  printf (")\n");
 	}
+        else {
+	  printf ("\n");
+        }
       }
       if (verb & 2) {
 	msgPrefix ();
