@@ -1,0 +1,3 @@
+WARNING: one_buffer<>: substituting chp model (requested prs, not found)
+WARNING: check_sink<1,f,32>: substituting chp model (requested prs, not found)
+WARNING: tst_src<>: substituting chp model (requested prs, not found)

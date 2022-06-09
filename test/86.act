@@ -1,0 +1,28 @@
+import sim;
+
+defproc tst_src (chan!(int) O)
+{ 
+  chp {
+    O!4;
+    O!0; 
+    O!2;
+    O!4
+  }
+}
+
+defproc one_buffer (chan?(int) L; chan!(int) R)
+{
+  int x;
+  chp {
+   *[ L?x; R!x ]
+  }
+}
+
+
+defproc test()
+{
+  tst_src src;
+  sim::check_sink<1,false,32> sink;
+
+  one_buffer b(src.O, sink.I);
+}

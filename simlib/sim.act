@@ -47,7 +47,26 @@ defproc file_source(chan!(int<W>) O)
 {
   bool dummy;
   chp {
-    *[ *[ O!file_read(ID) <- ~file_eof (ID) ]; dummy := file_close(ID) <- LOOP ]
+    *[ *[ O!file_read(ID) <- ~file_eof (ID) ]; dummy := file_close(ID) <- LOOP ];
+     log ("Source file #", ID, " ends.")
+  }
+}
+
+export template<pint ID; pbool LOOP; pint W>
+defproc check_sink(chan?(int<W>) I)
+{
+  int<W> x, y;
+  bool dummy;
+  chp {
+    *[ *[ I?x;
+          y := file_read(ID);
+         [ x = y -> skip
+         [] else -> log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
+         ]
+	  <- ~file_eof(ID)
+       ] <- LOOP
+    ];
+    log ("Sink file #", ID, " ends.")
   }
 }
 
