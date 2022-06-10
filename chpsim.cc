@@ -100,6 +100,28 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 }
 
 
+static pHashtable *_ZEROHASH = NULL;
+
+static int _addhash (ChpSimGraph *g)
+{
+  phash_bucket_t *b;
+  if (!_ZEROHASH) {
+    _ZEROHASH = phash_new (16);
+  }
+  b = phash_lookup (_ZEROHASH, g);
+  if (b) {
+    return 1;
+  }
+  b = phash_add (_ZEROHASH, g);
+  return 0;
+}
+
+static void _clrhash ()
+{
+  phash_free (_ZEROHASH);
+  _ZEROHASH = NULL;
+}
+
 ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
 {
@@ -186,10 +208,20 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
     _pc[0] = g;
     _statestk = list_new ();
     _initEvent ();
+
   }
   else {
     _pc = NULL;
     _npc = 0;
+  }
+
+}
+
+void ChpSim::zeroInit ()
+{
+  if (_pc && _pc[0]) {
+    _zeroAllIntsChans (_pc[0]);
+    _clrhash ();
   }
 }
 
@@ -498,7 +530,7 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
   return ret;
 }
 
-int ChpSim::computeOffset (struct chpsimderef *d)
+int ChpSim::computeOffset (const struct chpsimderef *d)
 {
   if (!d->range) {
     return d->offset;
@@ -3916,6 +3948,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
       ret->stmt->type = CHPSIM_SEND;
       ret->stmt->u.sendrecv.is_struct = ch_struct;
+      if (ch_struct == 0) {
+	ret->stmt->u.sendrecv.width = TypeFactory::bitWidth (ch);
+      }
+      else {
+	ret->stmt->u.sendrecv.width = -1;
+      }
       ret->stmt->u.sendrecv.e = NULL;
       ret->stmt->u.sendrecv.d = NULL;
       ret->stmt->u.sendrecv.is_structx = 0;
@@ -3992,9 +4030,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret->stmt->type = CHPSIM_RECV;
       if (ch_struct) {
 	ret->stmt->u.sendrecv.is_struct = 1;
+	ret->stmt->u.sendrecv.width = -1;
       }
       else {
 	ret->stmt->u.sendrecv.is_struct = 0;
+	ret->stmt->u.sendrecv.width = TypeFactory::bitWidth (ch);
       }
 
       ret->stmt->u.sendrecv.e = NULL;
@@ -4796,7 +4836,8 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 {
   int verb = 0;
   int ret_break = 0;
-  const char *nm, *nm2;
+  const ActSim::watchpt_bucket *nm;
+  const char *nm2;
   if ((nm = _sc->chkWatchPt (type == 3 ? 2 : type, goff))) {
     verb = 1;
   }
@@ -4809,8 +4850,15 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
       int oval = _sc->getBool (goff);
       if (oval != v.getVal (0)) {
 	if (verb & 1) {
+	  FILE *vcd;
 	  msgPrefix ();
-	  printf ("%s := %c\n", nm, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+	  printf ("%s := %c\n", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+
+	  vcd = _sc->getVCD ();
+	  if (vcd) {
+	    _sc->emitVCDTime ();
+	    fprintf (vcd, "%c%s\n", (v.getVal (0) == 2 ? 'x' : ((char)v.getVal (0) + '0')), _sc->_idx_to_char (nm));
+	  }
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -4823,12 +4871,21 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
       BigInt *otmp = _sc->getInt (goff);
       if (*otmp != v) {
 	if (verb & 1) {
+	  FILE *vcd;
 	  msgPrefix ();
-	  printf ("%s := ", nm);
+	  printf ("%s := ", nm->s);
 	  v.decPrint (stdout);
 	  printf (" (0x");
 	  v.hexPrint (stdout);
 	  printf (")\n");
+
+	  vcd = _sc->getVCD();
+	  if (vcd) {
+	    _sc->emitVCDTime();
+	    fprintf (vcd, "b");
+	    v.bitPrint (vcd);
+	    fprintf (vcd, " %s\n", _sc->_idx_to_char (nm));
+	  }
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -4843,10 +4900,11 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	 (flag >> 1) : 0 = normal, 1 = blocked
       */
       if (verb & 1) {
+	FILE *vcd;
 	int umode;
 	umode = (flag >> 1);
 	msgPrefix();
-	printf ("%s: recv%s", nm, umode == 1 ? "-blocked" : "");
+	printf ("%s: recv%s", nm->s, umode == 1 ? "-blocked" : "");
 	if (umode == 0) {
 	  printf (" value: ");
 	  v.decPrint (stdout);
@@ -4857,6 +4915,14 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
         else {
 	  printf ("\n");
         }
+
+	if (umode != 1) {
+	  vcd = _sc->getVCD ();
+	  if (vcd) {
+	    _sc->emitVCDTime ();
+	    fprintf (vcd, "bz %s\n", _sc->_idx_to_char (nm));
+	  }
+	}
       }
       if (verb & 2) {
 	msgPrefix ();
@@ -4873,7 +4939,8 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	msgPrefix ();
 	umode = (flag >> 1);
 	if (umode == 0 || umode == 1) {
-	  printf ("%s : send%s", nm, umode == 1 ? "-blocked" : "");
+	  FILE *vcd;
+	  printf ("%s : send%s", nm->s, umode == 1 ? "-blocked" : "");
 	  if (!(flag & 1)) {
 	    /* not fragmented, display value */
 	    printf (" value: ");
@@ -4883,9 +4950,23 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    printf (")");
 	  }
 	  printf ("\n");
+
+	  vcd = _sc->getVCD ();
+	  if (vcd && !(flag & 1)) {
+	    _sc->emitVCDTime ();
+	    fprintf (vcd, "b");
+	    v.bitPrint (vcd);
+	    fprintf (vcd, " %s\n", _sc->_idx_to_char (nm));
+	  }
 	}
 	else {
-	  printf ("%s : send complete\n", nm);
+	  FILE *vcd;
+	  printf ("%s : send complete\n", nm->s);
+	  vcd = _sc->getVCD ();
+	  if (vcd) {
+	    _sc->emitVCDTime ();
+	    fprintf (vcd, "bz %s\n", _sc->_idx_to_char (nm));
+	  }
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -4898,3 +4979,78 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
   return ret_break;
 }
 
+
+void ChpSim::_zeroStructure (struct chpsimderef *d)
+{
+  /* XXX: something here */
+}
+
+
+void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
+{
+  int cnt;
+  /* set bitwidths for integers */
+  if (!g || !g->stmt) {
+    return;
+  }
+  if (_addhash (g)) {
+    return;
+  }
+  
+  switch (g->stmt->type) {
+  case CHPSIM_FORK:
+    for (int i=0; i < g->stmt->u.fork; i++) {
+      if (g->all[i]) {
+	_zeroAllIntsChans (g->all[i]);
+      }
+    }
+    break;
+
+  case CHPSIM_ASSIGN:
+    /* ok now get the int! */
+    if (g->stmt->u.assign.is_struct) {
+      /* XXX: FIXME structures */
+    }
+    else {
+      if (g->stmt->u.assign.isint != 0) {
+	int off;
+	BigInt v;
+	off = computeOffset (&g->stmt->u.assign.d);
+	off = getGlobalOffset (off, 1);
+	v.setWidth (g->stmt->u.assign.isint);
+	v.toStatic();
+	_sc->setInt (off, v);
+      }
+    }
+    break;
+
+  case CHPSIM_SEND:
+  case CHPSIM_RECV:
+    {
+      int off;
+      off = getGlobalOffset (g->stmt->u.sendrecv.chvar, 2);
+      act_channel_state *ch = _sc->getChan (off);
+      ch->width = g->stmt->u.sendrecv.width;
+    }
+    break;
+
+  case CHPSIM_COND:
+  case CHPSIM_LOOP:
+    cnt = 0;
+    for (struct chpsimcond *x = &g->stmt->u.c; x; x = x->next) {
+      _zeroAllIntsChans (g->all[cnt]);
+      cnt++;
+    }
+    break;
+
+  case CHPSIM_FUNC: // log
+  case CHPSIM_NOP:
+    break;
+
+  default:
+    fprintf (stderr, "TYPE = %d\n", g->stmt->type);
+    Assert (0, "Unknown chpsim type?");
+    break;
+  }
+  _zeroAllIntsChans (g->next);
+}

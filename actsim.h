@@ -142,6 +142,8 @@ public:
     _abs_port_chan = _chan;
   }
 
+  virtual void zeroInit () { }
+
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
   ActId *getName () { return name; }
   Process *getProc () { return _proc; }
@@ -383,25 +385,38 @@ class ActSimCore {
 
   void computeFanout (ActInstTable *inst);
 
+  struct watchpt_bucket {
+    char *s;
+    int idx;
+  };
+
   inline void addWatchPt (int type, unsigned long off, const char *name) {
     ihash_bucket_t *b;
+    watchpt_bucket *w;
     if (type == 3) { type = 2; }
     b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
     if (b) {
-      FREE (b->v);
+      w = (watchpt_bucket *) b->v;
+      FREE (w->s);
+      FREE (w);
     }
     else {
       b = ihash_add (_W, ((unsigned long)type) | (off << 2));
     }
-    b->v = Strdup (name);
+    NEW (w, watchpt_bucket);
+    b->v = w;
+    w->s = Strdup (name);
+    w->idx = _watch_idx++;
   }
 
-  inline const char *chkWatchPt (int type, unsigned long off) {
+  inline const watchpt_bucket *chkWatchPt (int type, unsigned long off) {
     ihash_bucket_t *b;
+    watchpt_bucket *w;
     if (type == 3) { type = 2; }
     b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
     if (b) {
-      return (char *)b->v;
+      w = (watchpt_bucket *) b->v;
+      return w;
     }
     else {
       return nullptr;
@@ -410,11 +425,14 @@ class ActSimCore {
 
   inline void delWatchPt (int type, unsigned long off) {
     ihash_bucket_t *b;
+    watchpt_bucket *w;
     if (type == 3) { type = 2; }
     b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
     if (b) {
+      w = (watchpt_bucket *) b->v;
       ihash_delete (_W, ((unsigned long)type) | (off << 2));
-      FREE (b->v);
+      FREE (w->s);
+      FREE (w);
     }
   }
 
@@ -443,6 +461,23 @@ class ActSimCore {
       b->v = Strdup (name);
     }
   }
+
+  void setVCD (FILE *fp);	// initialize VCD output
+                                // clear when it is NULL
+  void emitVCDTime() {
+    if (!_vcd_out) return;
+    if (_vcd_emit_time == false || (SimDES::CurTime() != _last_vcd_time)) {
+      _vcd_emit_time = true;
+      fprintf (_vcd_out, "#");
+      _last_vcd_time = SimDES::CurTime ();
+      _last_vcd_time.decPrint (_vcd_out);
+      fprintf (_vcd_out, "\n");
+    }
+  }
+    
+  FILE *getVCD () { return _vcd_out; }
+  
+  const char *_idx_to_char (const watchpt_bucket *w);
 
 protected:
   Act *a;
@@ -497,6 +532,11 @@ protected:
 
   struct iHashtable *_W;		/* watchpoints */
   struct iHashtable *_B;		/* breakpoints */
+  int _watch_idx;
+
+  FILE *_vcd_out;		 // vcd output file
+  bool _vcd_emit_time;		 // emit vcd time
+  BigInt _last_vcd_time;	 // vcd time
 
   /*-- timing forks --*/
   
@@ -579,7 +619,7 @@ public:
 
   int initTracing (const char *file, double tm); // return 1 if
 						 // success, 0 if fail
-  
+
   void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
   float getTimescale() { return _int_to_float_timescale; }
 

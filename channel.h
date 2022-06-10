@@ -71,7 +71,7 @@ struct act_channel_state {
   ChanMethods *cm;		// fill in channel methods
   ChpSim *_dummy;
 
-  
+  int width;			// bitwidth
   int len;
   expr_multires data, data2;  	// data: used when the receiver is
 				// waiting for sender; data2 used when

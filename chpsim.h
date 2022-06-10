@@ -83,7 +83,7 @@ struct chpsimstmt {
       unsigned int is_struct:1;	// 1 if structure, 0 otherwise
       unsigned int is_structx:2; // 0 if not bidir, 1 if bidir, no
 				 // 2 if bidir and struct
-      
+      int width;		 // channel width
       Expr *e;			// outgoing expression, if any
       struct chpsimderef *d;	// variable, if any
     } sendrecv;
@@ -141,9 +141,11 @@ class ChpSim : public ActSimObj {
 
   void computeFanout ();
 
-  int computeOffset (struct chpsimderef *d);
+  int computeOffset (const struct chpsimderef *d);
 
   virtual void propagate (void);
+
+  void zeroInit ();
 
   void dumpState (FILE *fp);
   unsigned long getEnergy (void);
@@ -214,8 +216,9 @@ class ChpSim : public ActSimObj {
 
   int _nextEvent (int pc);
   void _initEvent ();
+  void _zeroAllIntsChans (ChpSimGraph *g);
+  void _zeroStructure (struct chpsimderef *d);
 };
-
 
 
 #endif /* __ACT_CHP_SIM_H__ */

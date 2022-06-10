@@ -38,6 +38,6 @@ endif
 include $(ACT_HOME)/scripts/Makefile.std
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ldl -ledit $(LIBXYCE)
+	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -lm -ldl -ledit $(LIBXYCE)
 
 -include Makefile.deps

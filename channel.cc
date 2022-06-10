@@ -466,10 +466,11 @@ int ChanMethods::runMethod (ActSimCore *sim,
 	}
       }
       if (v == -1) {
-	const char *nm, *nm2;
+	const ActSim::watchpt_bucket *nm;
+	const char *nm2;
 	if ((nm = sim->chkWatchPt (0, b->i))) {
 	  ch->_dummy->msgPrefix ();
-	  printf (" %s := %c\n", nm, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
+	  printf (" %s := %c\n", nm->s, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
 		  '1' : '0');
 	}
 	ch->_dummy->boolProp (b->i);

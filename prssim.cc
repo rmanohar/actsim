@@ -924,7 +924,8 @@ bool PrsSim::setBool (int lid, int v)
 {
   int off = getGlobalOffset (lid, 0);
   SimDES **arr;
-  const char *nm, *nm2;
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
   int verb;
   int oval;
 
@@ -954,8 +955,16 @@ bool PrsSim::setBool (int lid, int v)
     if (verb) {
       if (oval != v) {
 	if (verb & 1) {
+	  FILE *vcd;
 	  msgPrefix ();
-	  printf ("%s := %c\n", nm, (v == 2 ? 'X' : ((char)v + '0')));
+	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+	  vcd = _sc->getVCD ();
+	  if (vcd) {
+	    _sc->emitVCDTime();
+	    fprintf (vcd, "%c", (v == 2 ? 'X' : ((char)v + '0')));
+	    fprintf (vcd, "%s\n", _sc->_idx_to_char (nm));
+	  }
 	}
 	if (verb & 2) {
 	  msgPrefix ();

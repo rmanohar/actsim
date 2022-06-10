@@ -51,7 +51,7 @@ static void usage (char *name)
 }
 
 static ActStatePass *glob_sp;
-static ActSim *glob_sim;
+ActSim *glob_sim;
 static Act *glob_act;
 static Process *glob_top;
 
@@ -915,6 +915,9 @@ int process_trace (int argc, char **argv)
     fprintf (stderr, "Usage: %s <file> <stop-time-in-ns>\n", argv[0]);
     return LISP_RET_ERROR;
   }
+
+  warning ("Tracing not yet implemented!");
+  
   stop_tm = atof (argv[2]);
   if (glob_sim->initTracing (argv[1], stop_tm*1e-9)) {
     return LISP_RET_TRUE;
@@ -922,6 +925,53 @@ int process_trace (int argc, char **argv)
   else {
     return LISP_RET_ERROR;
   }
+}
+
+static FILE *_cur_vcdfile;
+
+int process_createvcd (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (_cur_vcdfile) {
+    fprintf (stderr, "%s: closing current VCD file\n", argv[0]);
+    fclose (_cur_vcdfile);
+    _cur_vcdfile = NULL;
+    glob_sim->setVCD (NULL);
+  }
+
+  FILE *fp = fopen (argv[1], "w");
+  if (!fp) {
+    fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  glob_sim->setVCD (fp);
+  _cur_vcdfile = fp;
+  
+  return LISP_RET_TRUE;
+}
+
+int process_stopvcd (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (_cur_vcdfile) {
+    fclose (_cur_vcdfile);
+    _cur_vcdfile = NULL;
+    glob_sim->setVCD (NULL);
+  }
+  else {
+    fprintf (stderr, "%s: no current VCD file.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  return LISP_RET_TRUE;
 }
 
 int process_timescale (int argc, char **argv)
@@ -1005,6 +1055,8 @@ struct LispCliCommand Cmds[] = {
   { "trace", "<file> <stop-time> - Create atrace file upto <stop-time> duration", process_trace },
   { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
   { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
+  { "vcd_start", "<file> - Create Verilog change dump for all watched values", process_createvcd },
+  { "vcd_stop", "- Stop VCD generation", process_stopvcd },
   
 #if 0  
   { "pending", "- dump pending events", process_pending },
@@ -1071,6 +1123,8 @@ int main (int argc, char **argv)
 
   /* expand it */
   glob_act->Expand ();
+
+  _cur_vcdfile = NULL;
 
   /* map to cells: these get characterized */
   //ActCellPass *cp = new ActCellPass (a);
