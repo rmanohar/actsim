@@ -492,6 +492,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
       ActId *tl[2];
       Arraystep *as[2];
       int roff, aoff, boff;
+      int valid_constr = 1;
 
       for (int i=0; i < 3; i++) {
 	if (p_tl) {
@@ -502,7 +503,15 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	else {
 	  it[i] = sc->FullLookup (s->ids[i], &aref[i]);
 	}
-	Assert (it[i], "Could not find type for spec?");
+	if (!it[i]) {
+	  valid_constr = 0;
+	}
+      }
+      
+      if (!valid_constr) {
+	/* constraint with unknown signals */
+	s = s->next;
+	continue;
       }
 
       if (it[0]->arrayInfo() && (!aref[0] || !aref[0]->isDeref())) {
@@ -669,12 +678,14 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  }
 	  if (!astep) {
 	    cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
-	    off = getLocalOffset (cx, si, &type, NULL);
-	    Assert (type == 0, "Non-boolean in signal list");
-	    off = obj->getGlobalOffset (off, 0);
-	    A_NEW (idx, int);
-	    A_NEXT (idx) = off;
-	    A_INC (idx);
+	    if (hasLocalOffset (cx, si)) {
+	      off = getLocalOffset (cx, si, &type, NULL);
+	      Assert (type == 0, "Non-boolean in signal list");
+	      off = obj->getGlobalOffset (off, 0);
+	      A_NEW (idx, int);
+	      A_NEXT (idx) = off;
+	      A_INC (idx);
+	    }
 	  }
 	  else {
 	    ActId *tl = id_val->Tail();
@@ -684,12 +695,14 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 		Array *a = astep->toArray();
 		tl->setArray (a);
 		cx = _parent_canonical (sc, _cursuffix, p_tl, id_val);
-		off = getLocalOffset (cx, si, &type, NULL);
-		Assert (type == 0, "Non-boolean in signal list");
-		off = obj->getGlobalOffset (off, 0);
-		A_NEW (idx, int);
-		A_NEXT (idx) = off;
-		A_INC (idx);
+		if (hasLocalOffset (cx, si)) {
+		  off = getLocalOffset (cx, si, &type, NULL);
+		  Assert (type == 0, "Non-boolean in signal list");
+		  off = obj->getGlobalOffset (off, 0);
+		  A_NEW (idx, int);
+		  A_NEXT (idx) = off;
+		  A_INC (idx);
+		}
 		tl->setArray (NULL);
 		delete a;
 	      }
