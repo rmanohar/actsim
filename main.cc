@@ -526,6 +526,25 @@ int process_set (int argc, char **argv)
       fprintf (stderr, "Boolean must be set to either 0, 1, or X\n");
       return LISP_RET_ERROR;
     }
+    const ActSim::watchpt_bucket *nm;
+    if ((nm = glob_sim->chkWatchPt (0, offset))) {
+      int oval = glob_sim->getBool (offset);
+      if (oval != val) {
+	FILE *vcd;
+
+	BigInt tm = SimDES::CurTime();
+	printf ("[");
+	tm.decPrint (stdout, 20);
+	printf ("] <[env]> ");
+	printf ("%s := %c\n", nm->s, (val == 2 ? 'X' : ((char)val + '0')));
+	
+	vcd = glob_sim->getVCD ();
+	if (vcd) {
+	  glob_sim->emitVCDTime ();
+	  fprintf (vcd, "%c%s\n", val == 2 ? 'x' : (val + '0'), glob_sim->_idx_to_char (nm));
+	}
+      }
+    }
     glob_sim->setBool (offset, val);
   }
   else if (type == 1) {
