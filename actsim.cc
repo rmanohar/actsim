@@ -2100,7 +2100,7 @@ void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
   ag = obj->getGlobalOffset (a, 0);
   bg = obj->getGlobalOffset (b, 0);
   
-  tc = new ActTimingConstraint (rg, ag, bg, e ? e->u.v : 0, extra);
+  tc = new ActTimingConstraint (obj, rg, ag, bg, e ? e->u.v : 0, extra);
 
   if (tc->isDup()) {
     delete tc;
@@ -2398,7 +2398,18 @@ void ActTimingConstraint::update (int sig, int v)
   if (n[1] == sig) {
     if (state != ACT_TIMING_INACTIVE && TIMING_TRIGGER (1)) {
       if (state == ACT_TIMING_PENDING) {
-	printf ("WARNING: timing constraint ");
+	printf ("WARNING: timing constraint in [ ");
+	if (obj) {
+	  if (obj->getName()) {
+	    obj->getName()->Print (stdout);
+	  }
+	  else {
+	    printf ("-top-");
+	  }
+	  printf (":%s", obj->getProc()->getName() ?
+		  obj->getProc()->getName() : "-none-");
+	}
+	printf (" ] ");
 	Print (stdout);
 	printf (" violated!\n");
 	printf (">> time: %lu\n", ActSimDES::CurTimeLo());
@@ -2492,12 +2503,14 @@ void ActTimingConstraint::Print (FILE *fp)
   }
 }
 
-ActTimingConstraint::ActTimingConstraint (int root, int a, int b,
+ActTimingConstraint::ActTimingConstraint (ActSimObj *_obj,
+					  int root, int a, int b,
 					  int _margin,
 					  int *extra)
 {
   Init ();
-  
+
+  obj = _obj;
   n[0] = root;
   n[1] = a;
   n[2] = b;

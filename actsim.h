@@ -219,6 +219,7 @@ public:
 
 class ActTimingConstraint {
 private:
+  ActSimObj *obj;		// the instance that registered this constraint
   int n[3];			// n[0] : n[1] < n[2]
   act_connection *c[3];
   ActTimingConstraint *nxt[3];	// next pointers
@@ -239,7 +240,7 @@ public:
 
   static ActTimingConstraint *findBool (int n);
   
-  ActTimingConstraint (int root, int a, int b, int margin, int *extra);
+  ActTimingConstraint (ActSimObj *_obj, int root, int a, int b, int margin, int *extra);
   ~ActTimingConstraint ();
 
   ActTimingConstraint *getNext (int sig);
