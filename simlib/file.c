@@ -22,9 +22,22 @@
 #include <stdio.h>
 #include <common/array.h>
 #include <common/misc.h>
+#include <common/config.h>
 #include "../actsim_ext.h"
 
 L_A_DECL (FILE *, file_fp);
+
+/*
+ * On some systems, even though we are
+ * linking against the same shared library,
+ * the state of the config file is replicated.
+ * If this function is defined, ACT will automatically
+ * call this function to synchronize the state.
+ */
+void _builtin_update_config (void *v)
+{
+  config_set_state ((struct Hashtable *)v);
+}
 
 expr_res actsim_file_read (int argc, struct expr_res *args)
 {
@@ -47,13 +60,29 @@ expr_res actsim_file_read (int argc, struct expr_res *args)
      A_INC (file_fp);
   }
   if (!file_fp[args[0].v]) {
-     char buf[100];
-     snprintf (buf, 100, "_infile_.%d", (int)args[0].v);
-     file_fp[args[0].v] = fopen (buf, "r");
-     if (!file_fp[args[0].v]) {
-        fprintf (stderr, "Could not open file `%s' for reading.\n", buf);
-        return ret;
-     }
+    char *buf;
+    int release = 0;
+    if (config_exists ("sim.file.name_table")) {
+      int len = config_get_table_size ("sim.file.name_table");
+      if (args[0].v >= len) {
+	fprintf (stderr, "File name index %d is out of bounds given the name table length of %d\n", (int)args[0].v, len);
+	return ret;
+      }
+      buf = (config_get_table_string ("sim.file.names_table"))[args[0].v];
+    }
+    else {
+      char *prefix = config_get_string ("sim.file.prefix");
+      MALLOC (buf, char, strlen (prefix) + 10);
+      snprintf (buf, strlen (prefix)+10, "%s.%d", prefix, (int)args[0].v);
+      release = 1;
+    }
+    file_fp[args[0].v] = fopen (buf, "r");
+    if (!file_fp[args[0].v]) {
+      fprintf (stderr, "Could not open file `%s' for reading.\n", buf);
+      if (release) { FREE (buf); }
+      return ret;
+    }
+    if (release) { FREE (buf); }
   }
   if (file_fp[args[0].v]) {
      if (fscanf (file_fp[args[0].v], "%lx ", &ret.v) != 1) {

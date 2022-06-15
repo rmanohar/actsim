@@ -32,6 +32,6 @@ SRCS=$(OBJS:.os=.c)
 include $(ACT_HOME)/scripts/Makefile.std
 
 $(SHLIB): $(OBJS)
-	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS)
+	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS) $(SHLIBCOMMON)
 
 -include Makefile.deps
