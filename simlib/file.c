@@ -68,7 +68,7 @@ expr_res actsim_file_read (int argc, struct expr_res *args)
 	fprintf (stderr, "File name index %d is out of bounds given the name table length of %d\n", (int)args[0].v, len);
 	return ret;
       }
-      buf = (config_get_table_string ("sim.file.names_table"))[args[0].v];
+      buf = (config_get_table_string ("sim.file.name_table"))[args[0].v];
     }
     else {
       char *prefix = config_get_string ("sim.file.prefix");
