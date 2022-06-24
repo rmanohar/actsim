@@ -25,6 +25,7 @@
 #include "xycesim.h"
 #include <time.h>
 #include <math.h>
+#include <ctype.h>
 
 /*
 
@@ -2792,6 +2793,59 @@ const char *ActSimCore::_idx_to_char (const watchpt_bucket *w)
   return buf;
 }
 
+static int _vcd_group_signals (const void *a, const void *b)
+{
+  int imode;
+  ihash_bucket_t *ba = (ihash_bucket_t *)a;
+  ihash_bucket_t *bb = (ihash_bucket_t *)b;
+  char *as = ((ActSimCore::watchpt_bucket *) ba->v)->s;
+  char *bs = ((ActSimCore::watchpt_bucket *) bb->v)->s;
+  long ia, ib;
+
+  /* string compare: normal strcmp, but when you are in integer mode,
+     reverse the integers */
+  imode = 0;
+  ia = 0;
+  ib = 0;
+  while (*as && *bs) {
+    if (imode == 0) {
+      if (*as != *bs) {
+	return *as - *bs;
+      }
+      if (*as == '[') {
+	imode = 1;
+	ia = 0;
+	ib = 0;
+      }
+    }
+    else {
+      if (*as != *bs) {
+	while (*as && isdigit (*as)) {
+	  ia = ia*10 + (*as - '0');
+	  as++;
+	}
+	while (*bs && isdigit (*bs)) {
+	  ib = ib*10 + (*bs - '0');
+	  bs++;
+	}
+	return ib - ia;
+      }
+      else {
+	if (isdigit (*as)) {
+	  ia = ia*10 + (*as - '0');
+	  ib = ib*10 + (*bs - '0');
+	}
+	else {
+	  imode = 0;
+	}
+      }
+    }
+    as++;
+    bs++;
+  }
+  return *as - *bs;
+}
+
 void ActSimCore::setVCD (FILE *fp)
 {
   extern ActSim *glob_sim;
@@ -2868,9 +2922,25 @@ void ActSimCore::setVCD (FILE *fp)
       ihash_bucket_t *b;
       ihash_iter_t it;
       watchpt_bucket *w;
+      ihash_bucket_t **bsort;
+
+      bsort = NULL;
+      int bcnt = 0;
+      if (_W->n > 0) {
+	MALLOC (bsort, ihash_bucket_t *, _W->n);
+      }
 
       ihash_iter_init (_W, &it);
       while ((b = ihash_iter_next (_W, &it))) {
+	Assert (bcnt < _W->n, "What?");
+	bsort[bcnt++] = b;
+      }
+      Assert (bcnt == _W->n, "Hash table issue!");
+
+      mymergesort ((const void **)bsort, bcnt, _vcd_group_signals);
+
+      for (int k=0; k < bcnt; k++) {
+	b = bsort[k];
 	unsigned long off = b->key;
 	int type = off & 0x3;
 	off >>= 2;
@@ -2894,6 +2964,9 @@ void ActSimCore::setVCD (FILE *fp)
 		     ch->width, _idx_to_char (w), w->s);
 	  }
 	}
+      }
+      if (bcnt > 0) {
+	FREE (bsort);
       }
     }
     fprintf (fp, "$upscope $end\n");
