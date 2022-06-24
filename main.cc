@@ -1064,6 +1064,7 @@ struct LispCliCommand Cmds[] = {
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
+  { "break", "<n> - add breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
