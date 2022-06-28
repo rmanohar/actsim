@@ -64,12 +64,6 @@ XyceActInterface::XyceActInterface()
   config_set_default_int ("sim.device.dump_all", 0);
   config_set_default_string ("sim.device.output_format", "raw");
 
-  char *fname = config_file_name ("lint.conf");
-  if (fname) {
-    config_read ("lint.conf");
-    FREE (fname);
-  }
-
   _Vdd = config_get_real ("lint.Vdd");
 
   /* units: V/ns */

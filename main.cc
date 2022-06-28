@@ -1128,7 +1128,12 @@ int main (int argc, char **argv)
   config_set_int ("net.emit_parasitics", 1);
 
   /* initialize ACT library */
-  Act::Init (&argc, &argv, "actsim.conf");
+  list_t *l = list_new ();
+  list_append (l, "actsim.conf");
+  list_append (l, "lint.conf");
+
+  Act::Init (&argc, &argv, l);
+  list_free (l);
 
   debug_metrics = config_get_int ("sim.chp.debug_metrics");
 
