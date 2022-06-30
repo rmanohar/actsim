@@ -52,6 +52,12 @@ struct chpsimgraph_info {
   int max_count;
 };
 
+struct process_info {
+  process_info() { chp = NULL; hse = NULL; prs = NULL; }
+  chpsimgraph_info *chp, *hse;
+  PrsSimGraph *prs;
+};
+
 ActSimCore::ActSimCore (Process *p)
 {
   _have_filter = 0;
@@ -75,7 +81,6 @@ ActSimCore::ActSimCore (Process *p)
   state = NULL;
   a = ActNamespace::Act();
   map = ihash_new (8);
-  pmap = ihash_new (8);
   ewidths = phash_new (4);
   chan = NULL;
   I.H = NULL;
@@ -215,24 +220,22 @@ ActSimCore::~ActSimCore()
   if (map) {
     for (int i=0; i < map->size; i++) {
       for (ihash_bucket_t *b = map->head[i]; b; b = b->next) {
-	struct chpsimgraph_info *sg = (struct chpsimgraph_info *)b->v;
-	delete sg->g;
-	FREE (sg);
+	process_info *pgi = (process_info *)b->v;
+	if (pgi->chp) {
+	  delete pgi->chp->g;
+	  FREE (pgi->chp);
+	}
+	if (pgi->hse) {
+	  delete pgi->hse->g;
+	  FREE (pgi->hse);
+	}
+	if (pgi->prs) {
+	  delete pgi->prs;
+	}
+	delete pgi;
       }
     }
     ihash_free (map);
-  }
-
-  /* free prs */
-  if (pmap) {
-    ihash_iter_t iter;
-    ihash_bucket_t *b;
-    ihash_iter_init (pmap, &iter);
-    while ((b = ihash_iter_next (pmap, &iter))) {
-      PrsSimGraph *g = (PrsSimGraph *)b->v;
-      delete g;
-    }
-    ihash_free (pmap);
   }
 
   if (chan) {
@@ -309,24 +312,27 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
   printf ("\n");
 #endif
 
-  chpsimgraph_info *sg = NULL;
   ChpSim *x;
+  process_info *pgi = NULL;
   
   if (c) {
     b = ihash_lookup (map, (long)_curproc);
     if (b) {
-      sg = (chpsimgraph_info *)b->v;
+      pgi = (process_info *) b->v;
     }
     else {
-      ChpSimGraph *stop;
+      pgi = new process_info();
       b = ihash_add (map, (long)_curproc);
-      NEW (sg, chpsimgraph_info);
-      sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
-      sg->e = NULL;
-      sg->max_count = ChpSimGraph::max_pending_count;
-      b->v = sg;
+      b->v = pgi;
     }
-    x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
+    if (!pgi->chp) {
+      ChpSimGraph *stop;
+      NEW (pgi->chp, chpsimgraph_info);
+      pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+      pgi->chp->e = NULL;
+      pgi->chp->max_count = ChpSimGraph::max_pending_count;
+    }
+    x = new ChpSim (pgi->chp->g, pgi->chp->max_count, c->c, this, _curproc);
   }
   else {
     x = new ChpSim (NULL, 0, NULL, this, _curproc);
@@ -369,20 +375,24 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   printf ("\n");
 #endif  
 
-  chpsimgraph_info *sg;
+  process_info *pgi;
   b = ihash_lookup (map, (long)_curproc);
   if (b) {
-    sg = (chpsimgraph_info *)b->v;
+    pgi = (process_info *)b->v;
   }
   else {
-    ChpSimGraph *stop;
+    pgi = new process_info();
     b = ihash_add (map, (long)_curproc);
-    NEW (sg, chpsimgraph_info);
-    sg->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
-    sg->max_count = ChpSimGraph::max_pending_count;
-    b->v = sg;
+    b->v = pgi;
   }
-  ChpSim *x = new ChpSim (sg->g, sg->max_count, c->c, this, _curproc);
+
+  if (!pgi->hse) {
+    ChpSimGraph *stop;
+    NEW (pgi->hse, chpsimgraph_info);
+    pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    pgi->hse->max_count = ChpSimGraph::max_pending_count;
+  }
+  ChpSim *x = new ChpSim (pgi->hse->g, pgi->hse->max_count, c->c, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -403,20 +413,25 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   printf ("\n");
 #endif
 
-  PrsSimGraph *pg;
+  process_info *pgi;
   ihash_bucket_t *b;
-  b = ihash_lookup (pmap, (long)_curproc);
+  b = ihash_lookup (map, (long)_curproc);
   if (b) {
-    pg = (PrsSimGraph *)b->v;
+    pgi = (process_info *)b->v;
   }
   else {
-    b = ihash_add (pmap, (long)_curproc);
-    pg = PrsSimGraph::buildPrsSimGraph (this, p);
-    b->v = pg;
+    b = ihash_add (map, (long)_curproc);
+    pgi = new process_info ();
+    b->v = pgi;
   }
+
+  if (!pgi->prs) {
+    pgi->prs = PrsSimGraph::buildPrsSimGraph (this, p);
+  }
+  
   /* need prs simulation graph */
 
-  PrsSim *x = new PrsSim (pg, this, _curproc);
+  PrsSim *x = new PrsSim (pgi->prs, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);

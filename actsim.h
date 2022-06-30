@@ -492,9 +492,7 @@ protected:
   struct iHashtable *hfo;	// for high fanout nets
 
   struct iHashtable *map;	/* map from process pointer to
-				   chpsimgraph */
-  struct iHashtable *pmap;	/* map from process pointer to
-				   prssimgraph */
+				   process_info */
 
   struct pHashtable *chan;	// compiled channel methods table
 
