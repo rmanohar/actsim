@@ -28,6 +28,15 @@ defproc source (chan!(int<W>) O)
   }
 }
 
+export template<pint W; pbool REP; pint N; pint data[N]>
+defproc source_seq(chan!(int<W>) O)
+{
+  int i;
+  chp {
+    *[ i := 0; *[ i < N -> [([]k:N: i=k -> O!data[k])]; i := i + 1 ] <- REP ]
+  }
+}
+  
 export template<pbool LOG; pint W>
 defproc sink(chan?(int<W>) I)
 {
