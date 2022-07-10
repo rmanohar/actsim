@@ -431,6 +431,10 @@ void PrsSimGraph::addPrs (ActSimCore *sc, act_prs_lang_t *p)
     case ACT_PRS_GATE:
       _add_one_gate (sc, p);
       break;
+
+    case ACT_PRS_CAP:
+      /* caps not simulated */
+      break;
       
     case ACT_PRS_TREE:
     case ACT_PRS_SUBCKT:
