@@ -28,11 +28,209 @@
 #ifdef FOUND_N_CIR_XyceCInterface
 
 #include <N_CIR_XyceCInterface.h>
+#include <N_IO_fwd.h>
+#include <N_IO_ExtOutInterface.h>
+#include <N_CIR_GenCouplingSimulator.h>
+#include <common/atrace.h>
+#include <string.h>
+
+class xyceIO : public Xyce::IO::ExternalOutputInterface
+{
+ private:
+  atrace *_at;
+  name_t **_anodes;
+  int _nnodes;
+  int _idxstart;
+  FILE *_vcdout;
+
+  char *name_convert (const char *signal) {
+    char *s;
+    int l;
+    int pos, skip;
+
+    l = strlen (signal);
+    pos = l-1;
+
+    if ((l > 2) && (signal[0] == 'v' || signal[0] == 'V') &&
+	(signal[1] == '(')) {
+      skip = 2;
+    } 
+    else {
+      skip = 0;
+    }
+
+    if (skip == 2 && (signal[l-1] == ')')) {
+      pos = l - 2;
+    }
+
+    s = (char *)malloc (l + 2);
+    if (!s) {
+      return NULL;
+    }
+
+    if (signal[skip] == '/') {
+      skip++;
+    }
+
+    if (pos == l-1) {
+      sprintf (s, "%s", signal+skip);
+      l = strlen (s);
+    }
+    else {
+      sprintf (s, "%s", signal+skip);
+      l = strlen(s);
+      s[l-1] = '\0';
+      l--;
+    }
+    for (pos = 0; pos < l; pos++) 
+      if (s[pos] == '/' || s[pos] == ':')
+	s[pos] = '.';
+
+    for (int i=0; s[i]; i++) {
+      s[i] = tolower(s[i]);
+    }
+    
+    if (strcmp (s, "vdd") == 0) {
+      strcpy (s, "Vdd");
+    }
+    if (strcmp (s, "gnd") == 0) {
+      strcpy (s, "GND");
+    }
+
+    char *t = Strdup (s);
+    actsim_Act()->unmangle_string (t, s, strlen (s));
+    FREE (t);
+
+    if (*s == 'x') {
+      t = s + 1;
+      while (*t) {
+	*(t-1) = *t;
+	t++;
+      }
+      *(t-1) = '\0';
+    }
+    return s;
+  }
+
+ public:
+  xyceIO(const char *file, float stop_time, float dt) {
+    _at = atrace_create (file, ATRACE_DELTA, stop_time, dt);
+    _nnodes = 0;
+    _anodes = NULL;
+    _vcdout = NULL;
+  }
+
+  ~xyceIO() {
+    if (_nnodes > 0) {
+      FREE (_anodes);
+    }
+    if (_at) {
+      atrace_close (_at);
+    }
+  }
+  
+  Xyce::IO::OutputType::OutputType getOutputType() {
+    return Xyce::IO::OutputType::TRAN;
+  }
+
+  void requestedOutputs (std::vector<std::string> &outVars) {
+    /* request all voltages */
+    outVars.resize (1);
+    outVars[0] = "v(*)";
+  }
+
+  void reportParseStatus (std::vector<bool> &statusVec) {
+    for (int i=0; i < statusVec.size(); i++) {
+      if (statusVec[i] == false)
+	warning ("Xyce could not parse requested voltages (%d)!", i);
+    }
+  }
+
+  void outputFieldNames (std::vector<std::string> &outNames) {
+    _nnodes = outNames.size()-1;
+    if (strcmp (outNames[0].c_str(), "TIME") != 0) {
+      warning ("Something is off...\n");
+      _nnodes = 0;
+      return;
+    }
+    if (_nnodes == 0) return;
+    MALLOC (_anodes, name_t *, _nnodes);
+    for (int i=1; i < outNames.size(); i++) {
+      char *tmp = name_convert (outNames[i].c_str());
+      _anodes[i-1] = atrace_create_node (_at, tmp);
+      FREE (tmp);
+    }
+  }
+  
+  void outputReal (std::vector<double> &outDat) {
+    for (int i=1; i < outDat.size(); i++) {
+      atrace_signal_change (_at, _anodes[i-1], outDat[0], outDat[i]);
+    }
+    if (_vcdout) {
+      dumpVCD (0);
+    }
+  }
+
+  void finishOutput() {
+    atrace_flush (_at);
+  }
+
+  void stopVCD() {
+    _vcdout = NULL;
+  }
+  
+  void emitVCDNames (FILE *fp, int idx) {
+    _idxstart = idx;
+    _vcdout = fp;
+    for (int i=0; i < _nnodes; i++) {
+      fprintf (fp, "$var real 1 %s %s $end\n",
+	       ActSimCore::_idx_to_char (idx++), ATRACE_GET_NAME (_anodes[i]));
+    }
+  }
+
+  void dumpVCD (int all) {
+    if (!_vcdout) return;
+    
+    extern ActSim *glob_sim;
+    int idx = _idxstart;
+    FILE *fp = _vcdout;
+    int first = 1;
+    for (int i=0; i < _nnodes; i++) {
+      if (all || _anodes[i]->chg) {
+	if (first) {
+	  glob_sim->emitVCDTimeAnalog();
+	  first = 0;
+	}
+	fprintf (fp, "r%.16g %s\n", ATRACE_NODE_FLOATVAL (_anodes[i]),
+		 ActSimCore::_idx_to_char (idx + i));
+      }
+    }
+  }
+     
+};    
 
 #endif
 
 XyceActInterface *XyceActInterface::_single_inst = NULL;
 
+void XyceActInterface::emitVCDNames (FILE *fp, int idx)
+{
+  _ioiface->emitVCDNames (fp, idx);
+}
+
+void XyceActInterface::stopVCD()
+{
+  if (_ioiface) {
+    _ioiface->stopVCD ();
+  }
+}
+
+void XyceActInterface::dumpVCD (int all)
+{
+  if (_ioiface) {
+    _ioiface->dumpVCD (all);
+  }
+}
 
 XyceActInterface::XyceActInterface()
 {
@@ -63,6 +261,8 @@ XyceActInterface::XyceActInterface()
   config_set_default_int ("sim.device.case_for_sim", 0);
   config_set_default_int ("sim.device.dump_all", 0);
   config_set_default_string ("sim.device.output_format", "raw");
+  config_set_default_string ("sim.device.outfile", "xyce_out");
+  config_set_default_real ("sim.device.stop_time", 1e-6);
 
   _Vdd = config_get_real ("lint.Vdd");
 
@@ -111,6 +311,7 @@ XyceActInterface::XyceActInterface()
   }
   
   _pending = NULL;
+  _ioiface = NULL;
 }
 
 
@@ -124,6 +325,9 @@ XyceActInterface::~XyceActInterface()
   }
 #ifdef FOUND_N_CIR_XyceCInterface
   xyce_close (&_xyce_ptr);
+  if (_ioiface) {
+    delete _ioiface;
+  }
 #endif
 }
 
@@ -246,8 +450,10 @@ void XyceActInterface::initXyce ()
     netlist_t *n = nl->getNL (xs->getProc());
 
     Assert (n, "What?");
-
-    fprintf (sfp, "X%d ", i);
+    
+    inst->sPrint (buf2, 10240);
+    a->mangle_string (buf2, buf, 10240);
+    fprintf (sfp, "X%s ", buf);
     for (int j=0; j < A_LEN (n->bN->ports); j++) {
       int len;
       if (n->bN->ports[j].omit) continue;
@@ -354,39 +560,40 @@ void XyceActInterface::initXyce ()
 
   fprintf (sfp, ".tran 0 1\n");
 
-  if (strcmp (_output_fmt, "prn") == 0) {
-    fprintf (sfp, ".print tran\n");
-  }
-  else {
-    fprintf (sfp, ".print tran format=%s\n", _output_fmt);
-  }
-
-  if (_dump_all) {
-    fprintf (sfp, "+ v(*)\n");
-  }
-  else {
-    if (_to_xyce) {
-      ihash_iter_t it;
-      ihash_bucket_t *b;
-      ihash_iter_init (_to_xyce, &it);
-      while ((b = ihash_iter_next (_to_xyce, &it))) {
-	struct xycefanout *xf;
-	xf = (struct xycefanout *) b->v;
-	for (int i=0; i < A_LEN (xf->dac_id); i++) {
-	  fprintf (sfp, "+ v(");
-	  fprintf (sfp, "%s", xf->dac_id[i]);
-	  fprintf (sfp, ")\n");
+  if (strcmp (_output_fmt, "-none-") != 0) {
+    if (strcmp (_output_fmt, "prn") == 0) {
+      fprintf (sfp, ".print tran\n");
+    }
+    else {
+      fprintf (sfp, ".print tran format=%s\n", _output_fmt);
+    }
+    if (_dump_all) {
+      fprintf (sfp, "+ v(*)\n");
+    }
+    else {
+      if (_to_xyce) {
+	ihash_iter_t it;
+	ihash_bucket_t *b;
+	ihash_iter_init (_to_xyce, &it);
+	while ((b = ihash_iter_next (_to_xyce, &it))) {
+	  struct xycefanout *xf;
+	  xf = (struct xycefanout *) b->v;
+	  for (int i=0; i < A_LEN (xf->dac_id); i++) {
+	    fprintf (sfp, "+ v(");
+	    fprintf (sfp, "%s", xf->dac_id[i]);
+	    fprintf (sfp, ")\n");
+	  }
 	}
       }
-    }
-    if (_from_xyce) {
-      hash_iter_t it;
-      hash_bucket *b;
-      hash_iter_init (_from_xyce, &it);
-      while ((b = hash_iter_next (_from_xyce, &it))) {
-	fprintf (sfp, "+ v(");
-	fprintf (sfp, "%s", b->key);
-	fprintf (sfp, ")\n");
+      if (_from_xyce) {
+	hash_iter_t it;
+	hash_bucket *b;
+	hash_iter_init (_from_xyce, &it);
+	while ((b = hash_iter_next (_from_xyce, &it))) {
+	  fprintf (sfp, "+ v(");
+	  fprintf (sfp, "%s", b->key);
+	  fprintf (sfp, ")\n");
+	}
       }
     }
   }
@@ -408,7 +615,21 @@ void XyceActInterface::initXyce ()
     _init_xyce[i] = Strdup (_cinit_xyce[i]);
   }
   _init_xyce[num] = NULL;
-  xyce_initialize (&_xyce_ptr, num, _init_xyce);
+  xyce_initialize_early (&_xyce_ptr, num, _init_xyce);
+  _ioiface = new xyceIO (config_get_string ("sim.device.outfile"),
+			 config_get_real ("sim.device.stop_time"),
+			 _timescale);
+  
+  Xyce::Circuit::GenCouplingSimulator *tmpx = (Xyce::Circuit::GenCouplingSimulator *)_xyce_ptr;
+  if (tmpx->addOutputInterface (_ioiface) == false) {
+    warning ("failed to add output interface to xyce (`%s')",
+	     config_get_string ("sim.device.outfile"));
+    delete _ioiface;
+    _ioiface = NULL;
+  }
+
+  xyce_initialize_late (&_xyce_ptr);
+  
   for (int i=0; i < num; i++) {
     FREE (_init_xyce[i]);
   }
