@@ -463,7 +463,7 @@ class ActSimCore {
     }
   }
 
-  void setVCD (FILE *fp);	// initialize VCD output
+  void setVCD (FILE *fp, FILE *fpanalog); // initialize VCD output
                                 // clear when it is NULL
   void emitVCDTime() {
     if (!_vcd_out) return;
@@ -475,10 +475,22 @@ class ActSimCore {
       fprintf (_vcd_out, "\n");
     }
   }
+  void emitVCDTimeAnalog() {
+    if (!_vcd_outa) return;
+    if (_vcd_emit_timea == false || (SimDES::CurTime() != _last_vcd_timea)) {
+      _vcd_emit_timea = true;
+      fprintf (_vcd_outa, "#");
+      _last_vcd_timea = SimDES::CurTime ();
+      _last_vcd_timea.decPrint (_vcd_outa);
+      fprintf (_vcd_outa, "\n");
+    }
+  }
+  
     
   FILE *getVCD () { return _vcd_out; }
   
   const char *_idx_to_char (const watchpt_bucket *w);
+  static const char *_idx_to_char (int idx);
 
 protected:
   Act *a;
@@ -536,6 +548,10 @@ protected:
   FILE *_vcd_out;		 // vcd output file
   bool _vcd_emit_time;		 // emit vcd time
   BigInt _last_vcd_time;	 // vcd time
+
+  FILE *_vcd_outa;		 // vcd output file (analog)
+  bool _vcd_emit_timea;		 // emit vcd time
+  BigInt _last_vcd_timea;	 // vcd time
 
   /*-- timing forks --*/
   

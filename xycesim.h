@@ -32,6 +32,8 @@ struct xycefanout {
   A_DECL (char *, dac_id);
 };
 
+class xyceIO;
+
 class XyceActInterface {
 
 public:
@@ -74,6 +76,13 @@ public:
       return oval;
     }
   }
+
+  int hasIO () { return _ioiface != NULL ? 1 : 0; }
+
+  /* idx = starting index for naming */
+  void emitVCDNames (FILE *fp, int idx);
+  void dumpVCD (int force);
+  void stopVCD ();
 
 private:
   void _addProcess (XyceSim *);
@@ -124,6 +133,8 @@ private:
   int _max_points;
 
   Event *_pending;		// current pending event
+
+  xyceIO *_ioiface;
 };
 
 
