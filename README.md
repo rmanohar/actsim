@@ -20,8 +20,8 @@ Building `Xyce`:
    * To build and install the Xyce C interface library (in the `utils/XyceCInterface` directory), use the following commands:
       * Go to the `utils/XyceCInterface` directory
       * Edit XyceCInterface.C and comment out `#include <N_DEV_Algorithm.h>`
-      * Build an object file using `g++ -I$ACT_HOME/include -c XyceCInterface.C`
-      * Create the library using `ar ruv libxycecinterface.a XyceCInterface.o`
+      * Build an object file using `g++ -std=c++17 -I$ACT_HOME/include -c N_CIR_XyceCInterface.C`
+      * Create the library using `ar ruv libxycecinterface.a N_CIR_XyceCInterface.o`
       * If you need to, use `ranlib libxycecinterface.a`
       * Copy `libxycecinterface.a` to `$ACT_HOME/lib`
       * Copy `N_CIR_XyceCInterface.h` to `$ACT_HOME/include`
