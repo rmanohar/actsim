@@ -4,6 +4,13 @@
 #
 #
 
+realcleansub: realclean
+cleansub: clean
+realclean: clean
+
+clean: 
+	-rm lxt2_write.o
+
 installincsub: all
 installsub: all
 install: all
