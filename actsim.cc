@@ -63,8 +63,6 @@ ActSimCore::ActSimCore (Process *p)
   _have_filter = 0;
   _vcd_out = NULL;
   _vcd_emit_time = false;
-  _vcd_outa = NULL;
-  _vcd_emit_timea = false;
   _watch_idx = 0;
   
 
@@ -2870,7 +2868,7 @@ static int _vcd_group_signals (const void *a, const void *b)
 }
 
 
-static void _dump_vcdheader (FILE *fp)
+void ActSimCore::_dump_vcdheader (FILE *fp)
 {
   extern ActSim *glob_sim;
   
@@ -2937,16 +2935,21 @@ static void _dump_vcdheader (FILE *fp)
     fprintf (fp, "1 s ");
   }
   fprintf (fp, " $end\n");
+  fprintf (fp, "$scope module %s $end\n", actsim_top()->getName());
 }
 
-void ActSimCore::setVCD (FILE *fp, FILE *fpa)
+void ActSimCore::_dump_vcdheader_part2 (FILE *fp)
 {
-  
+  fprintf (fp, "$upscope $end\n");
+  fprintf (fp, "$enddefinitions $end\n");
+  fprintf (fp, "$dumpvars\n");
+}
+
+
+void ActSimCore::setVCD (FILE *fp)
+{
   if (!_vcd_out && fp) {
     _dump_vcdheader (fp);
-    fprintf (fp, "$scope module %s $end\n", actsim_top()->getName());
-    // $var wire N char name $end
-
     int idxmax = 0;
     if (_W) {
       ihash_bucket_t *b;
@@ -3002,20 +3005,7 @@ void ActSimCore::setVCD (FILE *fp, FILE *fpa)
 	FREE (bsort);
       }
     }
-    if (XyceActInterface::getXyceInterface()->hasIO() && fpa) {
-      _dump_vcdheader (fpa);
-      XyceActInterface::getXyceInterface()->step ();
-      XyceActInterface::getXyceInterface()->emitVCDNames (fpa, idxmax+1);
-    }
-    
-    fprintf (fp, "$upscope $end\n");
-    fprintf (fp, "$enddefinitions $end\n");
-    fprintf (fp, "$dumpvars\n");
-    if (fpa) {
-      fprintf (fpa, "$upscope $end\n");
-      fprintf (fpa, "$enddefinitions $end\n");
-      fprintf (fpa, "$dumpvars\n");
-    }
+    _dump_vcdheader_part2 (fp);
     if (_W) {
       ihash_bucket_t *b;
       ihash_iter_t it;
@@ -3049,17 +3039,7 @@ void ActSimCore::setVCD (FILE *fp, FILE *fpa)
 	}
       }
     }
-    if (fpa && XyceActInterface::getXyceInterface()->hasIO()) {
-      XyceActInterface::getXyceInterface()->dumpVCD (1);
-    }
     fprintf (fp, "$end\n");
-    if (fpa && XyceActInterface::getXyceInterface()->hasIO()) {
-      fprintf (fpa, "$end\n");
-    }
   }
   _vcd_out = fp;
-  _vcd_outa = fpa;
-  if (fpa == NULL && XyceActInterface::getXyceInterface()->hasIO()) {
-    XyceActInterface::getXyceInterface()->stopVCD ();
-  }
 }

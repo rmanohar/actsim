@@ -77,13 +77,6 @@ public:
     }
   }
 
-  int hasIO () { return _ioiface != NULL ? 1 : 0; }
-
-  /* idx = starting index for naming */
-  void emitVCDNames (FILE *fp, int idx);
-  void dumpVCD (int force);
-  void stopVCD ();
-
 private:
   void _addProcess (XyceSim *);
 

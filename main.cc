@@ -946,12 +946,12 @@ int process_trace (int argc, char **argv)
   }
 }
 
-static FILE *_cur_vcdfile, *_cur_vcda;
+static FILE *_cur_vcdfile;
 
 int process_createvcd (int argc, char **argv)
 {
-  if (argc != 2 && argc != 3) {
-    fprintf (stderr, "Usage: %s <file> [<analog-vcd>]\n", argv[0]);
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
@@ -959,11 +959,7 @@ int process_createvcd (int argc, char **argv)
     fprintf (stderr, "%s: closing current VCD file\n", argv[0]);
     fclose (_cur_vcdfile);
     _cur_vcdfile = NULL;
-    if (_cur_vcda) {
-      fclose (_cur_vcda);
-    }
-    _cur_vcda = NULL;
-    glob_sim->setVCD (NULL, NULL);
+    glob_sim->setVCD (NULL);
   }
 
   FILE *fp = fopen (argv[1], "w");
@@ -971,18 +967,8 @@ int process_createvcd (int argc, char **argv)
     fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[1]);
     return LISP_RET_ERROR;
   }
-  FILE *fp2 = NULL;
-  if (argc == 3) {
-    fp2 = fopen (argv[2], "w");
-    if (!fp2) {
-      fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[2]);
-      fclose (fp);
-      return LISP_RET_ERROR;
-    }
-  }
-  glob_sim->setVCD (fp, fp2);
+  glob_sim->setVCD (fp);
   _cur_vcdfile = fp;
-  _cur_vcda = fp2;
   
   return LISP_RET_TRUE;
 }
@@ -996,11 +982,7 @@ int process_stopvcd (int argc, char **argv)
   if (_cur_vcdfile) {
     fclose (_cur_vcdfile);
     _cur_vcdfile = NULL;
-    if (_cur_vcda) {
-      fclose (_cur_vcda);
-    }
-    _cur_vcda = NULL;
-    glob_sim->setVCD (NULL, NULL);
+    glob_sim->setVCD (NULL);
   }
   else {
     fprintf (stderr, "%s: no current VCD file.\n", argv[0]);
@@ -1166,7 +1148,6 @@ int main (int argc, char **argv)
   glob_act->Expand ();
 
   _cur_vcdfile = NULL;
-  _cur_vcda = NULL;
 
   /* map to cells: these get characterized */
   //ActCellPass *cp = new ActCellPass (a);

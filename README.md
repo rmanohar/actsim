@@ -19,7 +19,7 @@ Building `Xyce`:
    * Build and install `Xyce` itself, using `cmake` using `$ACT_HOME` as the install directory
    * To build and install the Xyce C interface library (in the `xyce-bits` directory), use the following commands:
       * Go to the `xyce-bits/` directory
-      * Build an object file using `g++ -std=c++17 -I$ACT_HOME/include -c N_CIR_XyceCInterface.C`
+      * Build an object file using `g++ -std=c++17 -I. -I$ACT_HOME/include -c N_CIR_XyceCInterface.C`
       * Create the library using `ar ruv libxycecinterface.a N_CIR_XyceCInterface.o`
       * If you need to, use `ranlib libxycecinterface.a`
       * Copy `libxycecinterface.a` to `$ACT_HOME/lib`
