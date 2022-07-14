@@ -20,7 +20,7 @@
 #-------------------------------------------------------------------------
 EXE=actsim.$(EXT)
 
-SUBDIRS=simlib
+SUBDIRS=simlib ext
 TARGETS=$(EXE)
 TARGETINCS=actsim_ext.h
 TARGETINCSUBDIR=act
@@ -37,7 +37,7 @@ endif
 
 include $(ACT_HOME)/scripts/Makefile.std
 
-$(EXE): $(OBJS) $(ACTPASSDEPEND)
-	$(CXX) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -lm -ldl -ledit $(LIBXYCE)
+$(EXE): $(OBJS) $(ACTPASSDEPEND) ext/lxt2_write.o
+	$(CXX) $(CFLAGS) $(OBJS) ext/lxt2_write.o -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -lm -ldl -ledit $(LIBXYCE) -lz
 
 -include Makefile.deps
