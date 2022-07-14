@@ -33,9 +33,7 @@ extern "C" {
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
-#ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
-#endif
 #include <zlib.h>
 
 #ifndef HAVE_FSEEKO
