@@ -1005,28 +1005,7 @@ int process_status (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_trace (int argc, char **argv)
-{
-  double stop_tm;
-  
-  if (argc != 3) {
-    fprintf (stderr, "Usage: %s <file> <stop-time-in-ns>\n", argv[0]);
-    return LISP_RET_ERROR;
-  }
-
-  warning ("Tracing not yet implemented!");
-  
-  stop_tm = atof (argv[2]);
-  if (glob_sim->initTracing (argv[1], stop_tm*1e-9)) {
-    return LISP_RET_TRUE;
-  }
-  else {
-    return LISP_RET_ERROR;
-  }
-}
-
 static FILE *_cur_vcdfile;
-
 int process_createvcd (int argc, char **argv)
 {
   if (argc != 2) {
@@ -1150,7 +1129,6 @@ struct LispCliCommand Cmds[] = {
 
   { "status", "0|1|X - list all nodes with specified value", process_status },
 
-  { "trace", "<file> <stop-time> - Create atrace file upto <stop-time> duration", process_trace },
   { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
   { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
   { "vcd_start", "<file> [<afile>]- Create Verilog change dump for all watched values", process_createvcd },
