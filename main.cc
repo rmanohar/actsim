@@ -29,6 +29,7 @@
 #include <act/passes.h>
 #include <common/config.h>
 #include "actsim.h"
+#include "chpsim.h"
 #include <lisp.h>
 #include <lispCli.h>
 
@@ -164,6 +165,32 @@ static void dump_state (FILE *fp, ActInstTable *x)
     }
   }
 }
+
+
+static void dump_coverage (FILE *fp, ActInstTable *x)
+{
+  if (!x) {
+    warning ("Didn't find info; is this a valid instance?");
+    return;
+  }
+  
+  if (x->obj) {
+    ChpSim *cobj = dynamic_cast <ChpSim *> (x->obj);
+    if (cobj) {
+      cobj->dumpStats (fp);
+    }
+  }
+  if (x->H) {
+    hash_bucket_t *b;
+    hash_iter_t i;
+    hash_iter_init (x->H, &i);
+    while ((b = hash_iter_next (x->H, &i))) {
+      ActInstTable *tmp = (ActInstTable *) b->v;
+      dump_coverage (fp, tmp);
+    }
+  }
+}
+
 
 static unsigned long _get_energy (FILE *fp,
 				  ActInstTable *x, double *lk,
@@ -380,6 +407,58 @@ int process_getenergy (int argc, char **argv)
   if (fp != stdout) {
     fclose (fp);
   }
+  return LISP_RET_TRUE;
+}
+
+int process_coverage (int argc, char **argv)
+{
+  ActId *id;
+  FILE *fp;
+  if (argc != 2 && argc != 3) {
+    fprintf (stderr, "Usage: %s <filename> [<instance-name>]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (strcmp (argv[1], "-") == 0) {
+    fp = stdout;
+  }
+  else {
+    fp = fopen (argv[1], "w");
+    if (!fp) {
+      fprintf (stderr, "%s: could not open file `%s' for writing\n",
+	       argv[0], argv[1]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  if (argc == 2) {
+    /* all */
+    id = NULL;
+  }
+  else {
+    id = ActId::parseId (argv[1]);
+    if (id == NULL) {
+      fprintf (stderr, "Could not parse `%s' into an instance name\n",
+	       argv[1]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+  if (!id) {
+    /*-- print state of each process --*/
+    dump_coverage (fp, glob_sim->getInstTable ());
+  }
+  else {
+    /*-- find this process --*/
+    ActInstTable *inst = find_table (id, glob_sim->getInstTable());
+    dump_coverage (fp, inst);
+    delete id;
+  }
+
+  if (fp != stdout) {
+    fclose (fp);
+  }
+  
   return LISP_RET_TRUE;
 }
 
@@ -1099,7 +1178,8 @@ struct LispCliCommand Cmds[] = {
   { "logfile", "<file> - dump actsim log output to a log file <file>", process_logfile },
   
   { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
-  { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy }
+  { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy },
+  { "coverage", "<filename> [<inst-name>] - report coverage for guards", process_coverage }
 };
 
 /* -- access top-level Act  -- */

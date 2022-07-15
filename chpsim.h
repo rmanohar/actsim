@@ -63,7 +63,10 @@ struct chpsimstmt {
   int energy_cost;
   union {
     int fork;			/* # of forks */
-    chpsimcond c;		/* conditional */
+    struct {
+      chpsimcond c;		/* conditional */
+      int stats;
+    } cond;
     struct {
       const char *name;		/* function name */
       list_t *l;		/* arguments */
@@ -112,6 +115,7 @@ class ChpSimGraph {
   static ChpSimGraph *buildChpSimGraph (ActSimCore *,
 					act_chp_lang_t *, ChpSimGraph **stop);
   static int max_pending_count;
+  static int max_stats;
 
   static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
   static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
@@ -130,8 +134,8 @@ private:
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, int maxcnt, act_chp_lang_t *, ActSimCore *sim,
-	  Process *p);
+  ChpSim (ChpSimGraph *, int maxcnt, int maxstats,
+	  act_chp_lang_t *, ActSimCore *sim, Process *p);
      /* initialize simulation, and create initial event */
   ~ChpSim ();
 
@@ -151,6 +155,8 @@ class ChpSim : public ActSimObj {
   unsigned long getEnergy (void);
   double getLeakage (void);
   unsigned long getArea (void);
+
+  void dumpStats (FILE *fp);
   
   int getBool (int glob_off) { return _sc->getBool (glob_off); }
   bool setBool (int glob_off, int val) { return _sc->setBool (glob_off, val); }
@@ -188,6 +194,10 @@ class ChpSim : public ActSimObj {
   list_t *_statestk;
   Scope *_cureval;
   act_channel_state *_frag_ch;	// fragmented channel
+
+
+  unsigned long *_stats;
+  int _maxstats;
 
   BigInt funcEval (Function *, int, void **);
   BigInt varEval (int id, int type);

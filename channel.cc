@@ -391,7 +391,7 @@ int ChanMethods::runProbe (ActSimCore *sim,
 			   int idx)
 {
   if (!ch->_dummy) {
-    ch->_dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
+    ch->_dummy = new ChpSim (NULL, 0, 0, NULL, sim, NULL);
     ch->_dummy->setFrag (ch);
   }
 
@@ -424,7 +424,7 @@ int ChanMethods::runMethod (ActSimCore *sim,
   BigInt r;
   
   if (!ch->_dummy) {
-    ch->_dummy = new ChpSim (NULL, 0, NULL, sim, NULL);
+    ch->_dummy = new ChpSim (NULL, 0, 0, NULL, sim, NULL);
     ch->_dummy->setFrag (ch);
   }
 

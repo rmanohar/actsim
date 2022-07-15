@@ -24,6 +24,7 @@
 #include "chpsim.h"
 #include <common/simdes.h>
 #include <dlfcn.h>
+#include <common/pp.h>
 
 class ChpSim;
 
@@ -33,6 +34,7 @@ class ChpSim;
 
 int ChpSimGraph::cur_pending_count = 0;
 int ChpSimGraph::max_pending_count = 0;
+int ChpSimGraph::max_stats = 0;
 
 //#define DUMP_ALL
 
@@ -41,6 +43,135 @@ int ChpSimGraph::max_pending_count = 0;
 
 #define WAITING_RECEIVER(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 0)
 #define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
+
+static int stat_count = 0;
+
+static void _chp_print (pp_t *pp, act_chp_lang_t *c, int prec = 0)
+{
+  int lprec;
+  
+  if (!c) return;
+
+  if (c->label) {
+    pp_printf (pp, "%s: ", c->label);
+    pp_setb (pp);
+  }
+  
+  switch (c->type) {
+  case ACT_CHP_COMMA:
+  case ACT_CHP_SEMI:
+    {
+      listitem_t *li;
+
+      for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
+	_chp_print (pp, (act_chp_lang_t *)list_value (li), lprec);
+      }
+
+    }
+    break;
+
+  case ACT_CHP_LOOP:
+  case ACT_CHP_DOLOOP:
+    pp_printf (pp, "*");
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+    pp_printf (pp, "[");
+    if (c->type == ACT_CHP_SELECT_NONDET) {
+      pp_printf (pp, "|");
+    }
+    {
+      act_chp_gc_t *gc = c->u.gc;
+
+      if (c->type == ACT_CHP_DOLOOP) {
+	pp_printf (pp, " ");
+	_chp_print (pp, gc->s, 0);
+	pp_printf (pp, " <- ");
+	if (gc->g) {
+	  char buf[10240];
+	  sprint_uexpr (buf, 10240, gc->g);
+	  pp_printf (pp, "%s", buf);
+	}
+	else {
+	  pp_printf (pp, "true");
+	}
+	pp_printf (pp, " { %d }", stat_count++);
+      }
+      else {
+	while (gc) {
+	  if (!gc->g) {
+	    if (c->type == ACT_CHP_LOOP) {
+	      pp_printf (pp, "true");
+	    }
+	    else {
+	      pp_printf (pp, "else");
+	    }
+	  }
+	  else {
+	    char buf[10240];
+	    sprint_uexpr (buf, 10240, gc->g);
+	    pp_printf (pp, "%s", buf);
+	  }
+	  pp_printf (pp, " { %d }", stat_count++);
+	  if (gc->s) {
+	    pp_printf (pp, " -> ");
+	    pp_setb (pp);
+	    _chp_print (pp, gc->s, 0);
+	    pp_endb (pp);
+	  }
+	  if (gc->next) {
+	    pp_united (pp, 2);
+	    pp_printf (pp, " [] ");
+	  }
+	  gc = gc->next;
+	}
+      }
+    }
+    if (c->type == ACT_CHP_SELECT_NONDET) {
+      pp_printf (pp, "|");
+    }
+    pp_printf (pp, "]");
+    break;
+    
+  case ACT_CHP_SKIP:
+  case ACT_CHP_ASSIGN:
+  case ACT_CHP_ASSIGNSELF:
+  case ACT_CHP_SEND:
+  case ACT_CHP_RECV:
+  case ACT_CHP_FUNC:
+  case ACT_CHP_MACRO:
+    pp_printf (pp, ".");
+    pp_lazy (pp, 0);
+    break;
+    
+  case ACT_HSE_FRAGMENTS:
+    do {
+      _chp_print (pp, c->u.frag.body);
+      pp_printf (pp, " : %s", c->u.frag.nextlabel);
+      c = c->u.frag.next;
+      if (c) {
+	pp_printf (pp, ";\n");
+	pp_forced (pp, 0);
+	pp_printf (pp, "%s : ", c->label);
+      }
+    } while (c);
+    break; 
+    
+  default:
+    fatal_error ("Unknown type");
+    break;
+  }
+
+  if (c->label) {
+    pp_endb (pp);
+  }
+}
+
+static void chp_print_stats (pp_t *pp, act_chp_lang_t *c)
+{
+  stat_count = 0;
+  _chp_print (pp, c);
+}
+
 
 
 static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
@@ -122,7 +253,8 @@ static void _clrhash ()
   _ZEROHASH = NULL;
 }
 
-ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim, Process *p)
+ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, int max_stats,
+		act_chp_lang_t *c, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
 {
   char buf[1024];
@@ -136,6 +268,13 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, act_chp_lang_t *c, ActSimCore *sim,
   _statestk = NULL;
   _cureval = NULL;
   _frag_ch = NULL;
+  _maxstats = max_stats;
+  if (_maxstats > 0) {
+    MALLOC (_stats, unsigned long, _maxstats);
+    for (int i=0; i < _maxstats; i++) {
+      _stats[i] = 0;
+    }
+  }
 
   if (p) {
     char *nsname;
@@ -244,6 +383,10 @@ ChpSim::~ChpSim()
     list_free (_statestk);
   }
   list_free (_stalled_pc);
+
+  if (_maxstats > 0) {
+    FREE (_stats);
+  }
 }
 
 int ChpSim::_nextEvent (int pc)
@@ -1197,12 +1340,12 @@ int ChpSim::Step (Event *ev)
       
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
-        if (_add_waitcond (&stmt->u.c, pc, 1)) {
+        if (_add_waitcond (&stmt->u.cond.c, pc, 1)) {
 	  _remove_me (pc);
 	}
       }
 
-      gc = &stmt->u.c;
+      gc = &stmt->u.cond.c;
       while (gc) {
 	if (gc->g) {
 	  res = exprEval (gc->g);
@@ -1217,6 +1360,9 @@ int ChpSim::Step (Event *ev)
 	    _holes[_pcused-1] = pc;
 	    _pcused--;
 	  }
+	  if (_maxstats > 0 && stmt->u.cond.stats >= 0) {
+	    _stats[stmt->u.cond.stats + cnt]++;
+	  }
 	  break;
 	}
 	cnt++;
@@ -1228,7 +1374,7 @@ int ChpSim::Step (Event *ev)
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
 	  forceret = 1;
-	  if (_add_waitcond (&stmt->u.c, pc)) {
+	  if (_add_waitcond (&stmt->u.cond.c, pc)) {
 	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
@@ -1255,7 +1401,7 @@ int ChpSim::Step (Event *ev)
   }
   if (forceret || !_pc[pc]) {
 #ifdef DUMP_ALL  
-  printf (" [f-ret %d]\n", forceret);
+    printf (" [f-ret %d]\n", forceret);
 #endif
     return 1 - _breakpt;
   }
@@ -1990,7 +2136,7 @@ BigInt ChpSim::exprEval (Expr *e)
     
   case E_INT:
     if (e->u.v_extra) {
-       l = *((BigInt *)e->u.v_extra);
+      l = *((BigInt *)e->u.v_extra);
     }
     else {
       unsigned long x = e->u.v;
@@ -3738,10 +3884,14 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   ret->delay_cost = 0;
   ret->energy_cost = 0;
   tmp = NULL;
+  ret->u.cond.stats = -1;
+
+  ret->u.cond.stats = ChpSimGraph::max_stats;
   
   while (gc) {
+    ChpSimGraph::max_stats++;
     if (!tmp) {
-      tmp = &ret->u.c;
+      tmp = &ret->u.cond.c;
     }
     else {
       NEW (tmp->next, chpsimcond);
@@ -3760,6 +3910,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
 {
   cur_pending_count = 0;
   max_pending_count = 0;
+  max_stats = 0;
   return _buildChpSimGraph (sc, c, stop);
 }
 
@@ -4435,6 +4586,34 @@ void ChpSim::dumpState (FILE *fp)
   fprintf (fp, "\n");
 }
 
+void ChpSim::dumpStats (FILE *fp)
+{
+  int found = 0;
+
+  if (_maxstats > 0) {
+    
+    fprintf (fp, "--- Process: ");
+    if (getName()) {
+      getName()->Print (fp);
+    }
+    else {
+      fprintf (fp, "-unknown-");
+    }
+    fprintf (fp, " [ %s ] ---\n", _proc ? _proc->getName() : "-global-");
+
+    pp_t *pp = pp_init (fp, 80);
+    chp_print_stats (pp, _savedc);
+    pp_forced (pp, 0);
+    pp_stop (pp);
+
+    for (int i=0; i < _maxstats; i++) {
+      fprintf (fp, "%20d : %lu\n", i, _stats[i]);
+    }
+    fprintf (fp, "---\n");
+    fprintf (fp, "\n");
+  }
+}
+
 unsigned long ChpSim::getEnergy (void)
 {
   return _energy_cost;
@@ -4473,8 +4652,8 @@ ChpSimGraph::~ChpSimGraph ()
 	struct chpsimcond *x;
 	int nguards = 1;
 	int nw;
-	_free_chp_expr (stmt->u.c.g);
-	x = stmt->u.c.next;
+	_free_chp_expr (stmt->u.cond.c.g);
+	x = stmt->u.cond.c.next;
 	while (x) {
 	  struct chpsimcond *t;
 	  _free_chp_expr (x->g);
@@ -5037,7 +5216,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
   case CHPSIM_COND:
   case CHPSIM_LOOP:
     cnt = 0;
-    for (struct chpsimcond *x = &g->stmt->u.c; x; x = x->next) {
+    for (struct chpsimcond *x = &g->stmt->u.cond.c; x; x = x->next) {
       _zeroAllIntsChans (g->all[cnt]);
       cnt++;
     }

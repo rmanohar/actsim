@@ -50,6 +50,7 @@ struct chpsimgraph_info {
   ChpSimGraph *g;
   Expr *e;			/* for probes, if needed */
   int max_count;
+  int max_stats;
 };
 
 struct process_info {
@@ -332,11 +333,14 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
       pgi->chp->e = NULL;
       pgi->chp->max_count = ChpSimGraph::max_pending_count;
+      pgi->chp->max_stats = ChpSimGraph::max_stats;
     }
-    x = new ChpSim (pgi->chp->g, pgi->chp->max_count, c->c, this, _curproc);
+    x = new ChpSim (pgi->chp->g, pgi->chp->max_count,
+		    pgi->chp->max_stats,
+		    c->c, this, _curproc);
   }
   else {
-    x = new ChpSim (NULL, 0, NULL, this, _curproc);
+    x = new ChpSim (NULL, 0, 0, NULL, this, _curproc);
   }
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
@@ -392,8 +396,11 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
     NEW (pgi->hse, chpsimgraph_info);
     pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
     pgi->hse->max_count = ChpSimGraph::max_pending_count;
+    pgi->hse->max_stats = ChpSimGraph::max_stats;
   }
-  ChpSim *x = new ChpSim (pgi->hse->g, pgi->hse->max_count, c->c, this, _curproc);
+  ChpSim *x = new ChpSim (pgi->hse->g, pgi->hse->max_count,
+			  pgi->hse->max_stats,
+			  c->c, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
@@ -1995,7 +2002,7 @@ void ActSim::runInit ()
 	ChpSimGraph *stop;
 	ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
 	ChpSim *sim_init =
-	  new ChpSim (sg, ChpSimGraph::max_pending_count, c, this, NULL);
+	  new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
 
 	list_append (_init_simobjs, sim_init);
 	list_append (_init_simobjs, sg);
@@ -2026,7 +2033,7 @@ void ActSim::runInit ()
       ChpSimGraph *stop;
       ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
       ChpSim *sim_init =
-	new ChpSim (sg, ChpSimGraph::max_pending_count, c, this, NULL);
+	new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
 
       list_append (_init_simobjs, sim_init);
       list_append (_init_simobjs, sg);
