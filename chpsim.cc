@@ -72,13 +72,17 @@ static void _chp_print (pp_t *pp, act_chp_lang_t *c, int prec = 0)
 
   case ACT_CHP_LOOP:
   case ACT_CHP_DOLOOP:
-    pp_printf (pp, "*");
   case ACT_CHP_SELECT:
   case ACT_CHP_SELECT_NONDET:
+    if (c->type == ACT_CHP_LOOP || c->type == ACT_CHP_DOLOOP) {
+      pp_printf (pp, "*");
+    }
     pp_printf (pp, "[");
     if (c->type == ACT_CHP_SELECT_NONDET) {
       pp_printf (pp, "|");
     }
+    pp_setb (pp);
+    pp_printf (pp, " ");
     {
       act_chp_gc_t *gc = c->u.gc;
 
@@ -98,6 +102,7 @@ static void _chp_print (pp_t *pp, act_chp_lang_t *c, int prec = 0)
       }
       else {
 	while (gc) {
+	  pp_setb (pp);
 	  if (!gc->g) {
 	    if (c->type == ACT_CHP_LOOP) {
 	      pp_printf (pp, "true");
@@ -114,22 +119,26 @@ static void _chp_print (pp_t *pp, act_chp_lang_t *c, int prec = 0)
 	  pp_printf (pp, " { %d }", stat_count++);
 	  if (gc->s) {
 	    pp_printf (pp, " -> ");
-	    pp_setb (pp);
+	    pp_lazy (pp, 0);
 	    _chp_print (pp, gc->s, 0);
-	    pp_endb (pp);
 	  }
+	  pp_endb (pp);
 	  if (gc->next) {
-	    pp_united (pp, 2);
+	    pp_united (pp, -1);
 	    pp_printf (pp, " [] ");
 	  }
 	  gc = gc->next;
 	}
       }
     }
+    pp_endb (pp);
+    pp_printf (pp, " ");
+    pp_lazy (pp, 0);
     if (c->type == ACT_CHP_SELECT_NONDET) {
       pp_printf (pp, "|");
     }
     pp_printf (pp, "]");
+    pp_lazy (pp, 0);
     break;
     
   case ACT_CHP_SKIP:
