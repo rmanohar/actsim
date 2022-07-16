@@ -19,3 +19,4 @@
 [                 300] <dv>  Send w v:2 4
 [                 330] <dn>  got tick
 [                 340] <dn>  Send S:8
+[                 340] <dv>  Warning: all guards false; no probes/shared vars

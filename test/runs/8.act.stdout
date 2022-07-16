@@ -9,3 +9,4 @@
 [                 150] <dv>  Send w v:2 3
 [                 180] <dn>  Recv w v:2 4
 [                 180] <dv>  Send w v:2 4
+[                 190] <dv>  Warning: all guards false; no probes/shared vars

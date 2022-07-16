@@ -1395,6 +1395,13 @@ int ChpSim::Step (Event *ev)
 	      forceret = 0;
 	    }
 	  }
+	  else {
+	    if (!_probe) {
+	      msgPrefix (actsim_log_fp());
+	      actsim_log ("Warning: all guards false; no probes/shared vars\n");
+	      actsim_log_flush ();
+	    }
+	  }
 	}
 	else {
 	  /* loop: we're done! */
