@@ -1,0 +1,15 @@
+import sim;
+
+defproc test()
+{
+   int idx, i;
+   bool tst;
+   chp {
+       i := 0, idx := sim::rand::init (16);
+       tst := sim::rand::seed (idx, 0);
+     *[ i < 10 -> 
+	 log (i, "%x got: ", sim::rand::get(idx));
+         i := i + 1 
+      ]
+   }
+}

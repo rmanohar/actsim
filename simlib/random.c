@@ -23,6 +23,9 @@
 #include "../actsim_ext.h"
 #include <common/array.h>
 
+/* use local copy from glibc for platform-independent generation */
+int local_rand_r (unsigned int *seed);
+
 struct random_state {
   unsigned seed;
   int bitwidth;
@@ -93,7 +96,7 @@ expr_res actsim_rand_get (int argc, struct expr_res *args)
   r = &_rstate[args[0].v];
   
   ret.width = r->bitwidth;
-  ret.v = rand_r (&r->seed);
+  ret.v = local_rand_r (&r->seed);
   if (r->min != 0 && r->max != 0) {
     if (r->min == r->max) {
       ret.v = r->min;
