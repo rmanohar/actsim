@@ -534,7 +534,17 @@ void XyceActInterface::initXyce ()
   fprintf (sfp, "vvs1 %s 0 dc 0.0V\n\n", GNDname);
 
   fprintf (sfp, "* --- include models ---\n\n");
-  fprintf (sfp, ".inc \"%s\"\n", config_get_string ("sim.device.model_files"));
+  if (config_exists ("sim.device.model_files")) {
+    fprintf (sfp, ".inc \"%s\"\n", config_get_string ("sim.device.model_files"));
+  }
+  else if (getenv ("ACT_HOME") && getenv ("ACT_TECH")) {
+    fprintf (sfp, ".inc \"%s/conf/%s/models.sp\"\n", getenv ("ACT_HOME"),
+	     getenv ("ACT_TECH"));
+  }
+  else {
+    warning ("No models specified... this is unlikely to work!");
+  }
+    
 
   fprintf (sfp, "*\n* -- printing any spice bodies needed --\n*\n");
 
