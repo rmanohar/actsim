@@ -10,7 +10,13 @@ echo
 ARCH=`$ACT_HOME/scripts/getarch`
 OS=`$ACT_HOME/scripts/getos`
 EXT=${ARCH}_${OS}
-ACTTOOL=../actsim.$EXT
+if [ ! x$ACT_TEST_INSTALL = x ] || [ ! -f ../actsim.$EXT ]; then
+  ACTTOOL=$ACT_HOME/bin/actsim
+  echo "testing installation"
+  echo
+else
+  ACTTOOL=../actsim.$EXT
+fi
 
 check_echo=0
 myecho()
@@ -66,6 +72,9 @@ EOF
 		myecho "** FAILED TEST $i: stdout"
 		fail=`expr $fail + 1`
 		ok=0
+		if [ ! x$ACT_TEST_VERBOSE = x ]; then
+			diff runs/$i.t.stdout runs/$i.stdout
+		fi
 	fi
  	sort runs/$i.t.stderr > runs/$i.ts.stderr
  	sort runs/$i.stderr > runs/$i.os.stderr
@@ -79,6 +88,9 @@ EOF
 		myecho " stderr"
 		fail=`expr $fail + 1`
 		ok=0
+		if [ ! x$ACT_TEST_VERBOSE = x ]; then
+			diff runs/$i.ts.stderr runs/$i.os.stderr
+		fi
 	fi
 	if [ $ok -eq 1 ]
 	then

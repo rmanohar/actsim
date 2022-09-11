@@ -4,8 +4,8 @@
 #
 #
 
-runtest: all
-runtestsub: all
+runtest:
+runtestsub:
 installincsub: all
 installsub: all
 install: all
