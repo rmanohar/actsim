@@ -632,7 +632,8 @@ int process_set (int argc, char **argv)
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
-    BigInt x(64, 0, val);
+    BigInt x(64, 0, 0);
+    x = val;
     glob_sim->setInt (offset, x);
   }
   else {
