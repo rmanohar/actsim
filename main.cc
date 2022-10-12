@@ -780,7 +780,6 @@ int process_breakpt (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-
 int process_unwatch (int argc, char **argv)
 {
   if (argc < 2) {
@@ -1121,8 +1120,8 @@ struct LispCliCommand Cmds[] = {
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
-  { "breakpt", "<n> - add breakpoint for <n>", process_breakpt },
-  { "break", "<n> - add breakpoint for <n>", process_breakpt },
+  { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
+  { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
