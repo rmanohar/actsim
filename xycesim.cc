@@ -149,6 +149,8 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
     _vcdout = NULL;
     _vcddump = false;
     _last_vcd_time = false;
+    _lxt2nodes = 0;
+    _lxt2array = NULL;
     
     if ((fmts >> VCD_FMT) & 1) {
       char *nm;
