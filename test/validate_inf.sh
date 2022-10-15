@@ -3,7 +3,13 @@
 ARCH=`$ACT_HOME/scripts/getarch`
 OS=`$ACT_HOME/scripts/getos`
 EXT=${ARCH}_${OS}
-ACTTOOL=../actsim.$EXT 
+if [ ! x$ACT_TEST_INSTALL = x ] || [ ! -f ../actsim.$EXT ]; then
+  ACTTOOL=$ACT_HOME/bin/actsim
+  echo "testing installation"
+  echo
+else
+  ACTTOOL=../actsim.$EXT
+fi
 
 if [ $# -eq 0 ]
 then
