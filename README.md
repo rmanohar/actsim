@@ -38,8 +38,8 @@ Building `Xyce`:
          * Copy `N_CIR_XyceCInterface.h` to `$ACT_HOME/include`
    * Preserve your cmake build directory for the next step. (We need one file from it as described below.)
 
-We hope that some of these  changes will be added to the core Xyce 
-distribution, after which we will delete the `xyce-bits/` directory.
+Note: the `xyce-bits/` directory is only needed if you are using a version of Xyce prior to 7.6. The changes 
+have been incorporated by the Xyce team into their core distribution.
 
 Building `actsim`:
    * When you run `./configure`, it should detect that the Xyce C interface library exists.
