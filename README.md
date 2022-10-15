@@ -16,14 +16,20 @@ To build, run `./configure` and then `make` and `make install`.
 There are a number of things to keep in mind when building `actsim` with `Xyce`.
 
 Building `Xyce`:
-   * Build and install `Xyce` itself, using `cmake` using `$ACT_HOME` as the install directory
-   * To build and install the Xyce C interface library (in the `xyce-bits` directory), use the following commands:
-      * Go to the `xyce-bits/` directory
-      * Build an object file using `g++ -std=c++17 -I. -I$ACT_HOME/include -c N_CIR_XyceCInterface.C`
-      * Create the library using `ar ruv libxycecinterface.a N_CIR_XyceCInterface.o`
-      * If you need to, use `ranlib libxycecinterface.a`
-      * Copy `libxycecinterface.a` to `$ACT_HOME/lib`
-      * Copy `N_CIR_XyceCInterface.h` to `$ACT_HOME/include`
+   
+   * For Xyce 7.6 or newer
+      * Build `Xyce` itself, using `cmake` and `$ACT_HOME` as the install directory
+      * to compile the required interface run `make xycecinterface` in your cmake build directory
+      * install the interface required by actsim with `make install` to `$ACT_HOME`
+   * For Xyce 7.5 and older
+      * Build and install `Xyce` itself, using `cmake` and `$ACT_HOME` as the install directory
+      * To build and install the Xyce C interface library (in the `xyce-bits` directory), use the following commands:
+         * Go to the `xyce-bits/` directory
+         * Build an object file using `g++ -std=c++17 -I. -I$ACT_HOME/include -c N_CIR_XyceCInterface.C`
+         * Create the library using `ar ruv libxycecinterface.a N_CIR_XyceCInterface.o`
+         * If you need to, use `ranlib libxycecinterface.a`
+         * Copy `libxycecinterface.a` to `$ACT_HOME/lib`
+         * Copy `N_CIR_XyceCInterface.h` to `$ACT_HOME/include`
    * Preserve your cmake build directory for the next step. (We need one file from it as described below.)
 
 We hope that some of these  changes will be added to the core Xyce 
