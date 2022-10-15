@@ -1,5 +1,6 @@
 # actsim: The ACT simulator
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/rmanohar/actsim/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/rmanohar/actsim/tree/master)
+
 `actsim` is a mixed-signal simulator capable of simulating [ACT](https://avlsi.csl.yale.edu/act) files.
 `actsim` can simulate designs containing a combination of CHP, HSE, PRS, and analog circuits in a unified framework.
 For analog simulation, we use the [`Xyce`](https://github.com/Xyce/Xyce) simulator.
