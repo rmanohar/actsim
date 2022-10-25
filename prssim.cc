@@ -574,6 +574,7 @@ int OnePrsSim::eval (prssim_expr *x)
   return 0;
 }
 
+
 static int _breakpt;
 
 int OnePrsSim::Step (Event *ev)
@@ -591,23 +592,19 @@ int OnePrsSim::Step (Event *ev)
   case PRSSIM_PASSP:
   case PRSSIM_PASSN:
   case PRSSIM_TGATE:
-    if (_proc->setBool (_me->t2, t)) {
-      if (flags == (1+t)) {
-	flags = PENDING_NONE;
-      }
+    if (flags == (1+t)) {
+      flags = PENDING_NONE;
     }
-    else {
+    if (!_proc->setBool (_me->t2, t)) {
       flags = PENDING_NONE;
     }
     break;
 
   case PRSSIM_RULE:
-    if (_proc->setBool (_me->vid, t)) {
-      if (flags == (1 + t)) {
-	flags = PENDING_NONE;
-      }
+    if (flags == (1 + t)) {
+      flags = PENDING_NONE;
     }
-    else {
+    if (!_proc->setBool (_me->vid, t)) {
       flags = PENDING_NONE;
     }
     break;
@@ -648,7 +645,6 @@ int OnePrsSim::matches (int val)
     }								\
   } while (0)
 
-
 #define WARNING_MSG(s,t)			\
   do {						\
     _proc->msgPrefix();				\
@@ -662,6 +658,7 @@ int OnePrsSim::matches (int val)
       _breakpt = 1;				\
     }						\
   } while (0)
+
 
 #define MAKE_NODE_X(nid)					\
   do {								\
