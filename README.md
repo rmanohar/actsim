@@ -1,4 +1,10 @@
-# actsim
+# actsim: The ACT simulator
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/rmanohar/actsim/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/rmanohar/actsim/tree/master)
+
+`actsim` is a mixed-signal simulator capable of simulating [ACT](https://avlsi.csl.yale.edu/act) files.
+`actsim` can simulate designs containing a combination of CHP, HSE, PRS, and analog circuits in a unified framework.
+For analog simulation, we use the [`Xyce`](https://github.com/Xyce/Xyce) simulator.
+Some of the extensions we needed in `Xyce` for mixed-signal simulation have been accepted by the Xyce team and are now part of the latest `Xyce` release.
 
 ### Build and Installation
 
@@ -32,8 +38,8 @@ Building `Xyce`:
          * Copy `N_CIR_XyceCInterface.h` to `$ACT_HOME/include`
    * Preserve your cmake build directory for the next step. (We need one file from it as described below.)
 
-We hope that some of these  changes will be added to the core Xyce 
-distribution, after which we will delete the `xyce-bits/` directory.
+Note: the `xyce-bits/` directory is only needed if you are using a version of Xyce prior to 7.6. The changes 
+have been incorporated by the Xyce team into their core distribution.
 
 Building `actsim`:
    * When you run `./configure`, it should detect that the Xyce C interface library exists.
