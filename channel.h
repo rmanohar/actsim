@@ -76,6 +76,7 @@ struct act_channel_state {
   expr_multires data, data2;  	// data: used when the receiver is
 				// waiting for sender; data2 used when
 				// sender arrives before receive is posted.
+  unsigned long count;          // number of completed channel actions
   WaitForOne *w;
   WaitForOne *probe;		// probe wake-up
 };

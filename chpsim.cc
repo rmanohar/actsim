@@ -1498,6 +1498,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 	if (bidir) {
 	  *xchg = c->data2;
 	}
+        c->count++;
 	return 0;
       }
       c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
@@ -1511,6 +1512,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 	    if (bidir) {
 	      *xchg = c->data2;
 	    }
+            c->count++;
 	    return 0;
 	  }
 	}
@@ -1538,6 +1540,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
     if (bidir) {
       *xchg = c->data;
     }
+    c->count++;
     return 0;
   }
 
@@ -1566,6 +1569,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
     }
     Assert (c->send_here == 0 && c->sender_probe == 0 &&
 	    c->receiver_probe == 0,"What?");
+    c->count++;
     return 0;
   }
   else {

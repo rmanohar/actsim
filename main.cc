@@ -800,6 +800,28 @@ int process_unwatch (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_chcount (int argc, char **argv)
+{
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <ch>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+  if (type != 2 && type != 3) {
+    fprintf (stderr, "%s: is not of channel type\n", argv[1]);
+    return LISP_RET_ERROR;
+  }
+  int goff = obj->getGlobalOffset (offset, type);
+  act_channel_state *ch = glob_sim->getChan (goff);
+  printf ("Channel %s: completed actions %lu\n", argv[1], ch->count);
+  return LISP_RET_TRUE;
+}
 
 int process_logfile (int argc, char **argv)
 {
@@ -1117,6 +1139,7 @@ struct LispCliCommand Cmds[] = {
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
   { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
+  { "chcount", "<name> - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
