@@ -761,13 +761,17 @@ void OnePrsSim::propagate ()
     u_state = eval (_me->up[PRSSIM_NORM]);
     if (u_state == 0) {
       u_state = eval (_me->up[PRSSIM_WEAK]);
-      u_weak = 1;
+      if (u_state != 0) {
+        u_weak = 1;
+      }
     }
 
     d_state = eval (_me->dn[PRSSIM_NORM]);
     if (d_state == 0) {
       d_state = eval (_me->dn[PRSSIM_WEAK]);
-      d_weak = 1;
+      if (d_state != 0) {
+	d_weak = 1;
+      }
     }
 
     /* -- check for unstable rules -- */
