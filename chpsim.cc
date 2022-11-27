@@ -1564,7 +1564,12 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
       fprintf (stderr, "Instance: ");
-      getName()->Print (stderr);
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
       fprintf (stderr, "\n");
     }
     Assert (c->send_here == 0 && c->sender_probe == 0 &&
@@ -1595,7 +1600,12 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
       fprintf (stderr, "Instance: ");
-      getName()->Print (stderr);
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
       fprintf (stderr, "\n");
     }
     Assert (c->send_here == 0, "What?");
@@ -1717,7 +1727,12 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
       fprintf (stderr, "Instance: ");
-      getName()->Print (stderr);
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
       fprintf (stderr, "\n");
     }
     Assert (c->recv_here == 0, "What?");
@@ -1759,7 +1774,12 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
       x->toid()->Print (stderr);
       fprintf (stderr, "'\n");
       fprintf (stderr, "Instance: ");
-      getName()->Print (stderr);
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
       fprintf (stderr, "\n");
       fatal_error ("Aborting execution.");
     }
@@ -4860,7 +4880,12 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     int x = d->range->Offset (d->idx);
     if (x == -1) {
       fprintf (stderr, "In: ");
-      getName()->Print (stderr);
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
       fprintf (stderr, "  [ %s ]\n", _proc ? _proc->getName() : "-global-");
       fprintf (stderr, "\tAccessing index ");
       for (int i=0; i < d->range->nDims(); i++) {
