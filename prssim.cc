@@ -290,6 +290,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
   int rhs;
   act_connection *rhsc;
 
+  at_table = _labels;
   if (p->u.one.label) {
     hash_bucket_t *b = hash_add (at_table, (char *)p->u.one.id);
     b->v = p;
@@ -335,7 +336,6 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
 
   /*-- now handle the rule --*/
 
-  at_table = _labels;
   switch (p->u.one.arrow_type) {
   case 0:
     /* normal arrow */
