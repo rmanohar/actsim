@@ -294,6 +294,7 @@ class ActSimCore {
   stateinfo_t *cursi() { return _cursi; }
   void setsi(stateinfo_t *si) { _cursi = si; }
   stateinfo_t *getsi(Process *p) { return sp->getStateInfo (p); }
+  act_boolean_netlist_t *getbnl (Process *p) { return bp->getBNL (p); }
   ActId *curinst() { return _curinst; }
   list_t *sistack() { return _si_stack; }
   list_t *objstack() { return _obj_stack; }
@@ -590,6 +591,8 @@ protected:
   unsigned int _rand_min, _rand_max;
   
   unsigned _seed;		 /* random seed, if used */
+
+  int _black_box_mode;
 
   A_DECL (int, _rand_init);
 };

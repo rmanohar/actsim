@@ -66,6 +66,7 @@ ActSimCore::ActSimCore (Process *p)
   _vcd_emit_time = false;
   _watch_idx = 0;
   
+  _black_box_mode = config_get_int ("net.black_box_mode");
 
   A_INIT (_rand_init);
   
@@ -791,16 +792,19 @@ void ActSimCore::_check_fragmentation (XyceSim *x)
 {
   int i;
   stateinfo_t *si = x->getSI();
+  act_boolean_netlist_t *bnl = x->getBNL();
 
-  Assert (si, "Hmm");
-  for (int i=0; i < A_LEN (si->bnl->ports); i++) {
-    if (si->bnl->ports[i].omit) continue;
+  Assert (bnl, "Hmm");
+  for (int i=0; i < A_LEN (bnl->ports); i++) {
+    if (bnl->ports[i].omit) continue;
 
-    ActId *tmp = si->bnl->ports[i].c->toid();
+    ActId *tmp = bnl->ports[i].c->toid();
 
-    if (!tmp->isFragmented (si->bnl->cur)) continue;
+    if (!tmp->isFragmented (bnl->cur)) continue;
 
-    ActId *un = tmp->unFragment (si->bnl->cur);
+    if (!si) { continue; }
+
+    ActId *un = tmp->unFragment (bnl->cur);
     int type;
     int loff = getLocalOffset (un, si, &type);
 

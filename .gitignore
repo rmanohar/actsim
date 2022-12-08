@@ -10,3 +10,4 @@ arm*
 config.mk
 config_pkg.h
 xyce.in
+_xyce.*

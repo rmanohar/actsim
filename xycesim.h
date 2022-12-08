@@ -150,9 +150,17 @@ class XyceSim : public ActSimObj {
     return _sc->getBool (off);
   }
 
+  int hasOffset (act_connection *cx) {
+    return _sc->hasLocalOffset (cx, _si);
+  }
+
   int getOffset (act_connection *cx) {
     int off = _sc->getLocalOffset (cx, _si, NULL);
     return getGlobalOffset (off, 0);
+  }
+
+  int getPortOffset (int idx) {
+    return _abs_port_bool[idx];
   }
     
   void setBool (int lid, int v);
@@ -161,9 +169,11 @@ class XyceSim : public ActSimObj {
   void propagate ();
 
   stateinfo_t *getSI () { return _si; }
+  act_boolean_netlist_t *getBNL() { return _bnl; }
 
  private:
   stateinfo_t *_si;
+  act_boolean_netlist_t *_bnl;
 };
 
 

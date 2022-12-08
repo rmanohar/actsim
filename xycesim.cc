@@ -459,6 +459,7 @@ static void _cleanup_xyce (void)
 
 void XyceActInterface::initXyce ()
 {
+  int _black_box_mode = config_get_int ("net.black_box_mode");
   if (A_LEN (_analog_inst) == 0) {
     return;
   }
@@ -562,8 +563,13 @@ void XyceActInterface::initXyce ()
     XyceSim *xs = _analog_inst[i];
     ActId *inst = xs->getName();
     netlist_t *n = nl->getNL (xs->getProc());
+    int is_bb = 0;
 
     Assert (n, "What?");
+
+    if (_black_box_mode && n->bN->p && n->bN->p->isBlackBox()) {
+      is_bb = 1;
+    }
     
     inst->sPrint (buf2, 10240);
     a->mangle_string (buf2, buf, 10240);
@@ -590,7 +596,13 @@ void XyceActInterface::initXyce ()
 	buf[k] = tolower (buf[k]);
       }
 
-      int off = xs->getOffset (n->bN->ports[j].c);
+      int off;
+      if (is_bb) {
+	off = xs->getPortOffset (j);
+      }
+      else {
+	off = xs->getOffset (n->bN->ports[j].c);
+      }
 
       if (n->bN->ports[j].input) {
 	/* DAC */
@@ -1032,6 +1044,7 @@ XyceSim::XyceSim (ActSimCore *sim, Process *p) : ActSimObj (sim, p)
 {
   XyceActInterface::addProcess (this);
   _si = sim->cursi();
+  _bnl = sim->getbnl (p);
 }
 
 XyceSim::~XyceSim()
@@ -1048,13 +1061,16 @@ int XyceSim::Step (Event * /*ev*/)
 
 void XyceSim::computeFanout()
 {
-  stateinfo_t *si;
-  si = _sc->getsi (_proc);
-  Assert (si, "Hmm");
-  for (int i=0; i < A_LEN (si->bnl->ports); i++) {
-    if (si->bnl->ports[i].omit) continue;
-    if (si->bnl->ports[i].input) {
-      _sc->incFanout (getOffset (si->bnl->ports[i].c), 0, this);
+  act_boolean_netlist_t *bnl;
+  
+  bnl = _sc->getbnl (_proc);
+  Assert (bnl, "Hmm");
+  for (int i=0; i < A_LEN (bnl->ports); i++) {
+    if (bnl->ports[i].omit) continue;
+    if (bnl->ports[i].input) {
+      if (hasOffset (bnl->ports[i].c)) {
+	_sc->incFanout (getOffset (bnl->ports[i].c), 0, this);
+      }
     }
   }
 }
