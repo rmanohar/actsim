@@ -201,6 +201,7 @@ class ChpSim : public ActSimObj {
 
   BigInt funcEval (Function *, int, void **);
   BigInt varEval (int id, int type);
+  expr_multires varChanEvalStruct (int id, int type);
   
   expr_multires exprStruct (Expr *e);
   expr_multires funcStruct (Function *, int, void **);

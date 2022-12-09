@@ -1852,6 +1852,22 @@ BigInt ChpSim::varEval (int id, int type)
   return r;
 }
 
+expr_multires ChpSim::varChanEvalStruct (int id, int type)
+{
+  int off;
+
+  Assert (type != 0 && type != 1, "What?!");
+
+  off = getGlobalOffset (id, 2);
+  act_channel_state *c = _sc->getChan (off);
+  if (!WAITING_SENDER (c)) {
+    actsim_log ("ERROR: reading channel state without waiting sender!");
+    actsim_log_flush ();
+  }
+  return c->data2;
+}
+
+
 void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 {
   listitem_t *li;
@@ -2906,6 +2922,10 @@ expr_multires ChpSim::exprStruct (Expr *e)
 	FREE (args);
       }
     }
+    break;
+
+  case E_CHP_VARCHAN:
+    res = varChanEvalStruct (e->u.x.val, 2);
     break;
 
   default:

@@ -1,0 +1,9 @@
+deftype value(bool a, b) { }
+
+defproc test() {
+  value y, x;
+  chan(value) A;
+  chp {
+    [#A]; x := A; log ("got: ", x.a, " ", x.b) || y.a+, y.b-; A!y
+  }
+}

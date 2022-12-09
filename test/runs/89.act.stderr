@@ -1,0 +1,3 @@
+In expanding test<> (89.act:3)
+WARNING: Probe, send, and receive in different processes?
+WARNING: test<>: substituting chp model (requested prs, not found)
