@@ -212,7 +212,7 @@ ActSimCore::~ActSimCore()
   for (int i=0; i < A_LEN (_rootsi->bnl->used_globals); i++) {
     act_booleanized_var_t *v;
     ihash_bucket_t *b;
-    b = ihash_lookup (_rootsi->bnl->cH, (long)_rootsi->bnl->used_globals[i]);
+    b = ihash_lookup (_rootsi->bnl->cH, (long)_rootsi->bnl->used_globals[i].c);
     Assert (b, "WHat?");
     v = (act_booleanized_var_t *) b->v;
     Assert (v, "What?");

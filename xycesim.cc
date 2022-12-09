@@ -512,7 +512,7 @@ void XyceActInterface::initXyce ()
   GNDname = config_get_string ("net.global_gnd");
 
   for (int i=0; i < A_LEN (top_nl->bN->used_globals); i++) {
-    ActId *tid = top_nl->bN->used_globals[i]->toid();
+    ActId *tid = top_nl->bN->used_globals[i].c->toid();
     tid->sPrint (buf, 10240);
     delete tid;
     if (strcmp (buf, Vddname) == 0) {
