@@ -598,12 +598,15 @@ void XyceActInterface::initXyce ()
 
       int off;
       if (is_bb) {
-	off = xs->getPortOffset (j);
+	off = xs->getPortOffset (A_LEN (n->bN->ports)-j-1);
       }
       else {
 	off = xs->getOffset (n->bN->ports[j].c);
       }
 
+#if 0
+      printf ("offset: %d (buf=%s) bb=%d\n", off, buf, is_bb);
+#endif
       if (n->bN->ports[j].input) {
 	/* DAC */
 	ihash_bucket_t *b;
@@ -855,6 +858,9 @@ void XyceActInterface::updateDAC ()
 	for (int i=0; i < A_LEN (xf->dac_id); i++) {
 	  char buf[10240];
 	  snprintf (buf, 10240, "ydac!%s", xf->dac_id[i]);
+#if 0
+	  printf (" > update: %s (id = %d)\n", buf);
+#endif
 	  if (_case_for_sim) {
 	    for (int j=0; buf[j]; j++) {
 	      buf[j] = toupper (buf[j]);
