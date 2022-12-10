@@ -558,6 +558,11 @@ void XyceActInterface::initXyce ()
   nl->clrStickyVisited ();
 
   fprintf (sfp, "*\n* instances\n*\n");
+
+  A_DECL(netlist_global_port, xyce_glob);
+  A_DECL(int, analog_inst_id);
+  A_INIT(xyce_glob);
+  A_INIT(analog_inst_id);
   
   for (int i=0; i < A_LEN (_analog_inst); i++) {
     XyceSim *xs = _analog_inst[i];
@@ -650,6 +655,93 @@ void XyceActInterface::initXyce ()
     }
     a->mfprintfproc (sfp, xs->getProc());
     fprintf (sfp, "\n");
+
+    /* collect globals used by this instance */
+    for (int k=0; k < A_LEN (n->bN->used_globals); k++) {
+      int j;
+      ActId *tid = n->bN->used_globals[k].c->toid();
+      tid->sPrint (buf, 10240);
+      delete tid;
+      if (strcmp (buf, Vddname) == 0 || strcmp (buf, GNDname) == 0) {
+	/* skip power supplies */
+	continue;
+      }
+
+      for (j=0; j < A_LEN (xyce_glob); j++) {
+	if (xyce_glob[j].c == n->bN->used_globals[k].c) {
+	  if (n->bN->used_globals[k].bidir) {
+	    xyce_glob[j].bidir = 1;
+	  }
+	  else if (n->bN->used_globals[k].input != xyce_glob[j].input) {
+	    xyce_glob[j].bidir = 1;
+	  }
+	  break;
+	}
+      }
+      if (j == A_LEN (xyce_glob)) {
+	A_NEWM (xyce_glob, netlist_global_port);
+	A_NEXT (xyce_glob) = n->bN->used_globals[k];
+	A_INC (xyce_glob);
+	A_NEWM (analog_inst_id, int);
+	A_NEXT (analog_inst_id) = i;
+	A_INC (analog_inst_id);
+      }
+    }
+  }
+
+  for (int i=0; i < A_LEN (xyce_glob); i++) {
+    XyceSim *xs;
+    if (xyce_glob[i].bidir) {
+      /* we only interface unidirectional signals */
+      continue;
+    }
+
+    xs = _analog_inst[analog_inst_id[i]];
+    int off = xs->getOffset (xyce_glob[i].c);
+
+    ActId *tid = xyce_glob[i].c->toid();
+    tid->sPrint (buf, 10240);
+    delete tid;
+    
+    if (xyce_glob[i].input) {
+      /* DAC */
+      ihash_bucket_t *b;
+      struct xycefanout *xf;
+      if (!_to_xyce) {
+	_to_xyce = ihash_new (4);
+      }
+      b = ihash_lookup (_to_xyce, off);
+      if (b) {
+	xf = (struct xycefanout *) b->v;
+      }
+      else {
+	b = ihash_add (_to_xyce, off);
+	NEW (xf, struct xycefanout);
+	A_INIT (xf->dac_id);
+	xf->val = 2; /* X */
+	b->v = xf;
+      }
+      A_NEW (xf->dac_id, char *);
+      A_NEXT (xf->dac_id) = Strdup (buf);
+      A_INC (xf->dac_id);
+    }
+    else {
+      /* ADC */
+      hash_bucket_t *b;
+	
+      if (!_from_xyce) {
+	_from_xyce = hash_new (4);
+      }
+
+      b = hash_lookup (_from_xyce, buf);
+      if (b) {
+	warning ("Signal `%s' has a duplicate driver in Xyce!", buf);
+      }
+      else {
+	b = hash_add (_from_xyce, buf);
+	b->i = off;
+      }
+    }
   }
 
   fprintf (sfp, "*\n* ADCs and DACs\n*\n");
@@ -687,6 +779,8 @@ void XyceActInterface::initXyce ()
     }
   }
 
+
+  A_FREE (xyce_glob);
   fprintf (sfp, ".tran 0 1\n");
 
   // parse output format string: colon-separated list of formats
@@ -873,7 +967,7 @@ void XyceActInterface::updateDAC ()
 					     1, 
 					     _wave_time + A_LEN (_wave_time)/2,
 					     _wave_voltage + A_LEN (_wave_voltage)/2) == false) {
-	      warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
+	      warning ("Xyce: updateTimeVoltagePairs failed for %s! Aborting.", buf);
 	      _pending = NULL;
 	      return;
 	    }
@@ -884,7 +978,7 @@ void XyceActInterface::updateDAC ()
 					     A_LEN (_wave_time),
 					     _wave_time,
 					     _wave_voltage) == false) {
-	      warning ("Xyce: updateTimeVoltagePairs failed! Aborting.");
+	      warning ("Xyce: updateTimeVoltagePairs failed for %s! Aborting.", buf);
 	      _pending = NULL;
 	      return;
 	    }
