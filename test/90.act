@@ -1,0 +1,26 @@
+bool Vdd, GND, Reset;
+
+/* to turn off the warning */
+namespace globals { }
+
+defproc inv(bool a, b) {
+  prs <Vdd, GND> {
+    ~Reset & ~a -> b+
+    Reset | a -> b-
+  }
+}
+
+defproc test()
+{
+  bool a, b;
+  chp {
+    a+; [~b]; a-; [b]; a+; [~b]
+  }
+
+  inv dut(a, b);
+}
+
+Initialize {
+  actions { Reset+ };
+  actions { Reset- }
+}

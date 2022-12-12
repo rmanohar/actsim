@@ -537,11 +537,8 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
   case E_VAR:
-    if ((signed)e->u.x.val < 0) {
-      ret = 1;
-    }
-    break;
-
+    // don't need to deal with shared variables here
+    // since this is pre-computed
   case E_CHP_VARCHAN:
     break;
     
@@ -1349,8 +1346,9 @@ int ChpSim::Step (Event *ev)
       
       if (flag) {
 	/*-- release wait conditions in case there are multiple --*/
-        if (_add_waitcond (&stmt->u.cond.c, pc, 1)) {
-	  _remove_me (pc);
+	if ((stmt->u.cond.is_shared || stmt->u.cond.is_probe) &&
+	   (_add_waitcond (&stmt->u.cond.c, pc, 1) || stmt->u.cond.is_shared)) {
+	    _remove_me (pc);
 	}
       }
 
@@ -1383,7 +1381,8 @@ int ChpSim::Step (Event *ev)
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
 	  forceret = 1;
-	  if (_add_waitcond (&stmt->u.cond.c, pc)) {
+	  if ((stmt->u.cond.is_shared || stmt->u.cond.is_probe) &&
+	      (_add_waitcond (&stmt->u.cond.c, pc) || stmt->u.cond.is_shared)) {
 	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
@@ -3395,7 +3394,7 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
   }
 }
 
-static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s);
+static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags);
 static void _free_chp_expr (Expr *e);
 
 static void _free_deref (struct chpsimderef *d)
@@ -3440,7 +3439,8 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   
   /* now convert array deref into a chp array deref! */
   for (int i = 0; i < d->range->nDims(); i++) {
-    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s);
+    int flags = 0;
+    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s, &flags);
     d->idx[i] = -1;
   }
 
@@ -3476,7 +3476,8 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   
   /* now convert array deref into a chp array deref! */
   for (int i = 0; i < d->range->nDims(); i++) {
-    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s);
+    int flags = 0;
+    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s, &flags);
     d->idx[i] = -1;
   }
   
@@ -3695,7 +3696,11 @@ static void _free_chp_expr (Expr *e)
   FREE (e);
 }
 
-static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
+/*
+ * flags: 0x1 set if probe exists
+ *        0x2 set if shared variable exists
+ */
+static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 {
   Expr *ret, *tmp;
   if (!e) return NULL;
@@ -3720,8 +3725,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
   case E_GE:
   case E_EQ:
   case E_NE:
-    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
-    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s);
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
+    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s, flags);
     if (e->type == E_MINUS) {
       phash_bucket_t *b = s->exprWidth (ret);
       if (!b) {
@@ -3736,7 +3741,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
   case E_NOT:
   case E_UMINUS:
   case E_COMPLEMENT:
-    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
     {
       int width;
       act_type_expr (s->CurScope(), e->u.e.l, &width, 2);
@@ -3745,11 +3750,11 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
     break;
 
   case E_QUERY:
-    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
     NEW (ret->u.e.r, Expr);
     ret->u.e.r->type = e->u.e.r->type;
-    ret->u.e.r->u.e.l = expr_to_chp_expr (e->u.e.r->u.e.l, s);
-    ret->u.e.r->u.e.r = expr_to_chp_expr (e->u.e.r->u.e.r, s);
+    ret->u.e.r->u.e.l = expr_to_chp_expr (e->u.e.r->u.e.l, s, flags);
+    ret->u.e.r->u.e.r = expr_to_chp_expr (e->u.e.r->u.e.r, s, flags);
     break;
 
   case E_COLON:
@@ -3762,7 +3767,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       Expr *tmp;
       tmp = ret;
       do {
-	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
 	if (e->u.e.r) {
 	  NEW (tmp->u.e.r, Expr);
 	  tmp->u.e.r->type = e->u.e.r->type;
@@ -3843,6 +3848,34 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       }
       else {
 	int w;
+	act_boolean_netlist_t *bnl = s->cursi()->bnl;
+	act_connection *cx = ((ActId *)e->u.e.l)->Canonical (bnl->cur);
+
+	/* set potential shared variable flags */
+	if (cx->isglobal()) {
+	  *flags = *flags | 0x2;
+	}
+	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->ports); i++) {
+	  if (cx == bnl->ports[i].c) {
+	    *flags = *flags | 0x2;
+	  }
+	}
+	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->chpports); i++) {
+	  if (cx == bnl->chpports[i].c) {
+	    *flags = *flags | 0x2;
+	  }
+	}
+	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->instports); i++) {
+	  if (cx == bnl->instports[i]) {
+	    *flags = *flags | 0x2;
+	  }
+	}
+	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->instchpports); i++) {
+	  if (cx == bnl->instchpports[i]) {
+	    *flags = *flags | 0x2;
+	  }
+	}
+	
 	if (TypeFactory::isStructure (it)) {
 	  struct chpsimderef *ds;
 
@@ -3890,6 +3923,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
       else {
 	Assert (0, "Probe on a non-channel?");
       }
+      *flags = *flags | 0x1;
     }
     break;
     
@@ -3910,7 +3944,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 	}
 	tmp->u.e.r = NULL;
 	tmp->type = e->type;
-	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s);
+	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
 	e = e->u.e.r;
       }
     }
@@ -3918,8 +3952,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s)
 
   case E_BUILTIN_INT:
   case E_BUILTIN_BOOL:
-    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s);
-    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s);
+    ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
+    ret->u.e.r = expr_to_chp_expr (e->u.e.r, s, flags);
     break;
 
   case E_SELF:
@@ -3935,6 +3969,7 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
 {
   chpsimcond *tmp;
   chpsimstmt *ret;
+  int flags;
   
   ret = NULL;
   if (!gc) return ret;
@@ -3947,7 +3982,10 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   ret->u.cond.stats = -1;
 
   ret->u.cond.stats = ChpSimGraph::max_stats;
-  
+  ret->u.cond.is_shared = 0;
+  ret->u.cond.is_probe = 0;
+
+  flags = 0;
   while (gc) {
     ChpSimGraph::max_stats++;
     if (!tmp) {
@@ -3958,8 +3996,15 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
       tmp = tmp->next;
     }
     tmp->next = NULL;
-    tmp->g = expr_to_chp_expr (gc->g, s);
+    tmp->g = expr_to_chp_expr (gc->g, s, &flags);
     gc = gc->next;
+  }
+
+  if (flags & 0x1) {
+    ret->u.cond.is_probe = 1;
+  }
+  if (flags & 0x2) {
+    ret->u.cond.is_shared = 1;
   }
   return ret;
 }
@@ -4170,7 +4215,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret->stmt->u.sendrecv.is_structx = 0;
 
       if (c->u.comm.e) {
-	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
+	int flags = 0;
+	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc, &flags);
       }
       if (c->u.comm.var) {
 	ActId *id = c->u.comm.var;
@@ -4253,7 +4299,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret->stmt->u.sendrecv.is_structx = 0;
 
       if (c->u.comm.e) {
-	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc);
+	int flags = 0;
+	ret->stmt->u.sendrecv.e = expr_to_chp_expr (c->u.comm.e, sc, &flags);
 	Assert (ch->acktype(), "Bidirectional channel inconsistency");
 	if (TypeFactory::isStructure (ch->acktype())) {
 	  ret->stmt->u.sendrecv.is_structx = 2;
@@ -4328,7 +4375,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  x->u.s = tmp->u.s;
 	}
 	else {
-	  x->u.e = expr_to_chp_expr (tmp->u.e, sc);
+	  int flags = 0;
+	  x->u.e = expr_to_chp_expr (tmp->u.e, sc, &flags);
 	}
 	list_append (ret->stmt->u.fn.l, x);
       }
@@ -4340,6 +4388,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     {
       InstType *it = sc->cursi()->bnl->cur->FullLookup (c->u.assign.id, NULL);
       int type, width;
+      int flags = 0;
 
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
@@ -4351,7 +4400,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       else {
 	ret->stmt->u.assign.is_struct = 0;
       }
-      ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc);
+      ret->stmt->u.assign.e = expr_to_chp_expr (c->u.assign.e, sc, &flags);
 
       if (ret->stmt->u.assign.is_struct) {
 	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id))  {

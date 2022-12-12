@@ -65,6 +65,8 @@ struct chpsimstmt {
     int fork;			/* # of forks */
     struct {
       chpsimcond c;		/* conditional */
+      unsigned int is_shared:1;	// shared variable in guards for CHPSIM_COND
+      unsigned int is_probe:1;	// probe in guards for CHPSIM_COND
       int stats;
     } cond;
     struct {
