@@ -277,6 +277,8 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, int max_stats,
   _statestk = NULL;
   _cureval = NULL;
   _frag_ch = NULL;
+  _hse_mode = 0;		/* default is CHP */
+  
   _maxstats = max_stats;
   if (_maxstats > 0) {
     MALLOC (_stats, unsigned long, _maxstats);
@@ -959,7 +961,7 @@ int ChpSim::Step (Event *ev)
     return 1;
   }
 
-  if (_sc->isResetMode() && _proc != NULL) {
+  if (!_hse_mode && _sc->isResetMode() && _proc != NULL) {
     /*-- this is a real process: wait for run mode --*/
     new Event (this, SIM_EV_MKTYPE (pc, 0), 10);
     return 1;

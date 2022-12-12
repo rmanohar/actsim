@@ -167,16 +167,17 @@ class ChpSim : public ActSimObj {
   void setFrag (act_channel_state *f) { _frag_ch = f; }
 
   BigInt exprEval (Expr *e);
+
+  void setHseMode() { _hse_mode = 1; }
   
 
  private:
   int _npc;			/* # of program counters */
+  int _pcused;			/* # of _pc[] slots currently being
+				   used */
   ChpSimGraph **_pc;		/* current PC state of simulation */
   int *_holes;			/* available slots in the _pc array */
   int *_tot;			/* current pending concurrent count */
-
-  int _pcused;			/* # of _pc[] slots currently being
-				   used */
 
   list_t *_stalled_pc;
   act_chp_lang_t *_savedc;
@@ -200,6 +201,7 @@ class ChpSim : public ActSimObj {
 
   unsigned long *_stats;
   int _maxstats;
+  int _hse_mode;		// is this a HSE?
 
   BigInt funcEval (Function *, int, void **);
   BigInt varEval (int id, int type);

@@ -402,6 +402,7 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   ChpSim *x = new ChpSim (pgi->hse->g, pgi->hse->max_count,
 			  pgi->hse->max_stats,
 			  c->c, this, _curproc);
+  x->setHseMode ();
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
