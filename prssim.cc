@@ -577,6 +577,19 @@ int OnePrsSim::eval (prssim_expr *x)
 
 static int _breakpt;
 
+#define DO_SET_VAL(nid,x)					\
+  do {								\
+    if (_proc->getBool (nid) != (x)) {				\
+      if (flags != (1 + (x))) {					\
+	flags = (1 + (x));					\
+	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
+			      _proc->getDelay ((x) == 0 ?	\
+					       _me->delay_dn :	\
+					       _me->delay_up));	\
+      }								\
+    }								\
+  } while (0)
+
 int OnePrsSim::Step (Event *ev)
 {
   int ev_type = ev->getType ();
@@ -607,6 +620,61 @@ int OnePrsSim::Step (Event *ev)
     if (!_proc->setBool (_me->vid, t)) {
       flags = PENDING_NONE;
     }
+    /* 
+       I just set this node to X and there is nothing pending;
+       so check if there should be a X -> 0 or X -> 1 tarnsition
+       pending that cleans up this X value
+    */
+    if (t == 2 /* X */ && flags == PENDING_NONE) {
+      int u_state, d_state, u_weak, d_weak;
+      u_state = eval (_me->up[PRSSIM_NORM]);
+      if (u_state == 0) {
+	u_state = eval (_me->up[PRSSIM_WEAK]);
+	if (u_state != 0) {
+	  u_weak = 1;
+	}
+      }
+
+      d_state = eval (_me->dn[PRSSIM_NORM]);
+      if (d_state == 0) {
+	d_state = eval (_me->dn[PRSSIM_WEAK]);
+	if (d_state != 0) {
+	  d_weak = 1;
+	}
+      }
+
+      /* copied from propagate() */
+      if (u_state == 0 && d_state != 0) {
+	DO_SET_VAL (_me->vid, 0);
+      }
+      else if (u_state == 1) {
+	if (d_state == 0) {
+	  DO_SET_VAL (_me->vid, 1);
+	}
+	else if (d_state == 2 && (!u_weak && d_weak)) {
+	  DO_SET_VAL (_me->vid, 1);
+	}
+	else if (d_state == 1) {
+	  if (u_weak && !d_weak) {
+	    DO_SET_VAL (_me->vid, 0);
+	  }
+	  else if (!u_weak && d_weak) {
+	    DO_SET_VAL (_me->vid, 1);
+	  }
+	}
+      }
+      else {
+	/* u_state == 2 */
+	if (d_state == 0) {
+	  DO_SET_VAL (_me->vid, 1);
+	}
+	else if (d_state == 1) {
+	  if (u_weak && !d_weak) {
+	    DO_SET_VAL (_me->vid, 0);
+	  }
+	}
+      }
+    }
     break;
 
   default:
@@ -631,19 +699,6 @@ int OnePrsSim::matches (int val)
   }
 }
 
-
-#define DO_SET_VAL(nid,x)					\
-  do {								\
-    if (_proc->getBool (nid) != (x)) {				\
-      if (flags != (1 + (x))) {					\
-	flags = (1 + (x));					\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
-			      _proc->getDelay ((x) == 0 ?	\
-					       _me->delay_dn :	\
-					       _me->delay_up));	\
-      }								\
-    }								\
-  } while (0)
 
 #define WARNING_MSG(s,t)			\
   do {						\
@@ -872,7 +927,7 @@ void OnePrsSim::propagate ()
       /* u_state == 2 */
       switch (d_state) {
       case 0:
-	/* set to 1 */
+	/* set to 1: is this right? */
 	DO_SET_VAL (_me->vid, 1);
 	break;
 
