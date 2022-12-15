@@ -644,8 +644,10 @@ int OnePrsSim::Step (Event *ev)
       }
 
       /* copied from propagate() */
-      if (u_state == 0 && d_state != 0) {
-	DO_SET_VAL (_me->vid, 0);
+      if (u_state == 0) {
+	if (d_state == 1) {
+	  DO_SET_VAL (_me->vid, 0);
+	}
       }
       else if (u_state == 1) {
 	if (d_state == 0) {
@@ -665,10 +667,7 @@ int OnePrsSim::Step (Event *ev)
       }
       else {
 	/* u_state == 2 */
-	if (d_state == 0) {
-	  DO_SET_VAL (_me->vid, 1);
-	}
-	else if (d_state == 1) {
+	if (d_state == 1) {
 	  if (u_weak && !d_weak) {
 	    DO_SET_VAL (_me->vid, 0);
 	  }
@@ -883,9 +882,15 @@ void OnePrsSim::propagate ()
 	break;
 
       case 1:
-      case 2:
 	/* set to 0 */
 	DO_SET_VAL (_me->vid, 0);
+	break;
+	
+      case 2:
+	if (_proc->getBool (_me->vid) == 1) {
+	  /* u = 0, d = X: if output=1, it is now X */
+	  MAKE_NODE_X (_me->vid);
+	}
 	break;
       }
     }
@@ -927,8 +932,9 @@ void OnePrsSim::propagate ()
       /* u_state == 2 */
       switch (d_state) {
       case 0:
-	/* set to 1: is this right? */
-	DO_SET_VAL (_me->vid, 1);
+	if (_proc->getBool (_me->vid) == 0) {
+	  MAKE_NODE_X (_me->vid);
+	}
 	break;
 
       case 1:
