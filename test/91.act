@@ -1,0 +1,28 @@
+bool Reset;
+
+defproc tstenv (bool a)
+{
+   hse {
+     a-; [~Reset]; a+
+   }
+}
+
+defproc test()
+{
+   bool a, b, c, x;
+   bool aa;
+
+   tstenv tx(a);
+   
+   prs {
+   ~Reset &  a & b -> x+
+   Reset | ~a & c -> x-
+
+   x => aa+
+   }
+}
+
+Initialize {
+  actions { Reset+ };
+  actions { Reset- }
+}
