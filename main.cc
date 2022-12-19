@@ -616,7 +616,7 @@ int process_set (int argc, char **argv)
 	tm.decPrint (stdout, 20);
 	printf ("] <[env]> ");
 	printf ("%s := %c\n", nm->s, (val == 2 ? 'X' : ((char)val + '0')));
-	
+
 	vcd = glob_sim->getVCD ();
 	if (vcd) {
 	  glob_sim->emitVCDTime ();
@@ -634,6 +634,34 @@ int process_set (int argc, char **argv)
     }
     BigInt x(64, 0, 0);
     x = val;
+
+    const ActSim::watchpt_bucket *nm;
+    if ((nm = glob_sim->chkWatchPt (1, offset))) {
+      BigInt *otmp = glob_sim->getInt (offset);
+      x.setWidth (otmp->getWidth());
+      if (*otmp != x) {
+	FILE *vcd;
+
+
+	BigInt tm = SimDES::CurTime();
+	printf ("[");
+	tm.decPrint (stdout, 20);
+	printf ("] <[env]> ");
+	printf ("%s := ", nm->s);
+	x.decPrint (stdout);
+	printf (" (0x");
+	x.hexPrint (stdout);
+	printf (")\n");
+
+	vcd = glob_sim->getVCD ();
+	if (vcd) {
+	  glob_sim->emitVCDTime ();
+	  fprintf (vcd, "b");
+	  x.bitPrint (vcd);
+	  fprintf (vcd, " %s\n", glob_sim->_idx_to_char (nm));
+	}
+      }
+    }
     glob_sim->setInt (offset, x);
   }
   else {
