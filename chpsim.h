@@ -52,6 +52,7 @@ struct chpsimderef {
   Data *d;			// used for structures
 
   int offset;			// offset / offseti for struct
+  unsigned int isbool:1;	// is this a bool type?
   int width;			// for all vars / offsetb for struct
   act_connection *cx;
 };

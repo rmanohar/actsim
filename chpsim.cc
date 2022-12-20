@@ -3426,11 +3426,19 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
 
   NEW (d, struct chpsimderef);
   d->idx = NULL;
+  d->d = NULL;
   d->cx = vx->connection();
   d->offset = s->getLocalOffset (vx->connection()->primary(),
 				 s->cursi(), type, &d->width);
   if (width) {
     *width = d->width;
+  }
+
+  if (*type == 0) {
+    d->isbool = 1;
+  }
+  else {
+    d->isbool = 0;
   }
 
   d->range = vx->t->arrayInfo();
@@ -3462,6 +3470,7 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   NEW (d, struct chpsimderef);
   d->cx = vx->connection();
   d->d = dynamic_cast<Data *> (vx->t->BaseType());
+  d->isbool = 0;
   Assert (d->d, "what?");
   if (!s->getLocalDynamicStructOffset (vx->connection()->primary(),
 				       s->cursi(),
@@ -5326,6 +5335,25 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
       off = getGlobalOffset (g->stmt->u.sendrecv.chvar, 2);
       act_channel_state *ch = _sc->getChan (off);
       ch->width = g->stmt->u.sendrecv.width;
+
+      if (g->stmt->u.sendrecv.d) {
+	if (g->stmt->u.sendrecv.d->d) {
+	  // XXX: fix structures
+	}
+	else {
+	  off = computeOffset (g->stmt->u.sendrecv.d);
+	  if (g->stmt->u.sendrecv.d->isbool) {
+	    // nothing to do
+	  }
+	  else {
+	    BigInt v;
+	    off = getGlobalOffset (off, 1);
+	    v.setWidth (g->stmt->u.sendrecv.d->width);
+	    v.toStatic();
+	    _sc->setInt (off, v);
+	  }
+	}
+      }
     }
     break;
 
