@@ -83,6 +83,15 @@ struct act_channel_state {
 
 
 /*
+  Macros to inspect channel state
+*/
+#define WAITING_SENDER(c)  ((c)->send_here != 0 && (c)->sender_probe == 0)
+#define WAITING_SEND_PROBE(c)  ((c)->send_here != 0 && (c)->sender_probe == 1)
+
+#define WAITING_RECEIVER(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 0)
+#define WAITING_RECV_PROBE(c)  ((c)->recv_here != 0 && (c)->receiver_probe == 1)
+
+/*
   1. var +/-
   2. self := e
   3. goto N

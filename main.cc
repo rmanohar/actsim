@@ -618,9 +618,16 @@ int process_set (int argc, char **argv)
 	printf ("%s := %c\n", nm->s, (val == 2 ? 'X' : ((char)val + '0')));
 
 	vcd = glob_sim->getVCD ();
-	if (vcd) {
+	if (vcd && !nm->ignore_vcd) {
 	  glob_sim->emitVCDTime ();
 	  fprintf (vcd, "%c%s\n", val == 2 ? 'x' : (val + '0'), glob_sim->_idx_to_char (nm));
+	}
+
+	atrace *atr = glob_sim->getAtrace ();
+	if (atr && !nm->ignore_atr) {
+	  atrace_val_t av;
+	  av.val = val;
+	  atrace_general_change (atr, nm->n, glob_sim->curTimeMetricUnits(), &av);
 	}
       }
     }
@@ -654,11 +661,32 @@ int process_set (int argc, char **argv)
 	printf (")\n");
 
 	vcd = glob_sim->getVCD ();
-	if (vcd) {
+	if (vcd && !nm->ignore_vcd) {
 	  glob_sim->emitVCDTime ();
 	  fprintf (vcd, "b");
 	  x.bitPrint (vcd);
 	  fprintf (vcd, " %s\n", glob_sim->_idx_to_char (nm));
+	}
+
+	atrace *atr = glob_sim->getAtrace ();
+	if (atr && !nm->ignore_atr) {
+	  atrace_val_t av;
+	  atrace_alloc_val_entry (nm->n, &av);
+	  if (ATRACE_WIDE_NODE(nm->n)) {
+	    for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
+	      if (i >= x.getLen()) {
+		av.valp[i] = 0;
+	      }
+	      else {
+		av.valp[i] = x.getVal (i);
+	      }
+	    }
+	  }
+	  else {
+	    av.val = x.getVal (0);
+	  }
+	  atrace_general_change (atr, nm->n, glob_sim->curTimeMetricUnits(), &av);
+	  atrace_free_val_entry (nm->n, &av);
 	}
       }
     }
@@ -1100,6 +1128,40 @@ int process_stopvcd (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_createalint (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (glob_sim->getAtrace()) {
+    fprintf (stderr, "%s: closing current trace file\n", argv[0]);
+    glob_sim->closeAtrace();
+  }
+
+  if (!glob_sim->initAtrace (argv[1])) {
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
+int process_stopalint (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (glob_sim->getAtrace()) {
+    glob_sim->closeAtrace();
+  }
+  else {
+    fprintf (stderr, "%s: no current trace file.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
 int process_timescale (int argc, char **argv)
 {
   double tm;
@@ -1127,13 +1189,7 @@ int process_get_sim_time (int argc, char **argv)
     fprintf (stderr, "%s: No simulation?\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  double cur_time = 0;
-  BigInt curtm = SimDES::CurTime ();
-  for (int i=curtm.getLen()-1; i >= 0; i--) {
-    cur_time *= (1UL << 32);
-    cur_time *= (1UL << 32);
-    cur_time += curtm.getVal (i)*(double)glob_sim->getTimescale();
-  }
+  double cur_time = glob_sim->curTimeMetricUnits ();
   LispSetReturnFloat (cur_time); 
   return LISP_RET_FLOAT;
 }
@@ -1169,7 +1225,7 @@ struct LispCliCommand Cmds[] = {
   { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
   { "chcount", "<name> - return the number of completed actions on named channel", process_chcount },
 
-  { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "watch", "[-dtv] <n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
@@ -1184,6 +1240,8 @@ struct LispCliCommand Cmds[] = {
   { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
   { "vcd_start", "<file> [<afile>]- Create Verilog change dump for all watched values", process_createvcd },
   { "vcd_stop", "- Stop VCD generation", process_stopvcd },
+  { "trace_start", "<file> - Create ACT trace file for all watched values", process_createalint },
+  { "trace_stop", "- Stop ACT trace file generation", process_stopalint },
   
 #if 0  
   { "pending", "- dump pending events", process_pending },

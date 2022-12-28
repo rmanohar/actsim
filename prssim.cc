@@ -1026,10 +1026,17 @@ bool PrsSim::setBool (int lid, int v)
 	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
 
 	  vcd = _sc->getVCD ();
-	  if (vcd) {
+	  if (vcd && !nm->ignore_vcd) {
 	    _sc->emitVCDTime();
 	    fprintf (vcd, "%c", (v == 2 ? 'X' : ((char)v + '0')));
 	    fprintf (vcd, "%s\n", _sc->_idx_to_char (nm));
+	  }
+
+	  atrace *atr = _sc->getAtrace();
+	  if (atr && !nm->ignore_atr) {
+	    atrace_val_t av;
+	    av.val = v;
+	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
 	  }
 	}
 	if (verb & 2) {

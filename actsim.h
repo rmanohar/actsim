@@ -389,7 +389,11 @@ class ActSimCore {
 
   struct watchpt_bucket {
     char *s;
-    int idx;
+    unsigned int ignore_disp:1;	// ignore watchpoint for text display
+    unsigned int ignore_vcd:1;	// ignore watchpoint for vcd out
+    unsigned int ignore_atr:1;	// ignore watchpoint for trace file out
+    int idx;			// for vcd output
+    name_t *n;			// atrace node
   };
 
   inline void addWatchPt (int type, unsigned long off, const char *name) {
@@ -409,6 +413,19 @@ class ActSimCore {
     b->v = w;
     w->s = Strdup (name);
     w->idx = _watch_idx++;
+    w->n = NULL;
+    if (_vcd_out) {
+      w->ignore_vcd = 1;
+    }
+    else {
+      w->ignore_vcd = 0;
+    }
+    if (_trace_file) {
+      w->ignore_atr = 1;
+    }
+    else {
+      w->ignore_atr = 0;
+    }
   }
 
   inline const watchpt_bucket *chkWatchPt (int type, unsigned long off) {
@@ -478,11 +495,41 @@ class ActSimCore {
   }
 
   FILE *getVCD () { return _vcd_out; }
-  
+
   const char *_idx_to_char (const watchpt_bucket *w);
   static const char *_idx_to_char (int idx);
   static void _dump_vcdheader (FILE *fp);
   static void _dump_vcdheader_part2 (FILE *fp);
+
+  int initAtrace (const char *file); // return 1 if success, 0 if fail
+  atrace *getAtrace () { return _trace_file; }
+  void closeAtrace () {
+    if (_trace_file) {
+      atrace_close (_trace_file);
+    }
+    _trace_file = NULL;
+  }
+
+
+  void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
+  float getTimescale() { return _int_to_float_timescale; }
+
+  double curTimeMetricUnits() {
+    double f;
+    BigInt tm = SimDES::CurTime();
+    if (tm.getLen() <= 1) {
+      f = tm.getVal (0)*(double) _int_to_float_timescale;
+    }
+    else {
+      f = 0;
+      for (int i=0; i < tm.getLen(); i++) {
+	f *= (1UL << 32);
+	f *= (1UL << 32);
+	f += tm.getVal (i)* (double) _int_to_float_timescale;
+      }
+    }
+    return f;
+  }
 
 protected:
   Act *a;
@@ -540,6 +587,11 @@ protected:
   FILE *_vcd_out;		 // vcd output file
   bool _vcd_emit_time;		 // emit vcd time
   BigInt _last_vcd_time;	 // vcd time
+
+    
+  atrace *_trace_file;		 // output atrace file, if any
+  float _int_to_float_timescale; // units to convert integer units
+				 // to time
 
   /*-- timing forks --*/
   
@@ -622,36 +674,6 @@ public:
 
   ActInstTable *getInstTable () { return &I; }
 
-  int initTracing (const char *file, double tm); // return 1 if
-						 // success, 0 if fail
-
-  void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
-  float getTimescale() { return _int_to_float_timescale; }
-
-  inline void updateTracing() {
-    if (_trace_file) {
-      /* XXX: assumption: max delay of a gate is < 2^32 */
-      unsigned long tm = SimDES::CurTimeLo();
-      if (tm  < _stop_time) {
-	_wrap = 0;
-      }
-      else if (_wrap == 1) {
-	/* fine, need low order bits to wrap */
-      }
-      else {
-	/* done tracing */
-	atrace_close (_trace_file);
-	_trace_file = NULL;
-      }
-    }
-  }
-    
-protected:
-  atrace *_trace_file;		 // output atrace file, if any
-  float _int_to_float_timescale; // units to convert integer units
-				 // to time
-  unsigned long _stop_time;	 // stop time for tracing
-  unsigned int _wrap;		 // 
   
 private:
   list_t *_init_simobjs;

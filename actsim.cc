@@ -1603,7 +1603,6 @@ ActSim::ActSim (Process *root) : ActSimCore (root)
     /* 10ps default */
     _int_to_float_timescale = 10e-12;
   }
-  _stop_time = 0;
 }
 
 ActSim::~ActSim()
@@ -2645,31 +2644,112 @@ ActExclConstraint *ActExclConstraint::getNext (int nid)
 }
 
 
-int ActSim::initTracing (const char *file, double tm)
+int ActSimCore::initAtrace (const char *file)
 {
-  double cur_time = 0;
-  BigInt curtm = SimDES::CurTime ();
-  for (int i=curtm.getLen()-1; i >= 0; i--) {
-    cur_time *= (1UL << 32);
-    cur_time *= (1UL << 32);
-    cur_time += _int_to_float_timescale*curtm.getVal (i);
-  }
-  if (tm <= cur_time) {
-    fprintf (stderr, "Current time (%g) is already at or beyond the stop time (%g)\n", cur_time, tm);
-    return 0;
-  }
-  printf ("Creating trace file, %gns in duration (~ %lu transition delays)\n",
-	  tm*1e9, (unsigned long)(tm/_int_to_float_timescale));
+  double cur_time = curTimeMetricUnits ();
+  double tm = cur_time + 1;
 
-  _stop_time = curtm.getVal (0) + (unsigned long)(tm/_int_to_float_timescale);
-  if (_stop_time < curtm.getVal (0)) {
-    _wrap = 1;
-  }
-  else {
-    _wrap = 0;
-  }
   if (_trace_file) {
     atrace_close (_trace_file);
+  }
+
+  // create the atrace file
+  _trace_file = atrace_create (file, ATRACE_DELTA, tm, _int_to_float_timescale);
+  if (!_trace_file) {
+    return 0;
+  }
+  if (_W) {
+    ihash_bucket_t *b;
+    watchpt_bucket *w;
+    ihash_iter_t it;
+
+    ihash_iter_init (_W, &it);
+    while ((b = ihash_iter_next (_W, &it))) {
+      unsigned long off = b->key;
+      int type = off & 0x3;
+      off >>= 2;
+
+      w = (watchpt_bucket *) b->v;
+      w->ignore_atr = 0;
+      w->n = atrace_create_node (_trace_file, w->s);
+
+      if (type == 0) {
+	atrace_mk_digital (w->n);
+	atrace_mk_width (w->n, 1);
+      }
+      else if (type == 1) {
+	BigInt *tmp = getInt (off);
+	atrace_mk_digital (w->n);
+	atrace_mk_width (w->n, tmp->getWidth());
+      }
+      else if (type == 2) {
+	act_channel_state *ch = getChan (off);
+	atrace_mk_channel (w->n);
+	atrace_mk_width (w->n, ch->width);
+      }
+    }
+
+    // now dump current  value
+    ihash_iter_init (_W, &it);
+    while ((b = ihash_iter_next (_W, &it))) {
+      atrace_val_t av;
+      unsigned long off = b->key;
+      int type = off & 0x3;
+      off >>= 2;
+
+      w = (watchpt_bucket *) b->v;
+      w->ignore_atr = 0;
+      w->n = atrace_create_node (_trace_file, w->s);
+
+      if (type == 0) {
+	av.val = getBool (off);
+	atrace_general_change (_trace_file, w->n, cur_time, &av);
+      }
+      else if (type == 1) {
+	BigInt *tmp = getInt (off);
+	atrace_alloc_val_entry (w->n, &av);
+	if (ATRACE_WIDE_NODE (w->n)) {
+	  for (int i=0; i < ATRACE_WIDE_NUM(w->n); i++) {
+	    if (i >= tmp->getLen()) {
+	      av.valp[i] = 0;
+	    }
+	    else {
+	      av.valp[i] = tmp->getVal (i);
+	    }
+	  }
+	}
+	else {
+	  av.val = tmp->getVal (0);
+	}
+	atrace_general_change (_trace_file, w->n, cur_time, &av);
+	atrace_free_val_entry (w->n, &av);
+      }
+      else if (type == 2) {
+	act_channel_state *ch = getChan (off);
+	int state;
+	atrace_alloc_val_entry (w->n, &av);
+	if (WAITING_SENDER (ch)) {
+	  state = ATRACE_CHAN_SEND_BLOCKED;
+	}
+	else if (WAITING_RECEIVER(ch)) {
+	  state = ATRACE_CHAN_RECV_BLOCKED;
+	}
+	else {
+	  state = ATRACE_CHAN_IDLE;
+	}
+	if (ATRACE_WIDE_NODE (w->n)) {
+	  av.valp[0] = state;
+	  for (int i=1; i < ATRACE_WIDE_NUM(w->n); i++) {
+	    av.valp[i] = 0;
+	  }
+	}
+	else {
+	  av.val = state;
+	}
+	atrace_general_change (_trace_file, w->n, cur_time, &av);
+	atrace_free_val_entry (w->n, &av);
+      }
+    }
   }
   return 1;
 }
@@ -2990,6 +3070,7 @@ void ActSimCore::setVCD (FILE *fp)
 	int type = off & 0x3;
 	off >>= 2;
 	w = (watchpt_bucket *) b->v;
+	w->ignore_vcd = 0;
 
 	if (type == 0) {
 	  /* bool */
