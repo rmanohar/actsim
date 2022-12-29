@@ -36,6 +36,44 @@ int ChpSimGraph::cur_pending_count = 0;
 int ChpSimGraph::max_pending_count = 0;
 int ChpSimGraph::max_stats = 0;
 
+extern ActSim *glob_sim;
+
+/*
+ *
+ * Dummy object used for adding an "idle" to the channel trace log
+ *
+ */
+class ChanTraceIdle : public SimDES {
+ public:
+  ChanTraceIdle (name_t *n) { _n = n; }
+  ~ChanTraceIdle () { _n = NULL; }
+
+  int Step (Event *ev) {
+    atrace *tr = glob_sim->getAtrace();
+    if (tr) {
+      atrace_val_t v;
+      atrace_alloc_val_entry (_n, &v);
+      if (ATRACE_WIDE_NODE (_n)) {
+	for (int i=1; i < ATRACE_WIDE_NUM(_n); i++) {
+	  v.valp[i] = 0;
+	}
+	v.valp[0] = ATRACE_CHAN_IDLE;
+      }
+      else {
+	v.val = ATRACE_CHAN_IDLE;
+      }
+      atrace_general_change (tr, _n, glob_sim->curTimeMetricUnits(), &v);
+      atrace_free_val_entry (_n, &v);
+    }
+    delete this;
+    return 1;
+  }
+
+ private:
+  name_t *_n;
+};  
+
+
 //#define DUMP_ALL
 
 static int stat_count = 0;
@@ -1239,7 +1277,7 @@ int ChpSim::Step (Event *ev)
       }
       /*-- attempt to receive value --*/
       if (chkWatchBreakPt (2, stmt->u.sendrecv.chvar, goff, v,
-			   ((rv ? 1 : 0) << 1))) {
+			   ((rv ? 1 : (flag ? 2 : 0)) << 1))) {
 	_breakpt = 1;
       }
       if (rv) {
@@ -5235,15 +5273,15 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	if (umode == 1) {
 	  printf ("-blocked\n");
 	}
-	else if (umode == 0) {
+	else if (umode == 0 || umode == 2) {
+	  if (umode == 2) {
+	    printf ("-wakeup");
+	  }
 	  printf (" value: ");
 	  v.decPrint (stdout);
 	  printf (" (0x");
 	  v.hexPrint (stdout);
 	  printf (")\n");
-	}
-	else {
-	  printf ("\n");
 	}
 
 	if (umode != 1) {
@@ -5256,28 +5294,30 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 
 	atrace *atr = _sc->getAtrace();
 	if (atr && !nm->ignore_atr) {
-	  atrace_val_t av;
-	  int state;
-	  atrace_alloc_val_entry (nm->n, &av);
-	  if (ATRACE_WIDE_NODE (nm->n)) {
-	    for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
-	      av.valp[i] = 0;
-	    }
-	  }
 	  if (umode == 1) {
-	    state = ATRACE_CHAN_RECV_BLOCKED;
+	    atrace_val_t av;
+	    int state;
+	    atrace_alloc_val_entry (nm->n, &av);
+	    if (ATRACE_WIDE_NODE (nm->n)) {
+	      for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
+		av.valp[i] = 0;
+	      }
+	    }
+	    if (ATRACE_WIDE_NODE (nm->n)) {
+	      av.valp[0] = ATRACE_CHAN_RECV_BLOCKED;
+	    }
+	    else {
+	      av.val = ATRACE_CHAN_RECV_BLOCKED;
+	    }
+	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
+	    atrace_free_val_entry (nm->n, &av);
 	  }
 	  else {
-	    state = ATRACE_CHAN_IDLE;
+	    // send has recorded the value, now record idle in the
+	    // next time step
+	    ChanTraceIdle *obj = new ChanTraceIdle (nm->n);
+	    new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
 	  }
-	  if (ATRACE_WIDE_NODE (nm->n)) {
-	    av.valp[0] = state;
-	  }
-	  else {
-	    av.val = state;
-	  }
-	  atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	  atrace_free_val_entry (nm->n, &av);
 	}
       }
       if (verb & 2) {
@@ -5327,7 +5367,7 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 
 	atrace *atr = _sc->getAtrace();
 	if (atr && !nm->ignore_atr) {
-	  if (umode == 0 || umode == 1) {
+	  if (umode == 0 || umode == 2) {
 	    atrace_val_t av;
 	    atrace_alloc_val_entry (nm->n, &av);
 	    if (ATRACE_WIDE_NODE(nm->n)) {
@@ -5351,7 +5391,20 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    atrace_free_val_entry (nm->n, &av);
 	  }
 	  else {
-	    // nothing to record: send done
+	    // send blocked
+	    atrace_val_t av;
+	    atrace_alloc_val_entry (nm->n, &av);
+	    if (ATRACE_WIDE_NODE (nm->n)) {
+	      for (int i=1; i < ATRACE_WIDE_NUM(nm->n); i++) {
+		av.valp[i] = 0;
+	      }
+	      av.valp[0] = ATRACE_CHAN_SEND_BLOCKED;
+	    }
+	    else {
+	      av.val = ATRACE_CHAN_SEND_BLOCKED;
+	    }
+	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
+	    atrace_free_val_entry (nm->n, &av);
 	  }
 	}
 	if (verb & 2) {
