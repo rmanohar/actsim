@@ -33,26 +33,24 @@
 #include <N_CIR_GenCouplingSimulator.h>
 #include <common/atrace.h>
 #include <string.h>
-#include "ext/lxt2_write.h"
+#include <act/tracelib.h>
 
 class xyceIO : public Xyce::IO::ExternalOutputInterface
 {
  private:
-  // atrace output aux info
-  atrace *_at;
-  name_t **_anodes;
-  int _nnodes;
+  // atrace
+  act_trace_t *_at;
+  void **_anodes;
 
-  // VCD output aux info
-  FILE *_vcdout;
-  bool _vcd_emit_time;		 // emit vcd time
-  BigInt _last_vcd_time;	 // vcd time
-  bool _vcddump;
+  // VCD
+  act_trace_t *_vcd;
+  void **_vcdnodes;
 
   // LXT2
-  struct lxt2_wr_trace *_lxt2;
-  int _lxt2nodes;
-  struct lxt2_wr_symbol **_lxt2array;
+  act_trace_t *_lxt2;
+  void **_lxt2nodes;
+
+  int _nnodes;
 
   char *name_convert (const char *signal, int brack = 0) {
     char *s;
@@ -84,11 +82,11 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
     }
 
     if (pos == l-1) {
-      sprintf (s, "%s", signal+skip);
+      snprintf (s, l + 2, "%s", signal+skip);
       l = strlen (s);
     }
     else {
-      sprintf (s, "%s", signal+skip);
+      snprintf (s, l + 2, "%s", signal+skip);
       l = strlen(s);
       s[l-1] = '\0';
       l--;
@@ -144,64 +142,69 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
   
   xyceIO(const char *file, float stop_time, float dt, unsigned int fmts) {
     _at = NULL;
+    _lxt2 = NULL;
+    _vcd = NULL;
     _nnodes = 0;
-    _anodes = NULL;
-    _vcdout = NULL;
-    _vcddump = false;
-    _last_vcd_time = false;
-    _lxt2nodes = 0;
-    _lxt2array = NULL;
     
     if ((fmts >> VCD_FMT) & 1) {
-      char *nm;
-      MALLOC (nm, char, strlen (file) + 5);
-      snprintf (nm, strlen (file) + 5, "%s.vcd", file);
-      _vcdout = fopen (nm, "w");
-      if (!_vcdout) {
-	fatal_error ("Could not open `%s' for writing", nm);
+      act_extern_trace_func_t *ext;
+      ext = act_trace_load_format ("vcd", NULL);
+      if (!ext) {
+	fprintf (stderr, "ERROR: missing VCD library\n");
       }
-      FREE (nm);
-      ActSimCore::_dump_vcdheader (_vcdout);
-      // create VCD fmt
+      else {
+	char *nm;
+	MALLOC (nm, char, strlen (file) + 5);
+	snprintf (nm, strlen (file) + 5, "%s.vcd", file);
+
+	_vcd = act_trace_create (ext, nm, stop_time, dt, 1);
+	FREE (nm);
+      }
     }
     if ((fmts >> ALINT_FMT) & 1) {
-      _at = atrace_create (file, ATRACE_DELTA, stop_time, dt);
+      act_extern_trace_func_t *ext;
+      ext = act_trace_load_format ("atr", NULL);
+      if (!ext) {
+	fprintf (stderr, "ERROR: missing atr library\n");
+      }
+      else {
+	_at = act_trace_create (ext, file, stop_time, dt, 0);
+      }
     }
     if ((fmts >> LXT2_FMT) & 1) {
-      char *nm;
-      extern ActSim *glob_sim;
-      MALLOC (nm, char, strlen (file) + 6);
-      snprintf (nm, strlen (file) + 6, "%s.lxt2", file);
-      _lxt2 = lxt2_wr_init (nm);
-      double l10 = log10 (glob_sim->getTimescale());
-      int il10 = (int)l10;
-      if (il10 != l10) {
-	il10--;
+      act_extern_trace_func_t *ext;
+      ext = act_trace_load_format ("lxt2", NULL);
+      if (!ext) {
+	fprintf (stderr, "ERROR: missing LXT2 library\n");
       }
-      lxt2_wr_set_compression_depth (_lxt2, 4);
-      lxt2_wr_set_break_size (_lxt2, 0);
-      lxt2_wr_set_maxgranule (_lxt2, 8);
-      lxt2_wr_set_timescale (_lxt2, il10);
-      FREE (nm);
-      // something here
+      else {
+	char *nm;
+	MALLOC (nm, char, strlen (file) + 6);
+	snprintf (nm, strlen (file) + 6, "%s.lxt2", file);
+	_lxt2 = act_trace_create (ext, nm, stop_time, dt, 0);
+	FREE (nm);
+      }
     }
   }
 
   ~xyceIO() {
-    if (_nnodes > 0) {
-      FREE (_anodes);
-    }
     if (_at) {
-      atrace_close (_at);
+      act_trace_close (_at);
+      if (_nnodes > 0) {
+	FREE (_anodes);
+      }
     }
-    if (_vcdout) {
-      fclose (_vcdout);
+    if (_vcd) {
+      act_trace_close (_vcd);
+      if (_nnodes > 0) {
+	FREE (_vcdnodes);
+      }
     }
     if (_lxt2) {
-      if (_lxt2nodes > 0) {
-	FREE (_lxt2array);
+      act_trace_close (_lxt2);
+      if (_nnodes > 0) {
+	FREE (_lxt2nodes);
       }
-      lxt2_wr_close (_lxt2);
     }
   }
   
@@ -230,106 +233,103 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
       return;
     }
     if (_nnodes == 0) return;
-    if (_at) {
-      MALLOC (_anodes, name_t *, _nnodes);
+    if (_at || _vcd || _lxt2) {
+      if (_at) {
+	MALLOC (_anodes, void *, _nnodes);
+      }
+      if (_vcd) {
+	MALLOC (_vcdnodes, void *, _nnodes);
+      }
+      if (_lxt2) {
+	MALLOC (_lxt2nodes, void *, _nnodes);
+      }
       for (int i=1; i < outNames.size(); i++) {
 	char *tmp = name_convert (outNames[i].c_str());
-	_anodes[i-1] = atrace_create_node (_at, tmp);
-	FREE (tmp);
-      }
-    }
-    else {
-      _nnodes = 0;
-    }
-    if (_vcdout) {
-      int idx = 0;
-      for (int i=1; i < outNames.size(); i++) {
-	char *tmp = name_convert (outNames[i].c_str(), 1);
-	fprintf (_vcdout, "$var real 1 %s %s $end\n",
-		 ActSimCore::_idx_to_char (idx++),
-		 tmp);
-	FREE (tmp);
-      }
-      ActSim::_dump_vcdheader_part2 (_vcdout);
-    }
-    if (_lxt2) {
-      _lxt2nodes = outNames.size()-1;
-      MALLOC (_lxt2array, struct lxt2_wr_symbol *, _lxt2nodes);
-      for (int i=1; i < outNames.size(); i++) {
-	char *tmp = name_convert (outNames[i].c_str(), 1);
-	_lxt2array[i-1] = lxt2_wr_symbol_add (_lxt2, tmp, 0, 0, 0,
-					      LXT2_WR_SYM_F_DOUBLE);
+	if (_at) {
+	  _anodes[i-1] = act_trace_add_signal (_at, ACT_SIG_ANALOG, tmp, 0);
+	}
+	if (_vcd) {
+	  _vcdnodes[i-1] = act_trace_add_signal (_vcd, ACT_SIG_ANALOG, tmp, 0);
+	}
+	if (_lxt2) {
+	  _lxt2nodes[i-1] = act_trace_add_signal (_lxt2, ACT_SIG_ANALOG, tmp, 0);
+	}
 	FREE (tmp);
       }
     }
   }
   
   void outputReal (std::vector<double> &outDat) {
-    if (_at) {
-      for (int i=1; i < outDat.size(); i++) {
-	atrace_signal_change (_at, _anodes[i-1], outDat[0], outDat[i]);
+    if (outDat[0] == 0.0) {
+      if (_at) {
+	act_trace_init_start (_at);
+      }
+      if (_lxt2) {
+	act_trace_init_start (_lxt2);
+      }
+      if (_vcd) {
+	act_trace_init_start (_vcd);
       }
     }
-    if (_vcdout) {
-      dumpVCD (outDat);
+    if (_at) {
+      for (int i=1; i < outDat.size(); i++) {
+	act_trace_analog_change (_at, _anodes[i-1], outDat[0], outDat[i]);
+      }
+    }
+    if (_vcd) {
+      unsigned long *v;
+      BigInt tm = SimDES::CurTime();
+      MALLOC (v, unsigned long, tm.getLen());
+      for (int i=0; i < tm.getLen(); i++) {
+	v[i] = tm.getVal (i);
+      }
+      for (int i=1; i < outDat.size(); i++) {
+	act_trace_analog_change_alt (_vcd, _vcdnodes[i-1], 
+				     tm.getLen(), v, outDat[i]);
+      }
+      FREE (v);
     }
     if (_lxt2) {
-      lxt2_wr_set_time64 (_lxt2, SimDES::CurTimeLo());
       for (int i=1; i < outDat.size(); i++) {
-	lxt2_wr_emit_value_double (_lxt2, _lxt2array[i-1], 0, outDat[i]);
+	act_trace_analog_change (_lxt2, _lxt2nodes[i-1], outDat[0], outDat[i]);
+      }
+    }
+    if (outDat[0] == 0.0) {
+      if (_at) {
+	act_trace_init_end (_at);
+      }
+      if (_lxt2) {
+	act_trace_init_end (_lxt2);
+      }
+      if (_vcd) {
+	act_trace_init_end (_vcd);
       }
     }
   }
 
   void finishOutput() {
     if (_at) {
-      atrace_close (_at);
+      act_trace_close (_at);
+      if (_nnodes > 0) {
+	FREE (_anodes);
+      }
       _at = NULL;
     }
-    if (_vcdout) {
-      fclose (_vcdout);
-      _vcdout = NULL;
-      _last_vcd_time = false;
-      _vcddump = false;
+    if (_vcd) {
+      act_trace_close (_vcd);
+      if (_nnodes > 0) {
+	FREE (_vcdnodes);
+      }
+      _vcd = NULL;
     }
     if (_lxt2) {
-      lxt2_wr_close (_lxt2);
+      act_trace_close (_lxt2);
+      if (_nnodes > 0) {
+	FREE (_lxt2nodes);
+      }
       _lxt2 = NULL;
     }
   }
-
-  void emitVCDTimeAnalog() {
-    if (!_vcdout) return;
-    if (_vcd_emit_time == false || (SimDES::CurTime() != _last_vcd_time)) {
-      _vcd_emit_time = true;
-      fprintf (_vcdout, "#");
-      _last_vcd_time = SimDES::CurTime ();
-      _last_vcd_time.decPrint (_vcdout);
-      fprintf (_vcdout, "\n");
-    }
-  }
-    
-  void dumpVCD (std::vector<double> &outDat) {
-    Assert (_vcdout, "What?");
-    extern ActSim *glob_sim;
-    int idx = 0;
-    FILE *fp = _vcdout;
-    int first = 1;
-    for (int i=1; i < outDat.size(); i++) {
-      if (first && _vcddump) {
-	emitVCDTimeAnalog();
-	first = 0;
-      }
-      fprintf (fp, "r%.16g %s\n", outDat[i],
-	       ActSimCore::_idx_to_char (idx + i - 1));
-    }
-    if (!_vcddump) {
-      /* dumpvars */
-      fprintf (fp, "$end\n");
-      _vcddump = true;
-    }
-  }
-     
 };    
 
 #endif

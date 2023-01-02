@@ -1,0 +1,3 @@
+[submodule "tracelib"]
+	path = tracelib
+	url = https://github.com/asyncvlsi/tracelib
