@@ -14,7 +14,7 @@ This program is for use with [the ACT toolkit](https://github.com/asyncvlsi/act)
    * Also install the ACT [standard library](https://github.com/asyncvlsi/stdlib).
    * Build this program using the standard ACT tool install instructions [here](https://github.com/asyncvlsi/act/blob/master/README_tool.md).
 
-To build, run `./configure` and then `make` and `make install`.
+To build, run `./configure` and then `./build.sh` and `make install`.
 
 
 ### Building with Xyce
