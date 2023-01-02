@@ -45,7 +45,7 @@ jobs:
               export VLSI_TOOLS_SRC=`pwd`/act
               echo "===== build act addon ====="
               ./configure
-              make
+              ./build.sh
               echo "===== install act addon ====="
               make install
               
