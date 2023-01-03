@@ -609,26 +609,16 @@ int process_set (int argc, char **argv)
     if ((nm = glob_sim->chkWatchPt (0, offset))) {
       int oval = glob_sim->getBool (offset);
       if (oval != val) {
-	FILE *vcd;
-
 	BigInt tm = SimDES::CurTime();
 	printf ("[");
 	tm.decPrint (stdout, 20);
 	printf ("] <[env]> ");
 	printf ("%s := %c\n", nm->s, (val == 2 ? 'X' : ((char)val + '0')));
 
-	vcd = glob_sim->getVCD ();
-	if (vcd && !nm->ignore_vcd) {
-	  glob_sim->emitVCDTime ();
-	  fprintf (vcd, "%c%s\n", val == 2 ? 'x' : (val + '0'), glob_sim->_idx_to_char (nm));
-	}
+	BigInt tmpv;
+	tmpv = val;
 
-	atrace *atr = glob_sim->getAtrace ();
-	if (atr && !nm->ignore_atr) {
-	  atrace_val_t av;
-	  av.val = val;
-	  atrace_general_change (atr, nm->n, glob_sim->curTimeMetricUnits(), &av);
-	}
+	glob_sim->recordTrace (nm, type, ACT_CHAN_IDLE, tmpv);
       }
     }
     glob_sim->setBool (offset, val);
@@ -647,9 +637,6 @@ int process_set (int argc, char **argv)
       BigInt *otmp = glob_sim->getInt (offset);
       x.setWidth (otmp->getWidth());
       if (*otmp != x) {
-	FILE *vcd;
-
-
 	BigInt tm = SimDES::CurTime();
 	printf ("[");
 	tm.decPrint (stdout, 20);
@@ -660,34 +647,7 @@ int process_set (int argc, char **argv)
 	x.hexPrint (stdout);
 	printf (")\n");
 
-	vcd = glob_sim->getVCD ();
-	if (vcd && !nm->ignore_vcd) {
-	  glob_sim->emitVCDTime ();
-	  fprintf (vcd, "b");
-	  x.bitPrint (vcd);
-	  fprintf (vcd, " %s\n", glob_sim->_idx_to_char (nm));
-	}
-
-	atrace *atr = glob_sim->getAtrace ();
-	if (atr && !nm->ignore_atr) {
-	  atrace_val_t av;
-	  atrace_alloc_val_entry (nm->n, &av);
-	  if (ATRACE_WIDE_NODE(nm->n)) {
-	    for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
-	      if (i >= x.getLen()) {
-		av.valp[i] = 0;
-	      }
-	      else {
-		av.valp[i] = x.getVal (i);
-	      }
-	    }
-	  }
-	  else {
-	    av.val = x.getVal (0);
-	  }
-	  atrace_general_change (atr, nm->n, glob_sim->curTimeMetricUnits(), &av);
-	  atrace_free_val_entry (nm->n, &av);
-	}
+	glob_sim->recordTrace (nm, type, ACT_CHAN_IDLE, x);
       }
     }
     glob_sim->setInt (offset, x);
@@ -1083,7 +1043,6 @@ int process_status (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-static FILE *_cur_vcdfile;
 int process_createvcd (int argc, char **argv)
 {
   if (argc != 2) {
@@ -1091,20 +1050,14 @@ int process_createvcd (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  if (_cur_vcdfile) {
+  if (glob_sim->getTrace (TRACE_VCD)) {
     fprintf (stderr, "%s: closing current VCD file\n", argv[0]);
-    fclose (_cur_vcdfile);
-    _cur_vcdfile = NULL;
-    glob_sim->setVCD (NULL);
+    glob_sim->initTrace (TRACE_VCD, NULL);
   }
 
-  FILE *fp = fopen (argv[1], "w");
-  if (!fp) {
-    fprintf (stderr, "%s: could not open file `%s'\n", argv[0], argv[1]);
+  if (!glob_sim->initTrace (TRACE_VCD, argv[1])) {
     return LISP_RET_ERROR;
   }
-  glob_sim->setVCD (fp);
-  _cur_vcdfile = fp;
   
   return LISP_RET_TRUE;
 }
@@ -1115,16 +1068,13 @@ int process_stopvcd (int argc, char **argv)
     fprintf (stderr, "Usage: %s\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  if (_cur_vcdfile) {
-    fclose (_cur_vcdfile);
-    _cur_vcdfile = NULL;
-    glob_sim->setVCD (NULL);
+  if (glob_sim->getTrace (TRACE_VCD)) {
+    glob_sim->initTrace (TRACE_VCD, NULL);
   }
   else {
     fprintf (stderr, "%s: no current VCD file.\n", argv[0]);
     return LISP_RET_ERROR;
   }
-
   return LISP_RET_TRUE;
 }
 
@@ -1135,12 +1085,12 @@ int process_createalint (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  if (glob_sim->getAtrace()) {
+  if (glob_sim->getTrace (TRACE_ATR)) {
     fprintf (stderr, "%s: closing current trace file\n", argv[0]);
-    glob_sim->closeAtrace();
+    glob_sim->initTrace (TRACE_ATR, NULL);
   }
 
-  if (!glob_sim->initAtrace (argv[1])) {
+  if (!glob_sim->initTrace (TRACE_ATR, argv[1])) {
     return LISP_RET_ERROR;
   }
   return LISP_RET_TRUE;
@@ -1152,8 +1102,8 @@ int process_stopalint (int argc, char **argv)
     fprintf (stderr, "Usage: %s\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  if (glob_sim->getAtrace()) {
-    glob_sim->closeAtrace();
+  if (glob_sim->getTrace (TRACE_ATR)) {
+    glob_sim->initTrace (TRACE_ATR, NULL);
   }
   else {
     fprintf (stderr, "%s: no current trace file.\n", argv[0]);
@@ -1313,8 +1263,6 @@ int main (int argc, char **argv)
 
   /* expand it */
   glob_act->Expand ();
-
-  _cur_vcdfile = NULL;
 
   /* map to cells: these get characterized */
   //ActCellPass *cp = new ActCellPass (a);

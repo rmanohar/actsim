@@ -45,32 +45,22 @@ extern ActSim *glob_sim;
  */
 class ChanTraceIdle : public SimDES {
  public:
-  ChanTraceIdle (name_t *n) { _n = n; }
+  ChanTraceIdle (const ActSim::watchpt_bucket *n) { _n = n; }
   ~ChanTraceIdle () { _n = NULL; }
 
   int Step (Event *ev) {
-    atrace *tr = glob_sim->getAtrace();
-    if (tr) {
-      atrace_val_t v;
-      atrace_alloc_val_entry (_n, &v);
-      if (ATRACE_WIDE_NODE (_n)) {
-	for (int i=1; i < ATRACE_WIDE_NUM(_n); i++) {
-	  v.valp[i] = 0;
-	}
-	v.valp[0] = ATRACE_CHAN_IDLE;
+    float tm = glob_sim->curTimeMetricUnits ();
+    for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
+      act_trace_t *tr = glob_sim->getTrace (fmt);
+      if (tr && !((_n->ignore_fmt >> fmt) & 1)) {
+	act_trace_chan_change (tr, _n->node[fmt], tm, ACT_CHAN_IDLE, 0);
       }
-      else {
-	v.val = ATRACE_CHAN_IDLE;
-      }
-      atrace_general_change (tr, _n, glob_sim->curTimeMetricUnits(), &v);
-      atrace_free_val_entry (_n, &v);
     }
     delete this;
     return 1;
   }
-
  private:
-  name_t *_n;
+  const ActSim::watchpt_bucket *_n;
 };  
 
 
@@ -5190,18 +5180,7 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  msgPrefix ();
 	  printf ("%s := %c\n", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
 
-	  vcd = _sc->getVCD ();
-	  if (vcd && !nm->ignore_vcd) {
-	    _sc->emitVCDTime ();
-	    fprintf (vcd, "%c%s\n", (v.getVal (0) == 2 ? 'x' : ((char)v.getVal (0) + '0')), _sc->_idx_to_char (nm));
-	  }
-
-	  atrace *atr = _sc->getAtrace ();
-	  if (atr && !nm->ignore_atr) {
-	    atrace_val_t av;
-	    av.val = v.getVal (0);
-	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	  }
+	  _sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -5222,34 +5201,7 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  v.hexPrint (stdout);
 	  printf (")\n");
 
-	  vcd = _sc->getVCD();
-	  if (vcd && !nm->ignore_vcd) {
-	    _sc->emitVCDTime();
-	    fprintf (vcd, "b");
-	    v.bitPrint (vcd);
-	    fprintf (vcd, " %s\n", _sc->_idx_to_char (nm));
-	  }
-
-	  atrace *atr = _sc->getAtrace ();
-	  if (atr && !nm->ignore_atr) {
-	    atrace_val_t av;
-	    atrace_alloc_val_entry (nm->n, &av);
-	    if (ATRACE_WIDE_NODE(nm->n)) {
-	      for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
-		if (i >= v.getLen()) {
-		  av.valp[i] = 0;
-		}
-		else {
-		  av.valp[i] = v.getVal (i);
-		}
-	      }
-	    }
-	    else {
-	      av.val = v.getVal (0);
-	    }
-	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	    atrace_free_val_entry (nm->n, &av);
-	  }
+	  _sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -5264,7 +5216,6 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	 (flag >> 1) : 0 = normal, 1 = blocked
       */
       if (verb & 1) {
-	FILE *vcd;
 	int umode;
 	umode = (flag >> 1);
 	msgPrefix();
@@ -5284,40 +5235,12 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  printf (")\n");
 	}
 
-	if (umode != 1) {
-	  vcd = _sc->getVCD ();
-	  if (vcd && !nm->ignore_vcd) {
-	    _sc->emitVCDTime ();
-	    fprintf (vcd, "bz %s\n", _sc->_idx_to_char (nm));
-	  }
+	if (umode == 1) {
+	  _sc->recordTrace (nm, 2, ACT_CHAN_RECV_BLOCKED, v);
 	}
-
-	atrace *atr = _sc->getAtrace();
-	if (atr && !nm->ignore_atr) {
-	  if (umode == 1) {
-	    atrace_val_t av;
-	    int state;
-	    atrace_alloc_val_entry (nm->n, &av);
-	    if (ATRACE_WIDE_NODE (nm->n)) {
-	      for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
-		av.valp[i] = 0;
-	      }
-	    }
-	    if (ATRACE_WIDE_NODE (nm->n)) {
-	      av.valp[0] = ATRACE_CHAN_RECV_BLOCKED;
-	    }
-	    else {
-	      av.val = ATRACE_CHAN_RECV_BLOCKED;
-	    }
-	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	    atrace_free_val_entry (nm->n, &av);
-	  }
-	  else {
-	    // send has recorded the value, now record idle in the
-	    // next time step
-	    ChanTraceIdle *obj = new ChanTraceIdle (nm->n);
-	    new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
-	  }
+	else {
+	  ChanTraceIdle *obj = new ChanTraceIdle (nm);
+	  new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
 	}
       }
       if (verb & 2) {
@@ -5335,7 +5258,6 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	msgPrefix ();
 	umode = (flag >> 1);
 	if (umode == 0 || umode == 1) {
-	  FILE *vcd;
 	  printf ("%s : send%s", nm->s, umode == 1 ? "-blocked" : "");
 	  if (!(flag & 1)) {
 	    /* not fragmented, display value */
@@ -5346,67 +5268,18 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    printf (")");
 	  }
 	  printf ("\n");
-
-	  vcd = _sc->getVCD ();
-	  if (vcd && !(flag & 1) && !nm->ignore_vcd) {
-	    _sc->emitVCDTime ();
-	    fprintf (vcd, "b");
-	    v.bitPrint (vcd);
-	    fprintf (vcd, " %s\n", _sc->_idx_to_char (nm));
-	  }
 	}
 	else {
-	  FILE *vcd;
 	  printf ("%s : send complete\n", nm->s);
-	  vcd = _sc->getVCD ();
-	  if (vcd && !nm->ignore_vcd) {
-	    _sc->emitVCDTime ();
-	    fprintf (vcd, "bz %s\n", _sc->_idx_to_char (nm));
-	  }
 	}
 
-	atrace *atr = _sc->getAtrace();
-	if (atr && !nm->ignore_atr) {
-	  if (umode == 0 || umode == 2) {
-	    atrace_val_t av;
-	    atrace_alloc_val_entry (nm->n, &av);
-	    if (ATRACE_WIDE_NODE(nm->n)) {
-	      BigInt tmp;
-	      tmp.setWidth (64);
-	      tmp.setVal (0, ATRACE_CHAN_VAL_OFFSET);
-	      tmp += v;
-	      for (int i=0; i < ATRACE_WIDE_NUM(nm->n); i++) {
-		if (i >= tmp.getLen()) {
-		  av.valp[i] = 0;
-		}
-		else {
-		  av.valp[i] = tmp.getVal (i);
-		}
-	      }
-	    }
-	    else {
-	      av.val = v.getVal (0) + ATRACE_CHAN_VAL_OFFSET;
-	    }
-	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	    atrace_free_val_entry (nm->n, &av);
-	  }
-	  else {
-	    // send blocked
-	    atrace_val_t av;
-	    atrace_alloc_val_entry (nm->n, &av);
-	    if (ATRACE_WIDE_NODE (nm->n)) {
-	      for (int i=1; i < ATRACE_WIDE_NUM(nm->n); i++) {
-		av.valp[i] = 0;
-	      }
-	      av.valp[0] = ATRACE_CHAN_SEND_BLOCKED;
-	    }
-	    else {
-	      av.val = ATRACE_CHAN_SEND_BLOCKED;
-	    }
-	    atrace_general_change (atr, nm->n, _sc->curTimeMetricUnits(), &av);
-	    atrace_free_val_entry (nm->n, &av);
-	  }
+	if (umode == 0 || umode == 2) {
+	  _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
 	}
+	else {
+	  _sc->recordTrace (nm, 2, ACT_CHAN_SEND_BLOCKED, v);
+	}
+	
 	if (verb & 2) {
 	  msgPrefix ();
 	  printf ("*** breakpoint %s\n", nm2);

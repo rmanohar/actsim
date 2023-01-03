@@ -59,12 +59,17 @@ struct process_info {
   PrsSimGraph *prs;
 };
 
+
+const char *ActSimCore::_trname[TRACE_NUM_FORMATS] =
+  { "vcd", "atr" };
+
 ActSimCore::ActSimCore (Process *p)
 {
   _have_filter = 0;
-  _vcd_out = NULL;
-  _vcd_emit_time = false;
-  _watch_idx = 0;
+  for (int i=0; i < TRACE_NUM_FORMATS; i++) {
+    _trfn[i] = NULL;
+    _tr[i] = NULL;
+  }
   
   _black_box_mode = config_get_int ("net.black_box_mode");
 
@@ -1595,7 +1600,6 @@ ActSim::ActSim (Process *root) : ActSimCore (root)
 {
   /* nothing */
   _init_simobjs = NULL;
-  _trace_file = NULL;
   if (config_exists ("sim.device.timescale")) {
     _int_to_float_timescale = config_get_real ("sim.device.timescale");
   }
@@ -2643,21 +2647,168 @@ ActExclConstraint *ActExclConstraint::getNext (int nid)
   return NULL;
 }
 
+void ActSimCore::recordTrace (const watchpt_bucket *w, int type, 
+			      act_chan_state_t state, const BigInt &val)
+{
+  if (w->ignore_fmt == ~0U) {
+    return;
+  }
+  
+  float cur_time = curTimeMetricUnits();
 
-int ActSimCore::initAtrace (const char *file)
+  BigInt tm = SimDES::CurTime();
+  int len = tm.getLen();
+  unsigned long v;
+  unsigned long *ptm;
+  if (len == 1) {
+    v = tm.getVal (0);
+    ptm = &v;
+  }
+  else {
+    MALLOC (ptm, unsigned long, len);
+    for (int i=0; i < len; i++) {
+      ptm[i] = tm.getVal (i);
+    }
+  }
+  
+  if (type == 0) {
+    int v = val.getVal (0);
+    if (v == 0) {
+      v = ACT_SIG_BOOL_TRUE;
+    }
+    else if (v == 1) {
+      v = ACT_SIG_BOOL_FALSE;
+    }
+    else if (v == 2) {
+      v = ACT_SIG_BOOL_X;
+    }
+    for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
+      if (!((w->ignore_fmt >> fmt) & 1)) {
+	if (act_trace_has_alt (_trfn[fmt])) {
+	  act_trace_digital_change_alt (_tr[fmt], w->node[fmt],
+					len, ptm, v);
+	}
+	else {
+	  act_trace_digital_change (_tr[fmt], w->node[fmt], cur_time, v);
+	}
+      }
+    }
+  }
+  else if (type == 1) {
+    if (ACT_TRACE_WIDE_NUM (val.getWidth()) <= 1) {
+      for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
+	if (!((w->ignore_fmt >> fmt) & 1)) {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_digital_change_alt (_tr[fmt], w->node[fmt], len, ptm,
+					  val.getVal (0));
+	  }
+	  else {
+	    act_trace_digital_change (_tr[fmt], w->node[fmt], cur_time,
+				      val.getVal (0));
+	  }
+	}
+      }
+    }
+    else {
+      unsigned long *valp;
+      MALLOC (valp, unsigned long, val.getLen());
+      for (int i=0; i < val.getLen(); i++) {
+	valp[i] = val.getVal (i);
+      }
+      for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
+	if (!((w->ignore_fmt >> fmt) & 1)) {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_wide_digital_change_alt (_tr[fmt], w->node[fmt], len, ptm,
+					   val.getLen(), valp);
+	  }
+	  else {
+	    act_trace_wide_digital_change (_tr[fmt], w->node[fmt], cur_time,
+					   val.getLen(), valp);
+	  }
+	}
+      }
+      FREE (valp);
+    }
+  }
+  else if (type == 2) {
+    if (ACT_TRACE_WIDE_NUM (val.getWidth()) > 1) {
+      unsigned long *valp;
+      MALLOC (valp, unsigned long, ACT_TRACE_WIDE_NUM (val.getWidth()));
+      for (int i=0; i < ACT_TRACE_WIDE_NUM(val.getWidth()); i++) {
+	if (i < val.getLen()) {
+	  valp[i] = val.getVal (i);
+	}
+	else {
+	  valp[i] = 0;
+	}
+      }
+      for (int fmt = 0; fmt < TRACE_NUM_FORMATS; fmt++) {
+	if (!((w->ignore_fmt >> fmt) & 1)) {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_wide_chan_change_alt (_tr[fmt], w->node[fmt], len, ptm,
+					    state,
+					    ACT_TRACE_WIDE_NUM (val.getWidth()),
+					    valp);
+	  }
+	  else {
+	    act_trace_wide_chan_change (_tr[fmt], w->node[fmt], cur_time,
+					state,
+					ACT_TRACE_WIDE_NUM (val.getWidth()),
+					valp);
+	  }
+	}
+      }
+      FREE (valp);
+    }
+    else {
+      for (int fmt = 0; fmt < TRACE_NUM_FORMATS; fmt++) {
+	if (!((w->ignore_fmt >> fmt) & 1)) {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_chan_change_alt (_tr[fmt], w->node[fmt], len, ptm, state,
+				       val.getVal (0));
+	  }
+	  else {
+	    act_trace_chan_change (_tr[fmt], w->node[fmt], cur_time, state,
+				   val.getVal (0));
+	  }
+	}
+      }
+    }
+  }
+  if (len > 1) {
+    FREE (ptm);
+  }
+}
+
+int ActSimCore::initTrace (int fmt, const char *file)
 {
   double cur_time = curTimeMetricUnits ();
   double tm = cur_time + 1;
 
-  if (_trace_file) {
-    atrace_close (_trace_file);
+  Assert (0 <= fmt && fmt < TRACE_NUM_FORMATS, "Illegal format!");
+
+  if (_tr[fmt]) {
+    act_trace_close (_tr[fmt]);
+  }
+  if (!file) {
+    _tr[fmt] = NULL;
+    return 1;
   }
 
-  // create the atrace file
-  _trace_file = atrace_create (file, ATRACE_DELTA, tm, _int_to_float_timescale);
-  if (!_trace_file) {
+  if (!_trfn[fmt]) {
+    _trfn[fmt] = act_trace_load_format (_trname[fmt], NULL);
+  }
+  if (!_trfn[fmt]) {
     return 0;
   }
+
+  _tr[fmt] = act_trace_create (_trfn[fmt], file, tm, _int_to_float_timescale,
+			       act_trace_has_alt (_trfn[fmt]) ? 1 : 0);
+  
+  if (!_tr[fmt]) {
+    return 0;
+  }
+  
   if (_W) {
     ihash_bucket_t *b;
     watchpt_bucket *w;
@@ -2670,86 +2821,139 @@ int ActSimCore::initAtrace (const char *file)
       off >>= 2;
 
       w = (watchpt_bucket *) b->v;
-      w->ignore_atr = 0;
-      w->n = atrace_create_node (_trace_file, w->s);
-
+      w->ignore_fmt &= ~(1 << fmt);
       if (type == 0) {
-	atrace_mk_digital (w->n);
-	atrace_mk_width (w->n, 1);
+	w->node[fmt] = act_trace_add_signal (_tr[fmt], ACT_SIG_BOOL, w->s, 0);
       }
       else if (type == 1) {
 	BigInt *tmp = getInt (off);
-	atrace_mk_digital (w->n);
-	atrace_mk_width (w->n, tmp->getWidth());
+	w->node[fmt] = act_trace_add_signal (_tr[fmt], ACT_SIG_INT, w->s,
+					     tmp->getWidth());
       }
       else if (type == 2) {
 	act_channel_state *ch = getChan (off);
-	atrace_mk_channel (w->n);
-	atrace_mk_width (w->n, ch->width);
+	w->node[fmt] = act_trace_add_signal (_tr[fmt], ACT_SIG_CHAN, w->s,
+					     ch->width);
       }
     }
 
     // now dump current  value
+    BigInt tm = SimDES::CurTime();
+    int tmlen = tm.getLen ();
+    unsigned long tmpv;
+    unsigned long *ptm;
+    if (tmlen == 1) {
+      tmpv = tm.getVal (0);
+      ptm = &tmpv;
+    }
+    else {
+      MALLOC (ptm, unsigned long, tmlen);
+      for (int i=0; i < tmlen; i++) {
+	ptm[i] = tm.getVal (i);
+      }
+    }
+    
+    act_trace_init_start (_tr[fmt]);
     ihash_iter_init (_W, &it);
     while ((b = ihash_iter_next (_W, &it))) {
-      atrace_val_t av;
       unsigned long off = b->key;
       int type = off & 0x3;
       off >>= 2;
 
       w = (watchpt_bucket *) b->v;
-      w->ignore_atr = 0;
-      w->n = atrace_create_node (_trace_file, w->s);
-
       if (type == 0) {
-	av.val = getBool (off);
-	atrace_general_change (_trace_file, w->n, cur_time, &av);
+	int v = getBool (off);
+	if (v == 0) {
+	  v = ACT_SIG_BOOL_TRUE;
+	}
+	else if (v == 1) {
+	  v = ACT_SIG_BOOL_FALSE;
+	}
+	else if (v == 2) {
+	  v = ACT_SIG_BOOL_X;
+	}
+	if (act_trace_has_alt (_trfn[fmt])) {
+	  act_trace_digital_change_alt (_tr[fmt], w->node[fmt], tmlen, ptm, v);
+	}
+	else {
+	  act_trace_digital_change (_tr[fmt], w->node[fmt], cur_time, v);
+	}
       }
       else if (type == 1) {
 	BigInt *tmp = getInt (off);
-	atrace_alloc_val_entry (w->n, &av);
-	if (ATRACE_WIDE_NODE (w->n)) {
-	  for (int i=0; i < ATRACE_WIDE_NUM(w->n); i++) {
-	    if (i >= tmp->getLen()) {
-	      av.valp[i] = 0;
-	    }
-	    else {
-	      av.valp[i] = tmp->getVal (i);
-	    }
+	if (ACT_TRACE_WIDE_NUM (tmp->getWidth()) <= 1) {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_digital_change_alt (_tr[fmt], w->node[fmt], tmlen, ptm,
+				      tmp->getVal (0));
+	  }
+	  else {
+	    act_trace_digital_change (_tr[fmt], w->node[fmt], cur_time,
+				      tmp->getVal (0));
 	  }
 	}
 	else {
-	  av.val = tmp->getVal (0);
+	  unsigned long *v;
+	  MALLOC (v, unsigned long, tmp->getLen());
+	  for (int i=0; i < tmp->getLen(); i++) {
+	    v[i] = tmp->getVal (i);
+	  }
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_wide_digital_change_alt (_tr[fmt], w->node[fmt],
+					       tmlen, ptm, 
+					       tmp->getLen(), v);
+	  }
+	  else {
+	    act_trace_wide_digital_change (_tr[fmt], w->node[fmt], cur_time,
+					   tmp->getLen(), v);
+	  }
+	  FREE (v);
 	}
-	atrace_general_change (_trace_file, w->n, cur_time, &av);
-	atrace_free_val_entry (w->n, &av);
       }
       else if (type == 2) {
 	act_channel_state *ch = getChan (off);
-	int state;
-	atrace_alloc_val_entry (w->n, &av);
+	act_chan_state_t state;
 	if (WAITING_SENDER (ch)) {
-	  state = ATRACE_CHAN_SEND_BLOCKED;
+	  state = ACT_CHAN_SEND_BLOCKED;
 	}
 	else if (WAITING_RECEIVER(ch)) {
-	  state = ATRACE_CHAN_RECV_BLOCKED;
+	  state = ACT_CHAN_RECV_BLOCKED;
 	}
 	else {
-	  state = ATRACE_CHAN_IDLE;
+	  state = ACT_CHAN_IDLE;
 	}
-	if (ATRACE_WIDE_NODE (w->n)) {
-	  av.valp[0] = state;
-	  for (int i=1; i < ATRACE_WIDE_NUM(w->n); i++) {
-	    av.valp[i] = 0;
+	if (ACT_TRACE_WIDE_NUM (ch->width) > 1) {
+	  unsigned long *v;
+	  MALLOC (v, unsigned long, ACT_TRACE_WIDE_NUM (ch->width));
+	  for (int i=0; i < ACT_TRACE_WIDE_NUM(ch->width); i++) {
+	    v[i] = 0;
+	  }
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_wide_chan_change_alt (_tr[fmt], w->node[fmt],
+					    tmlen, ptm, state,
+					    ACT_TRACE_WIDE_NUM (ch->width), v);
+	  }
+	  else {
+	    act_trace_wide_chan_change (_tr[fmt], w->node[fmt], cur_time,
+					state, ACT_TRACE_WIDE_NUM (ch->width),
+					v);
+	  }
+	  FREE (v);
+	}
+	else {
+	  if (act_trace_has_alt (_trfn[fmt])) {
+	    act_trace_chan_change_alt (_tr[fmt], w->node[fmt], tmlen, ptm,
+				       state, 0);
+	  }
+	  else {
+	    act_trace_chan_change (_tr[fmt], w->node[fmt], cur_time, state, 0);
 	  }
 	}
-	else {
-	  av.val = state;
-	}
-	atrace_general_change (_trace_file, w->n, cur_time, &av);
-	atrace_free_val_entry (w->n, &av);
       }
     }
+    if (tmlen > 1) {
+      FREE (ptm);
+    }
+    act_trace_init_end (_tr[fmt]);
   }
   return 1;
 }
@@ -2881,258 +3085,4 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
     }
     delete id;
   }
-}
-
-const char *ActSimCore::_idx_to_char (const watchpt_bucket *w)
-{
-  return _idx_to_char (w->idx);
-}
-
-const char *ActSimCore::_idx_to_char (int idx)
-{
-  const int start_code = 33;
-  const int end_code = 126;
-  static char buf[100];
-  int pos = 0;
-
-  do {
-    Assert (pos < 99, "Shortcut is too long; increase static buffer size!");
-    buf[pos] = (idx % (end_code - start_code + 1)) + start_code;
-    idx = (idx - (idx % (end_code - start_code + 1)))/(end_code - start_code + 1);
-    pos++;
-  } while (idx > 0);
-  buf[pos] = '\0';
-  return buf;
-}
-
-
-static int _vcd_group_signals (const void *a, const void *b)
-{
-  int imode;
-  ihash_bucket_t *ba = (ihash_bucket_t *)a;
-  ihash_bucket_t *bb = (ihash_bucket_t *)b;
-  char *as = ((ActSimCore::watchpt_bucket *) ba->v)->s;
-  char *bs = ((ActSimCore::watchpt_bucket *) bb->v)->s;
-  long ia, ib;
-
-  /* string compare: normal strcmp, but when you are in integer mode,
-     reverse the integers */
-  imode = 0;
-  ia = 0;
-  ib = 0;
-  while (*as && *bs) {
-    if (imode == 0) {
-      if (*as != *bs) {
-	return *as - *bs;
-      }
-      if (*as == '[') {
-	imode = 1;
-	ia = 0;
-	ib = 0;
-      }
-    }
-    else {
-      if (*as != *bs) {
-	while (*as && isdigit (*as)) {
-	  ia = ia*10 + (*as - '0');
-	  as++;
-	}
-	while (*bs && isdigit (*bs)) {
-	  ib = ib*10 + (*bs - '0');
-	  bs++;
-	}
-	return ib - ia;
-      }
-      else {
-	if (isdigit (*as)) {
-	  ia = ia*10 + (*as - '0');
-	  ib = ib*10 + (*bs - '0');
-	}
-	else {
-	  imode = 0;
-	}
-      }
-    }
-    as++;
-    bs++;
-  }
-  return *as - *bs;
-}
-
-
-void ActSimCore::_dump_vcdheader (FILE *fp)
-{
-  extern ActSim *glob_sim;
-  
-  time_t curtime = time (NULL);
-  // emit VCD header 
-  fprintf (fp, "$date\n");
-  fprintf (fp, "   %s\n", ctime (&curtime));
-  fprintf (fp, "$end\n");
-  fprintf (fp, "$version\n");
-  fprintf (fp, "   VCD generated by actsim.\n");
-  fprintf (fp, "$end\n");
-  fprintf (fp, "$comment\n");
-  fprintf (fp, "   actual timescale is %g.\n", glob_sim->getTimescale()); 
-  fprintf (fp, "$end\n");
-  fprintf (fp, "$timescale ");
-
-  double l10 = log10 (glob_sim->getTimescale());
-  if (l10 < -14) {
-    fprintf (fp, "1 fs ");
-  }
-  else if (l10 < -13) {
-    fprintf (fp, "10 fs ");
-  }
-  else if (l10 < -12) {
-    fprintf (fp, "100 fs ");
-  }
-  else if (l10 < -11) {
-    fprintf (fp, "1 ps ");
-  }
-  else if (l10 < -10) {
-    fprintf (fp, "10 ps ");
-  }
-  else if (l10 < -9) {
-    fprintf (fp, "100 ps ");
-  }
-  else if (l10 < -8) {
-    fprintf (fp, "1 ns ");
-  }
-  else if (l10 < -7) {
-    fprintf (fp, "10 ns ");
-  }
-  else if (l10 < -6) {
-    fprintf (fp, "100 ns ");
-  }
-  else if (l10 < -5) {
-    fprintf (fp, "1 us ");
-  }
-  else if (l10 < -4) {
-    fprintf (fp, "10 us ");
-  }
-  else if (l10 < -3) {
-    fprintf (fp, "100 us ");
-  }
-  else if (l10 < -2) {
-    fprintf (fp, "1 ms ");
-  }
-  else if (l10 < -1) {
-    fprintf (fp, "10 ms ");
-  }
-  else if (l10 < 0) {
-    fprintf (fp, "100 ms ");
-  }
-  else {
-    fprintf (fp, "1 s ");
-  }
-  fprintf (fp, " $end\n");
-  fprintf (fp, "$scope module %s $end\n", actsim_top()->getName());
-}
-
-void ActSimCore::_dump_vcdheader_part2 (FILE *fp)
-{
-  fprintf (fp, "$upscope $end\n");
-  fprintf (fp, "$enddefinitions $end\n");
-  fprintf (fp, "$dumpvars\n");
-}
-
-
-void ActSimCore::setVCD (FILE *fp)
-{
-  if (!_vcd_out && fp) {
-    _dump_vcdheader (fp);
-    int idxmax = 0;
-    if (_W) {
-      ihash_bucket_t *b;
-      ihash_iter_t it;
-      watchpt_bucket *w;
-      ihash_bucket_t **bsort;
-
-      bsort = NULL;
-      int bcnt = 0;
-      if (_W->n > 0) {
-	MALLOC (bsort, ihash_bucket_t *, _W->n);
-      }
-
-      ihash_iter_init (_W, &it);
-      while ((b = ihash_iter_next (_W, &it))) {
-	Assert (bcnt < _W->n, "What?");
-	bsort[bcnt++] = b;
-      }
-      Assert (bcnt == _W->n, "Hash table issue!");
-
-      mymergesort ((const void **)bsort, bcnt, _vcd_group_signals);
-
-      for (int k=0; k < bcnt; k++) {
-	b = bsort[k];
-	unsigned long off = b->key;
-	int type = off & 0x3;
-	off >>= 2;
-	w = (watchpt_bucket *) b->v;
-	w->ignore_vcd = 0;
-
-	if (type == 0) {
-	  /* bool */
-	  fprintf (fp, "$var wire 1 %s %s $end\n", _idx_to_char (w), w->s);
-	}
-	else if (type == 1) {
-	  /* int */
-	  BigInt *tmp = getInt (off);
-	  fprintf (fp, "$var wire %d %s %s $end\n", tmp->getWidth(),
-		   _idx_to_char (w), w->s);
-	}
-	else if (type == 2 || type == 3) {
-	  /* chan */
-	  act_channel_state *ch = getChan (off);
-	  if (ch->width != -1) {
-	    fprintf (fp, "$var wire %d %s %s $end\n",
-		     ch->width, _idx_to_char (w), w->s);
-	  }
-	}
-	if (idxmax < w->idx) {
-	  idxmax = w->idx;
-	}
-      }
-      if (bcnt > 0) {
-	FREE (bsort);
-      }
-    }
-    _dump_vcdheader_part2 (fp);
-    if (_W) {
-      ihash_bucket_t *b;
-      ihash_iter_t it;
-      watchpt_bucket *w;
-
-      ihash_iter_init (_W, &it);
-      while ((b = ihash_iter_next (_W, &it))) {
-	unsigned long off = b->key;
-	int type = off & 0x3;
-	off >>= 2;
-	w = (watchpt_bucket *) b->v;
-
-	if (type == 0) {
-	  int oval = getBool (off);
-	  fprintf (fp, "%c%s\n", oval == 2 ? 'x' : ('0' + oval),
-		   _idx_to_char (w));
-	}
-	else if (type == 1) {
-	  /* int */
-	  BigInt *tmp = getInt (off);
-	  fprintf (fp, "b");
-	  tmp->bitPrint (fp);
-	  fprintf (fp, " %s\n", _idx_to_char (w));
-	}
-	else if (type == 2 || type == 3) {
-	  /* chan */
-	  act_channel_state *ch = getChan (off);
-	  if (ch->width != -1) {
-	    fprintf (fp, "bz %s\n", _idx_to_char (w));
-	  }
-	}
-      }
-    }
-    fprintf (fp, "$end\n");
-  }
-  _vcd_out = fp;
 }

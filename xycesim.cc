@@ -31,7 +31,6 @@
 #include <N_IO_fwd.h>
 #include <N_IO_ExtOutInterface.h>
 #include <N_CIR_GenCouplingSimulator.h>
-#include <common/atrace.h>
 #include <string.h>
 #include <act/tracelib.h>
 

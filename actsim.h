@@ -24,7 +24,7 @@
 
 #include <common/bitset.h>
 #include <common/simdes.h>
-#include <common/atrace.h>
+#include <act/tracelib.h>
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
@@ -64,6 +64,10 @@ class OnePrsSim;
 
 #define MAX_LOCAL_PCS SIM_EV_MAX
 
+
+#define TRACE_NUM_FORMATS 2
+#define TRACE_VCD 0
+#define TRACE_ATR 1
 
 class ActSimState {
 public:
@@ -389,11 +393,8 @@ class ActSimCore {
 
   struct watchpt_bucket {
     char *s;
-    unsigned int ignore_disp:1;	// ignore watchpoint for text display
-    unsigned int ignore_vcd:1;	// ignore watchpoint for vcd out
-    unsigned int ignore_atr:1;	// ignore watchpoint for trace file out
-    int idx;			// for vcd output
-    name_t *n;			// atrace node
+    unsigned int ignore_fmt;
+    void *node[TRACE_NUM_FORMATS];
   };
 
   inline void addWatchPt (int type, unsigned long off, const char *name) {
@@ -412,19 +413,9 @@ class ActSimCore {
     NEW (w, watchpt_bucket);
     b->v = w;
     w->s = Strdup (name);
-    w->idx = _watch_idx++;
-    w->n = NULL;
-    if (_vcd_out) {
-      w->ignore_vcd = 1;
-    }
-    else {
-      w->ignore_vcd = 0;
-    }
-    if (_trace_file) {
-      w->ignore_atr = 1;
-    }
-    else {
-      w->ignore_atr = 0;
+    w->ignore_fmt = ~0U;
+    for (int i=0; i < TRACE_NUM_FORMATS; i++) {
+      w->node[i] = NULL;
     }
   }
 
@@ -481,35 +472,10 @@ class ActSimCore {
     }
   }
 
-  void setVCD (FILE *fp);	// clear when it is NULL
-  
-  void emitVCDTime() {
-    if (!_vcd_out) return;
-    if (_vcd_emit_time == false || (SimDES::CurTime() != _last_vcd_time)) {
-      _vcd_emit_time = true;
-      fprintf (_vcd_out, "#");
-      _last_vcd_time = SimDES::CurTime ();
-      _last_vcd_time.decPrint (_vcd_out);
-      fprintf (_vcd_out, "\n");
-    }
-  }
-
-  FILE *getVCD () { return _vcd_out; }
-
-  const char *_idx_to_char (const watchpt_bucket *w);
-  static const char *_idx_to_char (int idx);
-  static void _dump_vcdheader (FILE *fp);
-  static void _dump_vcdheader_part2 (FILE *fp);
-
-  int initAtrace (const char *file); // return 1 if success, 0 if fail
-  atrace *getAtrace () { return _trace_file; }
-  void closeAtrace () {
-    if (_trace_file) {
-      atrace_close (_trace_file);
-    }
-    _trace_file = NULL;
-  }
-
+  int initTrace (int fmt, const  char *name); // clear when it is NULL
+  act_trace_t *getTrace (int fmt) { return _tr[fmt]; }
+  void recordTrace (const watchpt_bucket *w, int type,
+		    act_chan_state_t chan_state, const BigInt &val);
 
   void setTimescale (float tm) { _int_to_float_timescale = tm*1e-12; }
   float getTimescale() { return _int_to_float_timescale; }
@@ -582,17 +548,12 @@ protected:
 
   struct iHashtable *_W;		/* watchpoints */
   struct iHashtable *_B;		/* breakpoints */
-  int _watch_idx;
 
-  FILE *_vcd_out;		 // vcd output file
-  bool _vcd_emit_time;		 // emit vcd time
-  BigInt _last_vcd_time;	 // vcd time
-
-    
-  atrace *_trace_file;		 // output atrace file, if any
+  act_extern_trace_func_t *_trfn[TRACE_NUM_FORMATS];
+  act_trace_t *_tr[TRACE_NUM_FORMATS];
+  static const char *_trname[TRACE_NUM_FORMATS];
   float _int_to_float_timescale; // units to convert integer units
 				 // to time
-
   /*-- timing forks --*/
   
   
