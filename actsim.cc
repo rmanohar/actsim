@@ -61,7 +61,7 @@ struct process_info {
 
 
 const char *ActSimCore::_trname[TRACE_NUM_FORMATS] =
-  { "vcd", "atr" };
+  { "vcd", "atr", "lxt2" };
 
 ActSimCore::ActSimCore (Process *p)
 {

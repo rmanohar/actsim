@@ -1112,6 +1112,41 @@ int process_stopalint (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_createlxt2 (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <file>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (glob_sim->getTrace (TRACE_LXT2)) {
+    fprintf (stderr, "%s: closing current LXT2 file\n", argv[0]);
+    glob_sim->initTrace (TRACE_LXT2, NULL);
+  }
+
+  if (!glob_sim->initTrace (TRACE_LXT2, argv[1])) {
+    return LISP_RET_ERROR;
+  }
+  
+  return LISP_RET_TRUE;
+}
+
+int process_stoplxt2 (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (glob_sim->getTrace (TRACE_LXT2)) {
+    glob_sim->initTrace (TRACE_LXT2, NULL);
+  }
+  else {
+    fprintf (stderr, "%s: no current LXT2 file.\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  return LISP_RET_TRUE;
+}
+
 int process_timescale (int argc, char **argv)
 {
   double tm;
@@ -1192,6 +1227,8 @@ struct LispCliCommand Cmds[] = {
   { "vcd_stop", "- Stop VCD generation", process_stopvcd },
   { "trace_start", "<file> - Create ACT trace file for all watched values", process_createalint },
   { "trace_stop", "- Stop ACT trace file generation", process_stopalint },
+  { "lxt2_start", "<file> - Create LXT2 format trace file for all watched values", process_createlxt2 },
+  { "lxt2_stop", "- Stop LXT2 trace file generation", process_stoplxt2 },
   
 #if 0  
   { "pending", "- dump pending events", process_pending },

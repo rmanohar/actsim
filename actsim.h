@@ -65,9 +65,10 @@ class OnePrsSim;
 #define MAX_LOCAL_PCS SIM_EV_MAX
 
 
-#define TRACE_NUM_FORMATS 2
-#define TRACE_VCD 0
-#define TRACE_ATR 1
+#define TRACE_NUM_FORMATS 3
+#define TRACE_VCD  0
+#define TRACE_ATR  1
+#define TRACE_LXT2 2
 
 class ActSimState {
 public:
