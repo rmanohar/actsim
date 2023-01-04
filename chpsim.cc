@@ -49,12 +49,35 @@ class ChanTraceIdle : public SimDES {
   ~ChanTraceIdle () { _n = NULL; }
 
   int Step (Event *ev) {
+    BigInt xtm = SimDES::CurTime();
     float tm = glob_sim->curTimeMetricUnits ();
+    int len = xtm.getLen();
+    unsigned long tval;
+    unsigned long *ptm;
+    if (len == 1) {
+      tval = xtm.getVal (0);
+      ptm = &tval;
+    }
+    else {
+      MALLOC (ptm, unsigned long, len);
+      for (int i=0; i < len; i++) {
+	ptm[i] = xtm.getVal (i);
+      }
+    }
     for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
       act_trace_t *tr = glob_sim->getTrace (fmt);
       if (tr && !((_n->ignore_fmt >> fmt) & 1)) {
-	act_trace_chan_change (tr, _n->node[fmt], tm, ACT_CHAN_IDLE, 0);
+	if (act_trace_has_alt (tr->t)) {
+	  act_trace_chan_change_alt (tr, _n->node[fmt], len, ptm,
+				     ACT_CHAN_IDLE, 0);
+	}
+	else {
+	  act_trace_chan_change (tr, _n->node[fmt], tm, ACT_CHAN_IDLE, 0);
+	}
       }
+    }
+    if (len > 1) {
+      FREE (ptm);
     }
     delete this;
     return 1;
@@ -5223,6 +5246,7 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 
 	if (umode == 1) {
 	  printf ("-blocked\n");
+	  _sc->recordTrace (nm, 2, ACT_CHAN_RECV_BLOCKED, v);
 	}
 	else if (umode == 0 || umode == 2) {
 	  if (umode == 2) {
@@ -5233,14 +5257,6 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  printf (" (0x");
 	  v.hexPrint (stdout);
 	  printf (")\n");
-	}
-
-	if (umode == 1) {
-	  _sc->recordTrace (nm, 2, ACT_CHAN_RECV_BLOCKED, v);
-	}
-	else {
-	  ChanTraceIdle *obj = new ChanTraceIdle (nm);
-	  new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
 	}
       }
       if (verb & 2) {
@@ -5268,16 +5284,12 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    printf (")");
 	  }
 	  printf ("\n");
-	}
-	else {
-	  printf ("%s : send complete\n", nm->s);
-	}
-
-	if (umode == 0 || umode == 2) {
 	  _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
 	}
 	else {
-	  _sc->recordTrace (nm, 2, ACT_CHAN_SEND_BLOCKED, v);
+	  ChanTraceIdle *obj = new ChanTraceIdle (nm);
+	  new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
+	  printf ("%s : send complete\n", nm->s);
 	}
 	
 	if (verb & 2) {
