@@ -302,6 +302,13 @@ ActSimCore::~ActSimCore()
 
   /*-- instance tables --*/
   _delete_sim_objs (&I, 0);
+
+  /*-- close any pending trace files --*/
+  for (int i=0; i < TRACE_NUM_FORMATS; i++) {
+    if (_tr[i]) {
+      act_trace_close (_tr[i]);
+    }
+  }
 }
 
 
