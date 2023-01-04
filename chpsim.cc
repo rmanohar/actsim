@@ -43,10 +43,11 @@ extern ActSim *glob_sim;
  * Dummy object used for adding an "idle" to the channel trace log
  *
  */
-class ChanTraceIdle : public SimDES {
+class ChanTraceDelayed : public SimDES {
  public:
-  ChanTraceIdle (const ActSim::watchpt_bucket *n) { _n = n; }
-  ~ChanTraceIdle () { _n = NULL; }
+  ChanTraceDelayed (const ActSim::watchpt_bucket *n) { _n = n; _has_val = 0; }
+  ChanTraceDelayed (const ActSim::watchpt_bucket *n, const BigInt &x) { _n = n; _has_val = 1; _v = x; }
+  ~ChanTraceDelayed () { _n = NULL; }
 
   int Step (Event *ev) {
     BigInt xtm = SimDES::CurTime();
@@ -64,28 +65,71 @@ class ChanTraceIdle : public SimDES {
 	ptm[i] = xtm.getVal (i);
       }
     }
+    unsigned long valdat;
+    unsigned long *value;
+    value = NULL;
+    if (_has_val) {
+      if (_v.getLen() > 1) {
+	MALLOC (value, unsigned long, _v.getLen());
+	for (int i=0; i < _v.getLen(); i++) {
+	  value[i] = _v.getVal (i);
+	}
+      }
+    }
+    
     for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
       act_trace_t *tr = glob_sim->getTrace (fmt);
       if (tr && !((_n->ignore_fmt >> fmt) & 1)) {
 	if (act_trace_has_alt (tr->t)) {
-	  act_trace_chan_change_alt (tr, _n->node[fmt], len, ptm,
-				     ACT_CHAN_IDLE, 0);
+	  if (_has_val) {
+	    if (_v.getLen() == 1) {
+	      act_trace_chan_change_alt (tr, _n->node[fmt], len, ptm,
+					 ACT_CHAN_VALUE, _v.getVal (0));
+	    }
+	    else {
+	      act_trace_wide_chan_change_alt (tr, _n->node[fmt], len, ptm,
+					      ACT_CHAN_VALUE,
+					      _v.getLen(), value);
+	    }
+	  }
+	  else {
+	    act_trace_chan_change_alt (tr, _n->node[fmt], len, ptm,
+				       ACT_CHAN_IDLE, 0);
+	  }
 	}
 	else {
-	  act_trace_chan_change (tr, _n->node[fmt], tm, ACT_CHAN_IDLE, 0);
+	  if (_has_val) {
+	    if (_v.getLen() == 1) {
+	      act_trace_chan_change (tr, _n->node[fmt], tm,
+				     ACT_CHAN_VALUE, _v.getVal (0));
+	    }
+	    else {
+	      act_trace_wide_chan_change (tr, _n->node[fmt], tm,
+					  ACT_CHAN_VALUE, _v.getLen(), value);
+	    }
+	  }
+	  else {
+	    act_trace_chan_change (tr, _n->node[fmt], tm, ACT_CHAN_IDLE, 0);
+	  }
 	}
       }
     }
     if (len > 1) {
       FREE (ptm);
     }
+
+    if (_has_val && _v.getLen() > 1) {
+      FREE (value);
+    }
+    
     delete this;
     return 1;
   }
  private:
   const ActSim::watchpt_bucket *_n;
+  unsigned int _has_val:1;
+  BigInt _v;
 };  
-
 
 //#define DUMP_ALL
 
@@ -5284,10 +5328,19 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    printf (")");
 	  }
 	  printf ("\n");
-	  _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
+	  if (umode == 1) {
+	    _sc->recordTrace (nm, 2, ACT_CHAN_SEND_BLOCKED, v);
+	    ChanTraceDelayed *obj = new ChanTraceDelayed (nm, v);
+	    new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
+	  }
+	  else {
+	    _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
+	    ChanTraceDelayed *obj = new ChanTraceDelayed (nm);
+	    new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
+	  }
 	}
 	else {
-	  ChanTraceIdle *obj = new ChanTraceIdle (nm);
+	  ChanTraceDelayed *obj = new ChanTraceDelayed (nm);
 	  new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
 	  printf ("%s : send complete\n", nm->s);
 	}
