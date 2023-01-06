@@ -523,7 +523,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
   A_INIT (idx);
   
   while (s) {
-    if (ACT_SPEC_ISTIMING (s)) {
+    if (ACT_SPEC_ISTIMINGFORK (s)) {
       InstType *it[3];
       Array *aref[3];
       act_connection *r, *a, *b;
@@ -681,6 +681,9 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  }
 	}
       }
+    }
+    else if (ACT_SPEC_ISTIMING(s)) {
+      /* ignore timing graph specifiers */
     }
     else {
       const char *tmp = act_spec_string (s->type);
