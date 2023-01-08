@@ -512,8 +512,6 @@ static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
   if (!res) {
     /* it is possible that it is an array reference */
     Array *ta = NULL;
-    ActId *tid;
-    tid = tmp;
     while (tmp->Rest()) {
       tmp = tmp->Rest();
     }
@@ -1271,8 +1269,6 @@ int debug_metrics;
 
 int main (int argc, char **argv)
 {
-  char *proc;
-
   config_set_default_int ("sim.chp.default_delay", 10);
   config_set_default_int ("sim.chp.default_energy", 0);
   config_set_default_real ("sim.chp.default_leakage", 0);

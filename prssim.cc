@@ -593,9 +593,7 @@ static int _breakpt;
 int OnePrsSim::Step (Event *ev)
 {
   int ev_type = ev->getType ();
-  int u_state, d_state;
   int t = SIM_EV_TYPE (ev_type);
-  const char *nm;
 
   _breakpt = 0;
   _pending = NULL;

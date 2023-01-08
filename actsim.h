@@ -384,6 +384,9 @@ class ActSimCore {
       d = (0.0 + rand_r (&_seed))/RAND_MAX;
       val = _rand_min + d*(_rand_max - _rand_min);
     }
+    else {
+      val = 0;
+    }
     if (val == 0) { val = 1; }
     return val;
   }

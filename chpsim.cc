@@ -65,7 +65,6 @@ class ChanTraceDelayed : public SimDES {
 	ptm[i] = xtm.getVal (i);
       }
     }
-    unsigned long valdat;
     unsigned long *value;
     value = NULL;
     if (_has_val) {
@@ -137,7 +136,7 @@ static int stat_count = 0;
 
 static void _chp_print (pp_t *pp, act_chp_lang_t *c, int prec = 0)
 {
-  int lprec;
+  int lprec = 0;
   
   if (!c) return;
 
@@ -1029,14 +1028,11 @@ int ChpSim::Step (Event *ev)
   int pc = SIM_EV_TYPE (ev_type);
   int flag = SIM_EV_FLAGS (ev_type);
   int forceret = 0;
-  int joined;
   int frag;
   BigInt v;
   expr_multires vs, xchg;
   int off, goff;
-  const char *nm, *nm2;
   int _breakpt = 0;
-  int verb;
 
   if (pc == MAX_LOCAL_PCS) {
     Assert (!list_isempty (_stalled_pc), "What?");
@@ -1179,9 +1175,7 @@ int ChpSim::Step (Event *ev)
       struct chpsimderef *d;
       int id;
       int type;
-      int width;
       int rv;
-      int vchan;
 
       if (stmt->u.sendrecv.is_structx) {
 	/* bidirectional */
@@ -1189,7 +1183,6 @@ int ChpSim::Step (Event *ev)
 	  type = stmt->u.sendrecv.d_type;
 	  d = stmt->u.sendrecv.d;
 	  id = computeOffset (d);
-	  width = d->width;
 	}
 	else {
 	  type = -1;
@@ -1290,15 +1283,12 @@ int ChpSim::Step (Event *ev)
       struct chpsimderef *d;
       int id;
       int type;
-      int width;
       int rv;
-      int vchan;
       
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
 	d = stmt->u.sendrecv.d;
 	id = computeOffset (d);
-	width = d->width;
       }
       else {
 	type = -1;
@@ -1965,7 +1955,6 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
   BigInt *x, res;
   expr_multires *xm, resm;
   act_chp_gc_t *gc;
-  int rep;
   struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
   InstType *xit;
   
@@ -2196,7 +2185,7 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 		   f->getName());
     }
 
-    expr_res *extargs;
+    expr_res *extargs = NULL;
     expr_res extret;
     if (nargs > 0) {
       MALLOC (extargs, expr_res, nargs);
@@ -2830,7 +2819,6 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
 {
   struct Hashtable *lstate;
   hash_bucket_t *b;
-  hash_iter_t iter;
   BigInt *x;
   expr_multires *xm;
   expr_multires ret;
@@ -3077,6 +3065,7 @@ int ChpSim::_max_program_counters (act_chp_lang_t *c)
 
   default:
     fatal_error ("Unknown chp type %d\n", c->type);
+    ret = 1;
     break;
   }
   return ret;
@@ -3187,7 +3176,7 @@ static void _rec_mark_userdef_used (ActSimCore *_sc, ActId *id,
 
 static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 {
-  int sz, loff;
+  int loff;
   int type;
   ihash_bucket_t *b;
   InstType *it;
@@ -3289,11 +3278,7 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
 
 void ChpSim::_compute_used_variables_helper (Expr *e)
 {
-  int loff, type;
-  ihash_bucket_t *b;
-      
   if (!e) return;
-
 
   switch (e->type) {
     /* binary */
@@ -3365,7 +3350,6 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
     
   case E_FUNCTION:
     {
-      Expr *tmp = NULL;
       e = e->u.fn.r;
       while (e) {
 	_compute_used_variables_helper (e->u.e.l);
@@ -3384,9 +3368,6 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
 
 void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
 {
-  int loff, type;
-  ihash_bucket_t *b;
-
   if (!c) return;
   
   switch (c->type) {
@@ -3667,7 +3648,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
 
   Assert (ds->offset == 3*(ts.numInts() + ts.numBools()), "What?");
   
-  ds->cx = id->Canonical (s->cursi()->bnl->cur);
+  ds->cx = id->Canonical (sc);
   return ds;
 }
 
@@ -3802,7 +3783,7 @@ static void _free_chp_expr (Expr *e)
  */
 static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 {
-  Expr *ret, *tmp;
+  Expr *ret;
   if (!e) return NULL;
   NEW (ret, Expr);
   ret->type = e->type;
@@ -4187,7 +4168,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     i = 0;
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
-      act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
       ret->all[i] = _buildChpSimGraph (sc,
 				      (act_chp_lang_t *)list_value (li), &tmp2);
       if (ret->all[i]) {
@@ -4797,8 +4777,6 @@ void ChpSim::dumpState (FILE *fp)
 
 void ChpSim::dumpStats (FILE *fp)
 {
-  int found = 0;
-
   if (_maxstats > 0) {
     
     fprintf (fp, "--- Process: ");
@@ -5074,8 +5052,8 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
   }
   else {
     struct_info = d->idx;
-    struct_len = 3*(ts.numInts() + ts.numBools());
   }
+  struct_len = 3*(ts.numInts() + ts.numBools());
   for (int i=0; i < struct_len/3; i++) {
 #if 0
     printf ("%d (%d:w=%d) := %lu (w=%d)\n",
@@ -5243,7 +5221,6 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
       int oval = _sc->getBool (goff);
       if (oval != v.getVal (0)) {
 	if (verb & 1) {
-	  FILE *vcd;
 	  msgPrefix ();
 	  printf ("%s := %c\n", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
 
@@ -5260,7 +5237,6 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
       BigInt *otmp = _sc->getInt (goff);
       if (*otmp != v) {
 	if (verb & 1) {
-	  FILE *vcd;
 	  msgPrefix ();
 	  printf ("%s := ", nm->s);
 	  v.decPrint (stdout);

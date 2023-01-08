@@ -806,7 +806,6 @@ void ActSimCore::_check_fragmentation (PrsSim *p)
 
 void ActSimCore::_check_fragmentation (XyceSim *x)
 {
-  int i;
   stateinfo_t *si = x->getSI();
   act_boolean_netlist_t *bnl = x->getBNL();
 
@@ -1682,7 +1681,6 @@ int ActSimCore::getLocalDynamicStructOffset (act_connection *c,
 					     int *offset_i, int *offset_b)
 {
   int res;
-  int offset;
 
   if (!sp->connExists (si, c)) {
     ActId *t = c->toid();
@@ -3059,6 +3057,7 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
 	    tail = tail->Rest();
 	    Assert (tail, "What?");
 	  }
+	  tmp = xtmp;
 
 	  InstType *chit = ch->ct->CurScope()->FullLookup (tail, NULL);
 	  Assert (chit, "Channel didn't have pieces?");
