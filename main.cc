@@ -622,6 +622,7 @@ int process_set (int argc, char **argv)
     glob_sim->setBool (offset, val);
   }
   else if (type == 1) {
+    BigInt *otmp = glob_sim->getInt (offset);
     val = atoi (argv[2]);
     if (val < 0) {
       fprintf (stderr, "Integers are unsigned.\n");
@@ -629,11 +630,10 @@ int process_set (int argc, char **argv)
     }
     BigInt x(64, 0, 0);
     x = val;
+    x.setWidth (otmp->getWidth());
 
     const ActSim::watchpt_bucket *nm;
     if ((nm = glob_sim->chkWatchPt (1, offset))) {
-      BigInt *otmp = glob_sim->getInt (offset);
-      x.setWidth (otmp->getWidth());
       if (*otmp != x) {
 	BigInt tm = SimDES::CurTime();
 	printf ("[");
