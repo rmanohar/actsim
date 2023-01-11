@@ -335,6 +335,8 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
 
 XyceActInterface *XyceActInterface::_single_inst = NULL;
 
+extern ActSim *glob_sim;
+
 XyceActInterface::XyceActInterface()
 {
   if (_single_inst) {
@@ -359,7 +361,6 @@ XyceActInterface::XyceActInterface()
   config_set_default_real ("sim.device.analog_window", 0.05);
   config_set_default_real ("sim.device.settling_time", 1e-12);
   config_set_default_real ("sim.device.waveform_time", 2e-12);
-  config_set_default_int ("sim.device.digital_timestep", 10);
   config_set_default_int ("sim.device.waveform_steps", 10);
   config_set_default_int ("sim.device.case_for_sim", 0);
   config_set_default_int ("sim.device.dump_all", 0);
@@ -384,7 +385,6 @@ XyceActInterface::XyceActInterface()
   _Vlow = _Vdd*_percent;
   
   _settling_time = config_get_real ("sim.device.settling_time");
-  _step = config_get_int ("sim.device.digital_timestep");
 
   _case_for_sim = config_get_int ("sim.device.case_for_sim");
 
@@ -1004,133 +1004,137 @@ void XyceActInterface::updateDAC ()
 void XyceActInterface::step()
 {
   bool status;
-  double tm;
   double actual;
-  unsigned long ns;
+  double digital_tick;
+  double simtime;
 
 #ifdef FOUND_N_CIR_XyceCInterface
 
-  ns = (unsigned long)((_xycetime+0.95*_timescale)/_timescale);
+  // we need to advance to the "next" digital tick
+  simtime = glob_sim->curTimeMetricUnits ();
+  digital_tick = simtime + glob_sim->getTimescale ();
 
-  int sim_dt;
-
-  if ((ns % _step) != 0) {
-    sim_dt = _step - (ns % _step);
+  int sim_dt; // delay for us to be back on the event queue
+  
+  if (digital_tick < _xycetime) {
+    // we are already ahead, no need to timestep Xyce
+    sim_dt = ((_xycetime - simtime)/glob_sim->getTimescale() + 0.5);
+    if (sim_dt < 1) {
+      sim_dt = 1;
+    }
   }
   else {
-    sim_dt = _step;
-  }
-  ns += sim_dt;
-  tm = ns*_timescale;
+    sim_dt = 1;
 
-  /* digital signals are shipped to Xyce in an event-based fashion */
+    /* digital signals are shipped to Xyce in an event-based fashion */
 
-  status = xyce_simulateUntil (&_xyce_ptr, tm,  &actual);
-  if (status == false) {
-    warning ("Xyce: simulateUntil failed. Stopping Xyce.");
-    _pending = NULL;
-    return;
-  }
-
-  _xycetime = actual;
-
-  /* ship analog signals back to actsim */
-  if (_from_xyce) {
-
-    int npts = 0;
-    if (xyce_getTimeVoltagePairsADCsz (&_xyce_ptr, &npts) != true) {
-      warning ("Xyce: getTimeVoltagePairs call failed! Stopping Xyce.");
+    status = xyce_simulateUntil (&_xyce_ptr, digital_tick,  &actual);
+    if (status == false) {
+      warning ("Xyce: simulateUntil failed. Stopping Xyce.");
       _pending = NULL;
       return;
     }
 
-    if (npts > 0) {
-      if (npts > _max_points) {
-	if (_max_points == 0) {
-	  for (int i=0; i < _from_xyce->n; i++) {
-	    MALLOC (_time_points[i], double, npts+1);
-	    MALLOC (_voltage_points[i], double, npts+1);
-	    _time_points[i][0] = -1;
-	    _num_points[i] = 1;
-	  }
-	}
-	else {
-	  for (int i=0; i < _from_xyce->n; i++) {
-	    REALLOC (_time_points[i], double, npts+1);
-	    REALLOC (_voltage_points[i], double, npts+1);
-	  }
-	}
-	_max_points = npts;
-      }
-      for (int i=0; i < _from_xyce->n; i++) {
-	_time_points[i][_max_points] = _time_points[i][_num_points[i]-1];
-	_voltage_points[i][_max_points] = _voltage_points[i][_num_points[i]-1];
-      }
+    _xycetime = actual;
 
-      int num_adcs;
-      if (xyce_getTimeVoltagePairsADC (&_xyce_ptr,
-				       &num_adcs, _names, _num_points,
-				       _time_points, _voltage_points) == false) {
-	warning ("Xyce: getTimeVoltagePairsADC call failed! Stopping Xyce.");
+    /* ship analog signals back to actsim */
+    if (_from_xyce) {
+
+      int npts = 0;
+      if (xyce_getTimeVoltagePairsADCsz (&_xyce_ptr, &npts) != true) {
+	warning ("Xyce: getTimeVoltagePairs call failed! Stopping Xyce.");
 	_pending = NULL;
 	return;
       }
 
-      Assert (_from_xyce->n == num_adcs, "ADC count mismatch");
-
-      for (int i=0; i < _from_xyce->n; i++) {
-	for (int k=0; _names[i][k]; k++) {
-	  _names[i][k] =  tolower(_names[i][k]);
+      if (npts > 0) {
+	if (npts > _max_points) {
+	  if (_max_points == 0) {
+	    for (int i=0; i < _from_xyce->n; i++) {
+	      MALLOC (_time_points[i], double, npts+1);
+	      MALLOC (_voltage_points[i], double, npts+1);
+	      _time_points[i][0] = -1;
+	      _num_points[i] = 1;
+	    }
+	  }
+	  else {
+	    for (int i=0; i < _from_xyce->n; i++) {
+	      REALLOC (_time_points[i], double, npts+1);
+	      REALLOC (_voltage_points[i], double, npts+1);
+	    }
+	  }
+	  _max_points = npts;
+	}
+	for (int i=0; i < _from_xyce->n; i++) {
+	  _time_points[i][_max_points] = _time_points[i][_num_points[i]-1];
+	  _voltage_points[i][_max_points] = _voltage_points[i][_num_points[i]-1];
 	}
 
-	int old_val, new_val;
-
-	if (_time_points[i][_max_points] == -1) {  // initial
-	  /* X */
-	  old_val = 2;
+	int num_adcs;
+	if (xyce_getTimeVoltagePairsADC (&_xyce_ptr,
+					 &num_adcs, _names, _num_points,
+					 _time_points, _voltage_points) == false) {
+	  warning ("Xyce: getTimeVoltagePairsADC call failed! Stopping Xyce.");
+	  _pending = NULL;
+	  return;
 	}
-	else {
-	  old_val = digital (2, _voltage_points[i][_max_points]);
-	}
 
-	new_val = digital (old_val, _voltage_points[i][_num_points[i]-1]);
+	Assert (_from_xyce->n == num_adcs, "ADC count mismatch");
+
+	for (int i=0; i < _from_xyce->n; i++) {
+	  for (int k=0; _names[i][k]; k++) {
+	    _names[i][k] =  tolower(_names[i][k]);
+	  }
+
+	  int old_val, new_val;
+
+	  if (_time_points[i][_max_points] == -1) {  // initial
+	    /* X */
+	    old_val = 2;
+	  }
+	  else {
+	    old_val = digital (2, _voltage_points[i][_max_points]);
+	  }
+
+	  new_val = digital (old_val, _voltage_points[i][_num_points[i]-1]);
 #if 0
-	printf (" >> %s   old %d: (%.4g,%.4g); ", _names[i], old_val,
-		_time_points[i][_max_points]*1e12,
-		_voltage_points[i][_max_points]);
+	  printf (" >> %s   old %d: (%.4g,%.4g); ", _names[i], old_val,
+		  _time_points[i][_max_points]*1e12,
+		  _voltage_points[i][_max_points]);
 
-	printf (" new %d:", new_val);
+	  printf (" new %d:", new_val);
 	
-	for (int k=0; k < _num_points[i]; k++) {
-	  printf (" (%.4g,%.4g)", _time_points[i][k]*1e12, _voltage_points[i][k]);
-	}
-	printf ("\n");
+	  for (int k=0; k < _num_points[i]; k++) {
+	    printf (" (%.4g,%.4g)", _time_points[i][k]*1e12, _voltage_points[i][k]);
+	  }
+	  printf ("\n");
 #endif	
 
-	if (strncmp (_names[i], "yadc!", 5) != 0) {
-	  warning ("Expected a yadc! name, got `%s'. Aborting.", _names[i]);
-	  _pending = NULL;
-	  return;
-	}
-	hash_bucket_t *b = hash_lookup (_from_xyce, _names[i]+5);
-	if (!b) {
-	  warning ("Name `%s' not found in the Xyce interface? Aborting.", _names[i]+5);
-	  _pending = NULL;
-	  return;
-	}
-
-	if (old_val != new_val) {
-#if 0
-	  printf ("%d adc: %d -> %d\n", b->i, old_val, new_val);
-#endif
-	  if (new_val == 2) {
-	    _analog_inst[0]->msgPrefix();
-	    printf ("WARNING: adc set `");
-	    actsim_Act()->ufprintf (stdout, "%s", _names[i]+5);
-	    printf ("' to X\n");
+	  if (strncmp (_names[i], "yadc!", 5) != 0) {
+	    warning ("Expected a yadc! name, got `%s'. Aborting.", _names[i]);
+	    _pending = NULL;
+	    return;
 	  }
-	  _analog_inst[0]->setGlobalBool (b->i, new_val);
-	  _voltage_points[i][_num_points[i]] = new_val ? _Vdd : 0.0;
+	  hash_bucket_t *b = hash_lookup (_from_xyce, _names[i]+5);
+	  if (!b) {
+	    warning ("Name `%s' not found in the Xyce interface? Aborting.", _names[i]+5);
+	    _pending = NULL;
+	    return;
+	  }
+
+	  if (old_val != new_val) {
+#if 0
+	    printf ("%d adc: %d -> %d\n", b->i, old_val, new_val);
+#endif
+	    if (new_val == 2) {
+	      _analog_inst[0]->msgPrefix();
+	      printf ("WARNING: adc set `");
+	      actsim_Act()->ufprintf (stdout, "%s", _names[i]+5);
+	      printf ("' to X\n");
+	    }
+	    _analog_inst[0]->setGlobalBool (b->i, new_val);
+	    _voltage_points[i][_num_points[i]] = new_val ? _Vdd : 0.0;
+	  }
 	}
       }
     }

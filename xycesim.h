@@ -99,8 +99,6 @@ private:
 
   double _settling_time;	// settling time for simulation
 
-  int _step;			// digital steps for one block
-
   A_DECL (double, _wave_time);	// template waveform [0..1] for
 				// digital to analog conversion
   A_DECL (double, _wave_voltage);
