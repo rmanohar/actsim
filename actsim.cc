@@ -2144,6 +2144,7 @@ void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
 
   if (tc->isDup()) {
     delete tc;
+    return;
   }
 
   int dy;
