@@ -677,12 +677,6 @@ int process_get (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  if (type == 2 || type == 3) {
-    printf ("'%s' is a channel; not currently supported!\n", argv[1]);
-    return LISP_RET_ERROR;
-  }
-
-
   unsigned long val;
   if (type == 0) {
     val = glob_sim->getBool (offset);
@@ -708,8 +702,27 @@ int process_get (int argc, char **argv)
     }
   }
   else {
-    fatal_error ("Should not be here");
-    return LISP_RET_TRUE;
+    act_channel_state *c = glob_sim->getChan (offset);
+    if (WAITING_SENDER (c)) {
+      printf ("%s: waiting sender\n", argv[1]);
+      LispSetReturnInt(1);
+    }
+    else if (WAITING_SEND_PROBE (c)) {
+      printf ("%s: waiting sender probe\n", argv[1]);
+      LispSetReturnInt(2);
+    }
+    else if (WAITING_RECEIVER(c)) {
+      printf ("%s: waiting receiver\n", argv[1]);
+      LispSetReturnInt(3);
+    }
+    else if (WAITING_RECV_PROBE(c)) {
+      printf ("%s: waiting receiver probe\n", argv[1]);
+      LispSetReturnInt(4);
+    }
+    else {
+      printf ("%s: idle\n", argv[1]);
+      LispSetReturnInt(0);
+    }
   }
   return LISP_RET_INT;
 }
