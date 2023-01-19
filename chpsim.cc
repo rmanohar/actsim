@@ -3638,6 +3638,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   ds->range = NULL;
   ds->idx = NULL;
   ds->d = d;
+  ds->isbool = 0;
 
   state_counts ts;
   ActStatePass::getStructCount (d, &ts);
@@ -3878,6 +3879,8 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
 				       &d->width);
 	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	d->isbool = 0;
+	d->d = NULL;
       }
       
       ret->u.e.l = (Expr *) d;
@@ -4323,11 +4326,13 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  }
 	  else {
 	    NEW (d, struct chpsimderef);
+	    d->d = NULL;
 	    d->range = NULL;
 	    d->idx = NULL;
 	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
 	    d->width = width;
 	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	    d->isbool = 0;
 	  }
 	}
 	if (type == 3) {
@@ -4412,11 +4417,13 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  }
 	  else {
 	    NEW (d, struct chpsimderef);
+	    d->d = NULL;
 	    d->range = NULL;
 	    d->idx = NULL;
 	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
 	    d->width = width;
 	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
+	    d->isbool = 0;
 	  }
 	}
 	if (type == 3) {
