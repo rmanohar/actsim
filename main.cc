@@ -462,7 +462,7 @@ int process_coverage (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
+static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
   ActId *id = ActId::parseId (s);
   if (!id) {
@@ -536,10 +536,6 @@ static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
     }
   }
 
-  if (type == 3) {
-    type = 2;
-  }
-
   *ptype = type;
   *poffset = offset;
   if (pobj) {
@@ -547,6 +543,16 @@ static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
   }
   delete id;
   return 1;
+}
+
+
+static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
+{
+  int v = id_to_siminfo_raw (s, ptype, poffset, pobj);
+  if (*ptype == 3) {
+    *ptype = 2;
+  }
+  return v;
 }
 
 static int id_to_siminfo_glob (char *s,
@@ -567,6 +573,26 @@ static int id_to_siminfo_glob (char *s,
   *poffset = myobj->getGlobalOffset (*poffset, *ptype);
   return 1;
 }
+
+static int id_to_siminfo_glob_raw (char *s,
+				   int *ptype, int *poffset, ActSimObj **pobj)
+{
+  ActSimObj *myobj;
+  myobj = NULL;
+  if (!id_to_siminfo_raw (s, ptype, poffset, &myobj)) {
+    return 0;
+  }
+  if (!myobj) {
+    return 0;
+  }
+  if (pobj) {
+    *pobj = myobj;
+  }
+  
+  *poffset = myobj->getGlobalOffset (*poffset, (*ptype == 3 ? 2 : *ptype));
+  return 1;
+}
+
 
 
 int process_set (int argc, char **argv)
@@ -628,6 +654,7 @@ int process_set (int argc, char **argv)
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
+
     BigInt x(64, 0, 0);
     x = val;
     x.setWidth (otmp->getWidth());
@@ -661,6 +688,108 @@ int process_set (int argc, char **argv)
     Assert (p, "Hmm?");
     p->propagate ();
   }
+  return LISP_RET_TRUE;
+}
+
+int process_wakeup (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  ActId *id = ActId::parseId (argv[1]);
+  ActId *orig = id;
+  if (!id) {
+    fprintf (stderr, "%s: could not parse `%s' into an identifier",
+	     argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  ActSimObj *obj = find_object (&id, glob_sim->getInstTable());
+  if (!obj) {
+    fprintf (stderr, "%s: could not find instance `%s'\n", argv[0], argv[1]);
+    delete orig;
+    return LISP_RET_ERROR;
+  }
+
+  if (id) {
+    fprintf (stderr, "%s: please specify process name\n", argv[0]);
+    delete orig;
+    return LISP_RET_ERROR;
+  }
+  delete orig;
+
+  ChpSim *chp = dynamic_cast<ChpSim *>(obj);
+  if (!chp) {
+    fprintf (stderr, "%s: only supported for CHP/HSE components\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  chp->awakenDeadlockedGC ();
+  return LISP_RET_TRUE;
+}
+
+int process_skipcomm (int argc, char **argv)
+{
+  if (argc != 2) {
+    fprintf (stderr, "Usage: %s <name>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+
+  if (!id_to_siminfo_glob_raw (argv[1], &type, &offset, NULL)) {
+    return LISP_RET_ERROR;
+  }
+
+  if (!(type == 2 || type == 3)) {
+    printf ("%s: '%s' is a not a channel!\n", argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  ActId *id = ActId::parseId (argv[1]);
+  ActId *orig = id;
+  if (!id) {
+    fprintf (stderr, "%s: could not parse `%s' into an identifier",
+	     argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+
+  ActSimObj *obj = find_object (&id, glob_sim->getInstTable());
+  if (!obj) {
+    fprintf (stderr, "%s: could not find instance `%s'\n", argv[0], argv[1]);
+    delete orig;
+    return LISP_RET_ERROR;
+  }
+  delete orig;
+
+  ChpSim *chp = dynamic_cast<ChpSim *>(obj);
+  if (!chp) {
+    fprintf (stderr, "%s: only supported for CHP/HSE components\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  
+  act_channel_state *c = glob_sim->getChan (offset);
+  if (WAITING_SENDER (c)) {
+    if (type != 3) {
+      printf ("%s: state is waiting-send; use this command for the sending process.\n", argv[1]);
+      return LISP_RET_ERROR;
+    }
+    chp->skipChannelAction (1, offset);
+  }
+  else if (WAITING_RECEIVER (c)) {
+    if (type != 2) {
+      printf ("%s: state is waiting-recv; use this command for the receiving process.\n", argv[1]);
+      return LISP_RET_ERROR;
+    }
+    chp->skipChannelAction (0, offset);
+  }
+  else {
+    printf ("%s: channel `%s' is not in a state where it can be skipped.\n",
+	    argv[0], argv[1]);
+    return LISP_RET_ERROR;
+  }
+  
   return LISP_RET_TRUE;
 }
 
@@ -781,7 +910,7 @@ int process_watch (int argc, char **argv)
   for (int i=1; i < argc; i++) {
     if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
       return LISP_RET_ERROR;
-    }
+    } 
     obj->addWatchPoint (type, offset, argv[i]);
   }
 
@@ -1217,6 +1346,9 @@ struct LispCliCommand Cmds[] = {
   { "cycle", "- run until simulation stops", process_cycle },
 
   { "set", "<name> <val> - set a variable to a value", process_set },
+  { "gc-retry", "<name> - re-try guards in a deadlocked process", process_wakeup },
+  { "skip-comm", "<name> - skip the communication action", process_skipcomm },
+  
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
   { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
   { "chcount", "<name> - return the number of completed actions on named channel", process_chcount },

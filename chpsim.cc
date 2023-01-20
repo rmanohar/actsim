@@ -356,6 +356,7 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, int max_stats,
 {
   char buf[1024];
 
+  _deadlock_pc = NULL;
   _stalled_pc = list_new ();
   _probe = NULL;
   _savedc = c;
@@ -482,6 +483,10 @@ ChpSim::~ChpSim()
     list_free (_statestk);
   }
   list_free (_stalled_pc);
+
+  if (_deadlock_pc) {
+    list_free (_deadlock_pc);
+  }
 
   if (_maxstats > 0) {
     FREE (_stats);
@@ -1164,6 +1169,7 @@ int ChpSim::Step (Event *ev)
 	if (chkWatchBreakPt (1, my_loff, off, v)) {
 	  _breakpt = 1;
 	}
+	v.setWidth (stmt->u.assign.isint);
 	_sc->setInt (off, v);
 	intProp (off);
       }
@@ -1261,6 +1267,7 @@ int ChpSim::Step (Event *ev)
 		if (chkWatchBreakPt (1, id, off, v)) {
 		  _breakpt = 1;
 		}
+		v.setWidth (stmt->u.sendrecv.d->width);
 		_sc->setInt (off, v);
 		intProp (off);
 	      }
@@ -1360,6 +1367,7 @@ int ChpSim::Step (Event *ev)
 	      if (chkWatchBreakPt (1, id, off, v)) {
 		_breakpt = 1;
 	      }
+	      v.setWidth (stmt->u.sendrecv.d->width);
 	      _sc->setInt (off, v);
 	      intProp (off);
 	    }
@@ -1480,6 +1488,10 @@ int ChpSim::Step (Event *ev)
 	      msgPrefix (actsim_log_fp());
 	      actsim_log ("Warning: all guards false; no probes/shared vars\n");
 	      actsim_log_flush ();
+	      if (!_deadlock_pc)  {
+		_deadlock_pc = list_new ();
+	      }
+	      list_iappend (_deadlock_pc, pc);
 	    }
 	  }
 	}
@@ -5070,6 +5082,7 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
     int off = getGlobalOffset (struct_info[3*i], struct_info[3*i+1]);
     if (struct_info[3*i+1] == 1) {
       /* int */
+      Assert (v->v[i].getWidth() == struct_info[3*i+2], "What?");
       _sc->setInt (off, v->v[i]);
       intProp (off);
     }
@@ -5432,4 +5445,53 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
     break;
   }
   _zeroAllIntsChans (g->next);
+}
+
+
+
+void ChpSim::awakenDeadlockedGC ()
+{
+  if (_deadlock_pc) {
+    int x;
+    while (!list_isempty (_deadlock_pc)) {
+      x = list_delete_ihead (_deadlock_pc);
+      if (_pc[x]) {
+	new Event (this, SIM_EV_MKTYPE (x,0), 0);
+      }
+    }
+  }
+}
+
+
+void ChpSim::skipChannelAction (int is_send, int offset)
+{
+  act_channel_state *c = _sc->getChan (offset);
+  int chk_pc;
+
+  if (is_send) {
+    chk_pc = c->send_here - 1;
+  }
+  else {
+    chk_pc = c->recv_here - 1;
+  }
+
+  if (chk_pc < 0 || chk_pc >= _npc) {
+    printf ("unexpected error!\n");
+    return;
+  }
+
+  if (!_pc[chk_pc]) {
+    printf ("unexpected error2!\n");
+    return;
+  }
+
+  // clear the channel state
+  if (is_send) {
+    c->w->Notify (chk_pc);
+    c->send_here = 0;
+  }
+  else {
+    c->w->Notify (chk_pc);
+    c->recv_here = 0;
+  }
 }

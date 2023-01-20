@@ -167,6 +167,9 @@ class ChpSim : public ActSimObj {
   void intProp (int glob_off);
   void setFrag (act_channel_state *f) { _frag_ch = f; }
 
+  void awakenDeadlockedGC ();
+  void skipChannelAction (int is_send, int offset);
+
   BigInt exprEval (Expr *e);
 
   void setHseMode() { _hse_mode = 1; }
@@ -180,6 +183,7 @@ class ChpSim : public ActSimObj {
   int *_holes;			/* available slots in the _pc array */
   int *_tot;			/* current pending concurrent count */
 
+  list_t *_deadlock_pc;
   list_t *_stalled_pc;
   act_chp_lang_t *_savedc;
 
