@@ -468,9 +468,12 @@ int ChanMethods::runMethod (ActSimCore *sim,
       if (v == -1) {
 	const ActSim::watchpt_bucket *nm;
 	if ((nm = sim->chkWatchPt (0, b->i))) {
+          BigInt tmpv;
 	  ch->_dummy->msgPrefix ();
 	  printf (" %s := %c\n", nm->s, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
 		  '1' : '0');
+          tmpv = (_ops[idx].op[from].type == CHAN_OP_BOOL_T ? 1 : 0);
+          sim->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
 	}
 	ch->_dummy->boolProp (b->i);
       }
