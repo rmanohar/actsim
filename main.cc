@@ -1353,20 +1353,20 @@ struct LispCliCommand Cmds[] = {
   { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
   { "chcount", "<name> - return the number of completed actions on named channel", process_chcount },
 
-  { "watch", "[-dtv] <n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
-  { "resume-on-warn", "- like break-on-warn, but exit", process_resume_on_warn },
+  { "resume-on-warn", "- continue simulation on warning", process_resume_on_warn },
 
   { "status", "0|1|X - list all nodes with specified value", process_status },
 
   { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
   { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
-  { "vcd_start", "<file> [<afile>]- Create Verilog change dump for all watched values", process_createvcd },
+  { "vcd_start", "<file> - Create Verilog change dump for all watched values", process_createvcd },
   { "vcd_stop", "- Stop VCD generation", process_stopvcd },
   { "trace_start", "<file> - Create ACT trace file for all watched values", process_createalint },
   { "trace_stop", "- Stop ACT trace file generation", process_stopalint },
