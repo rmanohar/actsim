@@ -2282,11 +2282,11 @@ BigInt ChpSim::exprEval (Expr *e)
     break;
     
   case E_INT:
-    if (e->u.v_extra) {
-      l = *((BigInt *)e->u.v_extra);
+    if (e->u.ival.v_extra) {
+      l = *((BigInt *)e->u.ival.v_extra);
     }
     else {
-      unsigned long x = e->u.v;
+      unsigned long x = e->u.ival.v;
       int width = 0;
       while (x) {
 	x = x >> 1;
@@ -2296,7 +2296,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	width = 1;
       }
       l.setWidth (width);
-      l.setVal (0, e->u.v);
+      l.setVal (0, e->u.ival.v);
     }
     break;
 
@@ -2526,9 +2526,9 @@ BigInt ChpSim::exprEval (Expr *e)
       int lo, hi;
       int off = computeOffset ((struct chpsimderef *)e->u.e.l);
 
-      hi = (long)e->u.e.r->u.e.r->u.v;
+      hi = (long)e->u.e.r->u.e.r->u.ival.v;
       if (e->u.e.r->u.e.l) {
-	lo = (long)e->u.e.r->u.e.l->u.v;
+	lo = (long)e->u.e.r->u.e.l->u.ival.v;
       }
       else {
 	lo = hi;
@@ -2655,9 +2655,9 @@ BigInt ChpSim::exprEval (Expr *e)
 	l = *((BigInt *)b->v);
       }
 
-      hi = (long)e->u.e.r->u.e.r->u.v;
+      hi = (long)e->u.e.r->u.e.r->u.ival.v;
       if (e->u.e.r->u.e.l) {
-	lo = (long)e->u.e.r->u.e.l->u.v;
+	lo = (long)e->u.e.r->u.e.l->u.ival.v;
       }
       else {
 	lo = hi;

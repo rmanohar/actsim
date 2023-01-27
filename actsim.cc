@@ -2140,7 +2140,7 @@ void ActSimCore::_add_timing_fork (ActSimObj *obj, stateinfo_t *si,
   ag = obj->getGlobalOffset (a, 0);
   bg = obj->getGlobalOffset (b, 0);
   
-  tc = new ActTimingConstraint (obj, rg, ag, bg, e ? e->u.v : 0, extra);
+  tc = new ActTimingConstraint (obj, rg, ag, bg, e ? e->u.ival.v : 0, extra);
 
   if (tc->isDup()) {
     delete tc;

@@ -147,7 +147,7 @@ static int _attr_check (const char *nm, act_attr_t *attr)
   while (attr) {
     if (strcmp (attr->attr, nm) == 0) {
       Assert (attr->e->type == E_INT, "What?");
-      return attr->e->u.v;
+      return attr->e->u.ival.v;
     }
     attr = attr->next;
   }
