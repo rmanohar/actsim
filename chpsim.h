@@ -53,7 +53,9 @@ struct chpsimderef {
 
   int offset;			// offset / offseti for struct
   unsigned int isbool:1;	// is this a bool type?
-  int width;			// for all vars / offsetb for struct
+  unsigned int isenum:1;	// is this an enumeration?
+  int enum_sz;			// used for enumerations
+  int width;
   act_connection *cx;
 };
 
@@ -216,7 +218,7 @@ class ChpSim : public ActSimObj {
   expr_multires funcStruct (Function *, int, void **);
   expr_multires varStruct (struct chpsimderef *);
 
-  void _structure_assign (struct chpsimderef *, expr_multires *);
+  int _structure_assign (struct chpsimderef *, expr_multires *);
   
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */

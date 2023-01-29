@@ -1026,6 +1026,17 @@ void ChpSim::_remove_me (int pc)
   }
 }
 
+static void _enum_error (Process *p, BigInt &v, int enum_sz)
+{
+  fprintf (stderr, "** FATAL ** Process %s: enumeration assigned illegal value\n", p ? p->getName() : "-top-");
+  fprintf (stderr, "**   Max=%d; ", enum_sz);
+  fprintf (stderr, " Value: ");
+  v.decPrint (stderr);
+  fprintf (stderr, " (0x");
+  v.hexPrint (stderr);
+  fprintf (stderr, ")\n");
+}
+
 
 int ChpSim::Step (Event *ev)
 {
@@ -1137,7 +1148,9 @@ int ChpSim::Step (Event *ev)
     pc = _updatepc (pc);
     if (stmt->u.assign.is_struct) {
       vs = exprStruct (stmt->u.assign.e);
-      _structure_assign (&stmt->u.assign.d, &vs);
+      if (!_structure_assign (&stmt->u.assign.d, &vs)) {
+	_breakpt = 1;
+      }
     }
     else {
       v = exprEval (stmt->u.assign.e);
@@ -1170,6 +1183,14 @@ int ChpSim::Step (Event *ev)
 	  _breakpt = 1;
 	}
 	v.setWidth (stmt->u.assign.isint);
+	if (stmt->u.assign.d.isenum) {
+	  BigInt tmpv (64, 0, 0);
+	  tmpv.setVal (0, stmt->u.assign.d.enum_sz);
+	  if (v >= tmpv) {
+	    _breakpt = 1;
+	    _enum_error (_proc, v, stmt->u.assign.d.enum_sz);
+	  }
+	}
 	_sc->setInt (off, v);
 	intProp (off);
       }
@@ -1267,13 +1288,23 @@ int ChpSim::Step (Event *ev)
 		if (chkWatchBreakPt (1, id, off, v)) {
 		  _breakpt = 1;
 		}
-		v.setWidth (stmt->u.sendrecv.d->width);
+		v.setWidth (stmt->u.sendrecv.width);
 		_sc->setInt (off, v);
 		intProp (off);
+		if (stmt->u.sendrecv.d->isenum) {
+		  BigInt tmpv (64, 0, 0);
+		  tmpv.setVal (0, stmt->u.sendrecv.d->enum_sz);
+		  if (v >= tmpv) {
+		    _breakpt = 1;
+		    _enum_error (_proc, v, stmt->u.sendrecv.d->enum_sz);
+		  }
+		}
 	      }
 	    }
 	    else {
-	      _structure_assign (stmt->u.sendrecv.d, &xchg);
+	      if (!_structure_assign (stmt->u.sendrecv.d, &xchg)) {
+		_breakpt = 1;
+	      }
 	    }
 	  }
 	}
@@ -1367,13 +1398,24 @@ int ChpSim::Step (Event *ev)
 	      if (chkWatchBreakPt (1, id, off, v)) {
 		_breakpt = 1;
 	      }
-	      v.setWidth (stmt->u.sendrecv.d->width);
+
+	      if (stmt->u.sendrecv.d->isenum) {
+		BigInt tmpv (64, 0, 0);
+		tmpv = stmt->u.sendrecv.d->enum_sz;
+		if (v >= tmpv) {
+		  _breakpt = 1;
+		  _enum_error (_proc, v, stmt->u.sendrecv.d->enum_sz);
+		}
+	      }
+	      v.setWidth (stmt->u.sendrecv.width);
 	      _sc->setInt (off, v);
 	      intProp (off);
 	    }
 	  }
 	  else {
-	    _structure_assign (stmt->u.sendrecv.d, &vs);
+	    if (!_structure_assign (stmt->u.sendrecv.d, &vs)) {
+	      _breakpt = 1;
+	    }
 	  }
 	}
 	pc = _updatepc (pc);
@@ -2263,6 +2305,24 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 
   return ret;
 }
+
+
+// but at least 1
+static int _ceil_log2 (int w)
+{
+  int i;
+
+  w--;
+  i = 0;
+  while (w > 1) {
+    i++;
+    w = w >> 1;
+  }
+  if (i == 0) {
+    return 1;
+  }
+  return i;
+}
   
 BigInt ChpSim::exprEval (Expr *e)
 {
@@ -2560,7 +2620,7 @@ BigInt ChpSim::exprEval (Expr *e)
     l = varEval (e->u.x.val, 1);
     l.setWidth (e->u.x.extra);
     break;
-
+    
   case E_CHP_VARCHAN:
     l = varEval (e->u.x.val, 2);
     l.setWidth (e->u.x.extra);
@@ -2812,7 +2872,7 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
   expr_multires res (d->d);
   if (!d->range) {
     for (int i=0; i < res.nvals; i++) {
-      res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1]);
+      res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1] == 2 ? 1 : d->idx[3*i+1]);
     }
   }
   else {
@@ -3522,7 +3582,8 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   else {
     d->isbool = 0;
   }
-
+  d->isenum = 0;
+  
   d->range = vx->t->arrayInfo();
   Assert (d->range, "What?");
   Assert (d->range->nDims() > 0, "What?");
@@ -3553,6 +3614,7 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   d->cx = vx->connection();
   d->d = dynamic_cast<Data *> (vx->t->BaseType());
   d->isbool = 0;
+  d->isenum = 0;
   Assert (d->d, "what?");
   if (!s->getLocalDynamicStructOffset (vx->connection()->primary(),
 				       s->cursi(),
@@ -3601,6 +3663,10 @@ static void _add_deref_struct (ActSimCore *sc,
       ds->idx[ds->offset] = sc->getLocalOffset (id, sc->cursi(),
 						&ds->idx[ds->offset+1],
 						&ds->idx[ds->offset+2]);
+      if (TypeFactory::isEnum (it)) {
+	ds->idx[ds->offset+1] = 2;
+	ds->idx[ds->offset+2] = TypeFactory::enumNum (it);
+      }
       ds->offset += 3;
     }
     tail->prune ();
@@ -3625,6 +3691,12 @@ static void _add_deref_struct2 (Data *d,
       idx[*off] = *off_i;
       idx[*off+1] = 1;
       idx[*off+2] = TypeFactory::bitWidth (it);
+
+      if (TypeFactory::isEnum (it)) {
+	idx[*off+1] = 2;
+	idx[*off+2] = TypeFactory::enumNum (it);
+      }
+      
       *off_i = *off_i + 1;
       *off += 3;
     }
@@ -3651,6 +3723,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   ds->idx = NULL;
   ds->d = d;
   ds->isbool = 0;
+  ds->isenum = 0;
 
   state_counts ts;
   ActStatePass::getStructCount (d, &ts);
@@ -3892,6 +3965,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 				       &d->width);
 	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
 	d->isbool = 0;
+	d->isenum = 0;
 	d->d = NULL;
       }
       
@@ -4345,6 +4419,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    d->width = width;
 	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
 	    d->isbool = 0;
+	    d->isenum = 0;
 	  }
 	}
 	if (type == 3) {
@@ -4352,6 +4427,10 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	ret->stmt->u.sendrecv.d = d;
 	ret->stmt->u.sendrecv.d_type = type;
+	if (TypeFactory::isEnum (ch->acktype())) {
+	  ret->stmt->u.sendrecv.d->isenum = 1;
+	  ret->stmt->u.sendrecv.d->enum_sz = TypeFactory::enumNum (ch->acktype());
+	}
       }
       ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
       ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
@@ -4436,6 +4515,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    d->width = width;
 	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
 	    d->isbool = 0;
+	    d->isenum = 0;
 	  }
 	}
 	if (type == 3) {
@@ -4443,6 +4523,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	ret->stmt->u.sendrecv.d = d;
 	ret->stmt->u.sendrecv.d_type = type;
+
+	if (TypeFactory::isEnum (ch->datatype())) {
+	  ret->stmt->u.sendrecv.d->isenum = 1;
+	  ret->stmt->u.sendrecv.d->enum_sz = TypeFactory::enumNum (ch->datatype());
+	}
       }
       ret->stmt->u.sendrecv.chvar = sc->getLocalOffset (c->u.comm.chan, sc->cursi(), NULL);
       ret->stmt->u.sendrecv.vc = c->u.comm.chan->Canonical (sc->cursi()->bnl->cur);
@@ -4535,6 +4620,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	if (type == 1) {
 	  Assert (width > 0, "zero-width int?");
 	  ret->stmt->u.assign.isint = width;
+
+	  if (TypeFactory::isEnum (it)) {
+	    ret->stmt->u.assign.d.isenum = 1;
+	    ret->stmt->u.assign.d.enum_sz = TypeFactory::enumNum (it);
+	  }
 	}
 	else {
 	  Assert (type == 0, "Typechecking?!");
@@ -5028,11 +5118,12 @@ void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
 }
 
 
-void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
+int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 {
   Assert (d && v, "Hmm");
   int *struct_info;
   int struct_len;
+  int ret = 1;
 
   state_counts ts;
   ActStatePass::getStructCount (d->d, &ts);
@@ -5079,10 +5170,23 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 	    struct_info[3*i], struct_info[3*i+1],
 	    struct_info[3*i+2], v->v[i].v, v->v[i].width);
 #endif
-    int off = getGlobalOffset (struct_info[3*i], struct_info[3*i+1]);
+    int off = getGlobalOffset (struct_info[3*i],
+			       struct_info[3*i+1] == 2 ?
+			       1 : struct_info[3*i+1]);
     if (struct_info[3*i+1] == 1) {
       /* int */
       Assert (v->v[i].getWidth() == struct_info[3*i+2], "What?");
+      _sc->setInt (off, v->v[i]);
+      intProp (off);
+    }
+    else if (struct_info[3*i+1] == 2) {
+      /* enum */
+      BigInt tmpv (64, 0, 0);
+      tmpv.setVal (0, struct_info[3*i+2]);
+      if (v->v[i] >= tmpv) {
+	_enum_error (_proc, v->v[i], struct_info[3*i+2]);
+	ret = 0;
+      }
       _sc->setInt (off, v->v[i]);
       intProp (off);
     }
@@ -5096,6 +5200,8 @@ void ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
   if (struct_info != d->idx) {
     FREE (struct_info);
   }
+
+  return ret;
 }
 
 BigInt *expr_multires::getField (ActId *x)
@@ -5417,7 +5523,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
 	  else {
 	    BigInt v;
 	    off = getGlobalOffset (off, 1);
-	    v.setWidth (g->stmt->u.sendrecv.d->width);
+	    v.setWidth (g->stmt->u.sendrecv.width);
 	    v.toStatic();
 	    _sc->setInt (off, v);
 	  }
