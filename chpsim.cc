@@ -4616,6 +4616,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    sc->getLocalOffset (c->u.assign.id, sc->cursi(), &type, &width);
 	  ret->stmt->u.assign.d.cx =
 	    c->u.assign.id->Canonical (sc->cursi()->bnl->cur);
+	  ret->stmt->u.assign.d.isbool = 0;
+	  ret->stmt->u.assign.d.isenum = 0;
 	}
 	if (type == 1) {
 	  Assert (width > 0, "zero-width int?");
@@ -4629,6 +4631,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	else {
 	  Assert (type == 0, "Typechecking?!");
 	  ret->stmt->u.assign.isint = 0;
+	  ret->stmt->u.assign.d.isbool = 1;
 	}
       }
     }
