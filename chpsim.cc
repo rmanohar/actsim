@@ -1289,8 +1289,6 @@ int ChpSim::Step (Event *ev)
 		  _breakpt = 1;
 		}
 		v.setWidth (stmt->u.sendrecv.width);
-		_sc->setInt (off, v);
-		intProp (off);
 		if (stmt->u.sendrecv.d->isenum) {
 		  BigInt tmpv (64, 0, 0);
 		  tmpv.setVal (0, stmt->u.sendrecv.d->enum_sz);
@@ -1299,6 +1297,8 @@ int ChpSim::Step (Event *ev)
 		    _enum_error (_proc, v, stmt->u.sendrecv.d->enum_sz);
 		  }
 		}
+		_sc->setInt (off, v);
+		intProp (off);
 	      }
 	    }
 	    else {
