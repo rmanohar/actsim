@@ -2801,6 +2801,18 @@ int ActSimCore::initTrace (int fmt, const char *file)
   }
   if (!file) {
     _tr[fmt] = NULL;
+
+    if (_W) {
+      ihash_bucket_t *b;
+      watchpt_bucket *w;
+      ihash_iter_t it;
+
+      ihash_iter_init (_W, &it);
+      while ((b = ihash_iter_next (_W, &it))) {
+	w = (watchpt_bucket *) b->v;
+	w->ignore_fmt |= (1 << fmt);
+      }
+    }
     return 1;
   }
 
