@@ -41,6 +41,7 @@ struct chpsimcond {
 #define CHPSIM_FORK   5
 #define CHPSIM_LOOP   6
 #define CHPSIM_NOP    7  /* dummy needed for turning off simulator opt */
+#define CHPSIM_CONDARB 8
 
 struct chpsimderef {
   Array *range;			// if NULL, then offset is the id

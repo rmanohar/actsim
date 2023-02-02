@@ -20,7 +20,7 @@ defproc merge (chan?(int) l1, l2; chan!(int) r)
 {
   int x;
   chp {
-   *[ [l1=0 -> l1?x; log("I am here") [] #l2 -> l2?x ]; r!x ]
+   *[ [|l1=0 -> l1?x; log("I am here") [] #l2 -> l2?x |]; r!x ]
   }
 }
 

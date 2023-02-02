@@ -879,6 +879,10 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     fprintf (fp, "cond: ");
     break;
 
+  case CHPSIM_CONDARB:
+    fprintf (fp, "cond-arb: ");
+    break;
+
   case CHPSIM_LOOP:
     fprintf (fp, "loop: ");
     break;
@@ -1459,14 +1463,17 @@ int ChpSim::Step (Event *ev)
     break;
 
   case CHPSIM_COND:
+  case CHPSIM_CONDARB:
   case CHPSIM_LOOP:
     {
       chpsimcond *gc;
       int cnt = 0;
+      list_t *ch_list = NULL;
+      int choice = -1;
       BigInt res;
 
 #ifdef DUMP_ALL
-      if (stmt->type == CHPSIM_COND) {
+      if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
 	printf ("cond");
       }
       else {
@@ -1484,11 +1491,49 @@ int ChpSim::Step (Event *ev)
       }
 
       gc = &stmt->u.cond.c;
+      cnt = 0;
+      ch_list = list_new ();
       while (gc) {
 	if (gc->g) {
 	  res = exprEval (gc->g);
+	  if (res.getVal (0) != 0) {
+	    list_iappend (ch_list, cnt);
+	  }
+	  cnt++;
 	}
-	if (!gc->g || (res.getVal (0) != 0)) {
+	gc = gc->next;
+      }
+
+      if (list_length (ch_list) > 1) {
+	if (stmt->type != CHPSIM_CONDARB) {
+	  msgPrefix (actsim_log_fp());
+	  actsim_log ("** ERROR ** multiple (%d) guards true, mutex violation.\n", list_length (ch_list));
+	  actsim_log_flush ();
+	}
+	else {
+	  if (_sc->isRandomChoice ()) {
+	    choice = _sc->getRandom (list_length (ch_list));
+	  }
+	}
+      }
+
+      cnt = 0;
+      if (!list_isempty (ch_list)) {
+	/* at least one true guard */
+	if (choice == -1) {
+	  choice = list_ivalue (list_first (ch_list));
+	}
+	else {
+	  while (choice > 0) {
+	    list_delete_ihead (ch_list);
+	    choice--;
+	  }
+	  choice = list_delete_ihead (ch_list);
+	}
+      }
+      gc = &stmt->u.cond.c;
+      while (gc) {
+	if ((cnt == choice) || !gc->g) {
 #ifdef DUMP_ALL	  
 	  printf (" gd#%d true", cnt);
 #endif
@@ -1506,9 +1551,10 @@ int ChpSim::Step (Event *ev)
 	cnt++;
 	gc = gc->next;
       }
+      list_free (ch_list);
       /* all guards false */
       if (!gc) {
-	if (stmt->type == CHPSIM_COND) {
+	if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
 	  forceret = 1;
@@ -3519,7 +3565,7 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
 ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
 {
   *done = 0;
-  if (!next || (stmt && stmt->type == CHPSIM_COND)) {
+  if (!next || (stmt && (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB))) {
     return NULL;
   }
   if (next->wait > 0) {
@@ -4284,6 +4330,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     if (c->type == ACT_CHP_LOOP) {
       ret->stmt->type = CHPSIM_LOOP;
     }
+    else if (c->type == ACT_CHP_SELECT_NONDET) {
+      ret->stmt->type = CHPSIM_CONDARB;
+    }
     i = 0;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
       i++;
@@ -4946,6 +4995,7 @@ ChpSimGraph::~ChpSimGraph ()
   if (stmt) {
     switch (stmt->type) {
     case CHPSIM_COND:
+    case CHPSIM_CONDARB:
     case CHPSIM_LOOP:
       {
 	struct chpsimcond *x;
@@ -5536,6 +5586,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
     break;
 
   case CHPSIM_COND:
+  case CHPSIM_CONDARB:
   case CHPSIM_LOOP:
     cnt = 0;
     for (struct chpsimcond *x = &g->stmt->u.cond.c; x; x = x->next) {
