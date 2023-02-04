@@ -1473,6 +1473,10 @@ int ChpSim::Step (Event *ev)
       int choice = -1;
       BigInt res;
 
+      if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
+	printf ("cond");
+      }
+      
 #ifdef DUMP_ALL
       if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
 	printf ("cond");
@@ -3135,6 +3139,17 @@ int ChpSim::_max_program_counters (act_chp_lang_t *c)
   if (!c) return 1;
   
   switch (c->type) {
+  case ACT_HSE_FRAGMENTS:
+    ret = 1;
+    while (c) {
+      val = _max_program_counters (c->u.frag.body);
+      if (val > ret) {
+	ret = val;
+      }
+      c = c->u.frag.next;
+    }
+    break;
+    
   case ACT_CHP_SEMI:
     ret = 1;
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
@@ -3485,6 +3500,13 @@ void ChpSim::_compute_used_variables_helper (act_chp_lang_t *c)
   if (!c) return;
   
   switch (c->type) {
+  case ACT_HSE_FRAGMENTS:
+    while (c) {
+      _compute_used_variables_helper (c->u.frag.body);
+      c = c->u.frag.next;
+    }
+    break;
+    
   case ACT_CHP_SEMI:
   case ACT_CHP_COMMA:
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
@@ -4222,13 +4244,123 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
 }
 
 ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
-					    act_chp_lang_t *c,
-					    ChpSimGraph **stop)
+					    act_chp_lang_t *c)
 {
+  ChpSimGraph *stop;
   cur_pending_count = 0;
   max_pending_count = 0;
   max_stats = 0;
-  return _buildChpSimGraph (sc, c, stop);
+
+  if (c->type == ACT_HSE_FRAGMENTS) {
+    int len = 0;
+    int i;
+    act_chp_lang_t *ch;
+    ChpSimGraph **nstop;
+    ChpSimGraph **frags;
+    struct Hashtable *fH;
+    hash_bucket_t *b;
+    for (ch = c; ch; ch = ch->u.frag.next) {
+      len++;
+    }
+    // i = # of fragments
+    MALLOC (nstop, ChpSimGraph *, len);
+    MALLOC (frags, ChpSimGraph *, len);
+    fH = hash_new (4);
+    i = 0;
+    for (ch = c; ch; ch = ch->u.frag.next) {
+      b = hash_add (fH, ch->label);
+      b->i = i;
+      frags[i] = _buildChpSimGraph (sc, ch->u.frag.body, &nstop[i]);
+      i++;
+    }
+
+    // now wire everything up
+    i = 0;
+    for (ch = c; ch; ch = ch->u.frag.next) {
+      if (ch->u.frag.nextlabel) {
+	b = hash_lookup (fH, ch->u.frag.nextlabel);
+	Assert (b, "Hmm");
+	// now link nstop[i] to frags[b->i]
+	if (nstop[i]->next) {
+	  warning ("Unused target branch for statement #%d?", i);
+	}
+	else {
+	  nstop[i]->next = frags[b->i];
+	}
+      }
+      else {
+	ChpSimGraph *bstmt;
+	chpsimstmt *branch;
+	chpsimcond *tmp;
+	int flags;
+	int j;
+
+	// build chpsimstmt
+	
+	NEW (branch, chpsimstmt);
+	branch->type = CHPSIM_COND;
+	branch->delay_cost = 0;
+	branch->energy_cost = 0;
+	branch->u.cond.stats = -1;
+	branch->u.cond.is_shared = 0;
+	branch->u.cond.is_probe = 0;
+
+	bstmt = new ChpSimGraph (sc);
+	MALLOC (bstmt->all, ChpSimGraph *, len);
+	bstmt->stmt = branch;
+
+	// dummy next: empty statement!
+	bstmt->next = new ChpSimGraph (sc);
+	
+	// we need a guarded command now!
+	tmp = NULL;
+	flags = 0;
+	j = 0;
+	for (listitem_t *li = list_first (ch->u.frag.exit_conds); li;
+	     li = list_next (li)) {
+	  // first thing is an expression
+	  Expr *e = (Expr *) list_value (li);
+	  if (!tmp) {
+	    tmp = &branch->u.cond.c;
+	  }
+	  else {
+	    NEW (tmp->next, chpsimcond);
+	    tmp = tmp->next;
+	  }
+	  tmp->next = NULL;
+	  tmp->g = expr_to_chp_expr (e, sc, &flags);
+
+	  // then label
+	  li = list_next (li);
+	  b = hash_lookup (fH, (char *)list_value (li));
+	  Assert (b, "What?");
+	  bstmt->all[j] = frags[b->i];
+	  j++;
+	}
+	if (flags & 0x1) {
+	  branch->u.cond.is_probe = 1;
+	}
+	if (flags & 0x2) {
+	  branch->u.cond.is_shared = 1;
+	  // no internal parallelism!
+	}
+	if (nstop[i]->next) {
+	  warning ("Unused target branch for statement #%d?", i);
+	}
+	else {
+	  nstop[i]->next = bstmt;
+	}
+      }
+      i++;
+    }
+    hash_free (fH);
+    stop = frags[0];
+    FREE (frags);
+    FREE (nstop);
+    return stop;
+  }
+  stop = new ChpSimGraph (sc);
+  return _buildChpSimGraph (sc, c, &stop);
 }
 
 static ChpSimGraph *_gen_nop (ActSimCore *sc)
@@ -4798,6 +4930,13 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *cc,
   if (!c) return;
   
   switch (c->type) {
+  case ACT_HSE_FRAGMENTS:
+    while (c) {
+      checkFragmentation (sc, cc, c->u.frag.body);
+      c = c->u.frag.next;
+    }
+    break;
+    
   case ACT_CHP_SEMI:
   case ACT_CHP_COMMA:
     for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
@@ -4851,6 +4990,9 @@ void ChpSimGraph::recordChannel (ActSimCore *sc, ChpSim *cc,
   if (!c) return;
   
   switch (c->type) {
+  case ACT_HSE_FRAGMENTS:
+    break;
+    
   case ACT_CHP_SEMI:
   case ACT_CHP_COMMA:
     for (li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {

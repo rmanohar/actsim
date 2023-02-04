@@ -343,7 +343,6 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       b->v = pgi;
     }
     if (!pgi->chp) {
-      ChpSimGraph *stop;
       NEW (pgi->chp, chpsimgraph_info);
       if (c->c && c->c->type == ACT_CHP_COMMA) {
 	setInternalParallel (1);
@@ -351,7 +350,7 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       else {
 	setInternalParallel (0);
       }
-      pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+      pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c);
       pgi->chp->e = NULL;
       pgi->chp->max_count = ChpSimGraph::max_pending_count;
       pgi->chp->max_stats = ChpSimGraph::max_stats;
@@ -413,7 +412,6 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   }
 
   if (!pgi->hse) {
-    ChpSimGraph *stop;
     NEW (pgi->hse, chpsimgraph_info);
 
     if (c->c && c->c->type == ACT_CHP_COMMA) {
@@ -422,7 +420,7 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
     else {
       setInternalParallel (0);
     }
-    pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
+    pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c);
     pgi->hse->max_count = ChpSimGraph::max_pending_count;
     pgi->hse->max_stats = ChpSimGraph::max_stats;
   }
@@ -2030,8 +2028,7 @@ void ActSim::runInit ()
     for (int i=0; i < num; i++) {
       if (lia[i] && list_next (lia[i])) {
 	act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
-	ChpSimGraph *stop;
-	ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
+	ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c);
 	ChpSim *sim_init =
 	  new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
 
@@ -2061,8 +2058,7 @@ void ActSim::runInit ()
   for (int i=0; i < num; i++) {
     if (lia[i]) {
       act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
-      ChpSimGraph *stop;
-      ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c, &stop);
+      ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c);
       ChpSim *sim_init =
 	new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
 

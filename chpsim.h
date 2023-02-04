@@ -118,8 +118,7 @@ class ChpSimGraph {
   ChpSimGraph *completed (int pc, int *tot, int *done);
   void printStmt (FILE *fp, Process *p);
 
-  static ChpSimGraph *buildChpSimGraph (ActSimCore *,
-					act_chp_lang_t *, ChpSimGraph **stop);
+  static ChpSimGraph *buildChpSimGraph (ActSimCore *, act_chp_lang_t *);
   static int max_pending_count;
   static int max_stats;
 
