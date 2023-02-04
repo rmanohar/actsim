@@ -1055,6 +1055,7 @@ int ChpSim::Step (Event *ev)
   int _breakpt = 0;
 
   if (pc == MAX_LOCAL_PCS) {
+    // wake-up from a shared variable scenario
     Assert (!list_isempty (_stalled_pc), "What?");
     pc = list_delete_ihead (_stalled_pc);
   }
@@ -1560,13 +1561,11 @@ int ChpSim::Step (Event *ev)
 	  forceret = 1;
 	  if ((stmt->u.cond.is_shared || stmt->u.cond.is_probe) &&
 	      (_add_waitcond (&stmt->u.cond.c, pc) || stmt->u.cond.is_shared)) {
-	    if (list_isempty (_stalled_pc)) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
 #endif
 	      sStall ();
-	    }
-	    list_iappend (_stalled_pc, pc);
+	      list_iappend (_stalled_pc, pc);
 	  }
 	  else {
 	    if (!_probe) {
