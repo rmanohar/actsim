@@ -1565,11 +1565,8 @@ int ChpSim::Step (Event *ev)
 	      printf (" [stall-sh]");
 #endif
 	      sStall ();
-	      list_iappend (_stalled_pc, pc);
 	    }
-	    else {
-	      forceret = 0;
-	    }
+	    list_iappend (_stalled_pc, pc);
 	  }
 	  else {
 	    if (!_probe) {
