@@ -1473,10 +1473,6 @@ int ChpSim::Step (Event *ev)
       int choice = -1;
       BigInt res;
 
-      if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
-	printf ("cond");
-      }
-      
 #ifdef DUMP_ALL
       if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
 	printf ("cond");
