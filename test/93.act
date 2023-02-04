@@ -1,0 +1,15 @@
+defproc test()
+{
+   bool xr, xa;
+
+   chp {
+     (xr-; xr+; [xa]; xr-; [~xa]; log ("hi");
+	 xr+; [xa]; xr-; [~xa]; log ("hi");
+	 xr+; [xa]; xr-; [~xa]; log ("hi");
+	 xr+; [xa]; xr-; [~xa]; log ("hi");
+	 xr+; [xa]; xr-; [~xa]; log ("hi");
+	 xr+; [xa]; xr-; [~xa]; log ("hi")   )
+||  
+     (xa-; *[ [xr]; xa+; [~xr]; xa- ])
+   }
+}

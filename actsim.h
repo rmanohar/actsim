@@ -501,6 +501,11 @@ class ActSimCore {
     return f;
   }
 
+
+  int isInternalParallel() { return _is_internal_parallel; }
+  void setInternalParallel (int v) { _is_internal_parallel = v; }
+  
+
 protected:
   Act *a;
 
@@ -549,6 +554,10 @@ protected:
   
   stateinfo_t *_rootsi;		/* root stateinfo; needed for globals
 				   */
+
+  int _is_internal_parallel;    /* used to let the graph construction
+				   phase know that there is internal
+				   parallelism */
 
   struct iHashtable *_W;		/* watchpoints */
   struct iHashtable *_B;		/* breakpoints */

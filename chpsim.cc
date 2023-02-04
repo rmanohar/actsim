@@ -4215,7 +4215,7 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   if (flags & 0x1) {
     ret->u.cond.is_probe = 1;
   }
-  if (flags & 0x2) {
+  if ((flags & 0x2) || s->isInternalParallel()) {
     ret->u.cond.is_shared = 1;
   }
   return ret;

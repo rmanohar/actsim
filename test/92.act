@@ -1,0 +1,17 @@
+defproc my_source(chan!(enum<1>) X) {
+  chp {
+    X!0; X!4; X!3
+  } 
+} 
+
+defproc my_sink(chan?(enum<1>) X) {
+  enum<1> x;
+  chp {
+    *[ X?x; log(x) ]
+  } 
+} 
+
+defproc test() {
+  my_source s;
+  my_sink t(s.X);
+}

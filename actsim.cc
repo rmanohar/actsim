@@ -94,6 +94,8 @@ ActSimCore::ActSimCore (Process *p)
   I.H = NULL;
   I.obj = NULL;
 
+  _is_internal_parallel = 0;
+
   if (!root_scope->isExpanded()) {
     fatal_error ("Need to expand ACT prior to starting a simulation");
   }
@@ -343,6 +345,12 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
     if (!pgi->chp) {
       ChpSimGraph *stop;
       NEW (pgi->chp, chpsimgraph_info);
+      if (c->c && c->c->type == ACT_CHP_COMMA) {
+	setInternalParallel (1);
+      }
+      else {
+	setInternalParallel (0);
+      }
       pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
       pgi->chp->e = NULL;
       pgi->chp->max_count = ChpSimGraph::max_pending_count;
@@ -407,6 +415,13 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   if (!pgi->hse) {
     ChpSimGraph *stop;
     NEW (pgi->hse, chpsimgraph_info);
+
+    if (c->c && c->c->type == ACT_CHP_COMMA) {
+      setInternalParallel (1);
+    }
+    else {
+      setInternalParallel (0);
+    }
     pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c,  &stop);
     pgi->hse->max_count = ChpSimGraph::max_pending_count;
     pgi->hse->max_stats = ChpSimGraph::max_stats;

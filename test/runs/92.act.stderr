@@ -1,0 +1,4 @@
+WARNING: my_sink<>: substituting chp model (requested prs, not found)
+WARNING: my_source<>: substituting chp model (requested prs, not found)
+** FATAL ** Process my_sink<>: enumeration assigned illegal value
+**   Max=1;  Value: 4 (0x4)
