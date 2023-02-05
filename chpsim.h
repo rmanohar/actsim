@@ -175,6 +175,7 @@ class ChpSim : public ActSimObj {
   BigInt exprEval (Expr *e);
 
   void setHseMode() { _hse_mode = 1; }
+  int isHseMode() { return _hse_mode; }
   
 
  private:

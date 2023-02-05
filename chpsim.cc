@@ -1985,14 +1985,18 @@ BigInt ChpSim::varEval (int id, int type)
     val = _sc->getBool (off);
     r.setVal (0, val);
     if (val == 2) {
-#if 0      
-      fprintf (stderr, "[%8lu] <", CurTimeLo());
-      if (name) {
-	name->Print (stderr);
+      act_connection *c;
+      ActId *tmp;
+      int dy;
+      c = _sc->getConnFromOffset (_proc, id, type, &dy);
+      msgPrefix (actsim_log_fp());
+      fprintf (actsim_log_fp(), "WARNING: Boolean variable `");
+      if (c) {
+	tmp = c->toid();
+	tmp->Print (actsim_log_fp());
+	delete tmp;
       }
-      fprintf (stderr, "> ");
-#endif      
-      warning ("Boolean variable is X");
+      fprintf (actsim_log_fp(), "' is X\n");
       r.setWidth (2);
       r.setVal (0, val);
     }

@@ -665,6 +665,6 @@ extern int debug_metrics;
 Act *actsim_Act();
 Process *actsim_top();
 int is_rand_excl ();
-
+bool _match_hseprs (Event *);
 
 #endif /* __ACT_SIM_H__ */

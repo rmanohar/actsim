@@ -1915,9 +1915,13 @@ void ActSimObj::msgPrefix (FILE *fp)
   fprintf (fp, ">  ");
 }
 
-bool _match_oneprs (Event *e)
+bool _match_hseprs (Event *e)
 {
   if (dynamic_cast <OnePrsSim *> (e->getObj())) {
+    return true;
+  }
+  ChpSim *x = dynamic_cast <ChpSim *> (e->getObj());
+  if (x && x->isHseMode()) {
     return true;
   }
   return false;
@@ -1980,7 +1984,7 @@ void ActSim::runInit ()
   if (!g->getlang() || !g->getlang()->getinit()) {
     if (fragmented_set) {
       int count = 0;
-      while (SimDES::matchPendingEvent (_match_oneprs) && count < 100) {
+      while (SimDES::matchPendingEvent (_match_hseprs) && count < 100) {
 	count++;
 	if (SimDES::AdvanceTime (10) != NULL) {
 	  warning ("breakpoint?");
@@ -2045,7 +2049,7 @@ void ActSim::runInit ()
 	    warning ("breakpoint?");
 	  }
 	  count++;
-	  if (!SimDES::matchPendingEvent (_match_oneprs)) {
+	  if (!SimDES::matchPendingEvent (_match_hseprs)) {
 	    break;
 	  }
 	} while (count < 100);

@@ -67,7 +67,19 @@ int process_cycle (int argc, char **argv)
     fprintf (stderr, "Usage: %s\n", argv[0]);
     return LISP_RET_ERROR;
   }
-  glob_sim->runSim (NULL);
+
+  if (glob_sim->isResetMode()) {
+    while (!LispInterruptExecution) {
+      if (!SimDES::matchPendingEvent (_match_hseprs)) {
+	// no prs or hse pending events!
+	break;
+      }
+      glob_sim->Step (1); // ignores breakpoints
+    }
+  }
+  else {
+    glob_sim->runSim (NULL);
+  }
   return LISP_RET_TRUE;
 }
 
