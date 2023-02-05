@@ -699,8 +699,9 @@ void XyceActInterface::initXyce ()
     int off = xs->getOffset (xyce_glob[i].c);
 
     ActId *tid = xyce_glob[i].c->toid();
-    tid->sPrint (buf, 10240);
+    tid->sPrint (buf2, 10240);
     delete tid;
+    a->mangle_string (buf2, buf, 10240);
     
     if (xyce_glob[i].input) {
       /* DAC */
