@@ -954,7 +954,7 @@ void XyceActInterface::updateDAC ()
 	for (int i=0; i < A_LEN (xf->dac_id); i++) {
 	  char buf[10240];
 	  snprintf (buf, 10240, "ydac!%s", xf->dac_id[i]);
-#if 1
+#if 0
 	  printf (" > update: %s (id = %d)\n", buf, i);
 #endif
 	  if (_case_for_sim) {
