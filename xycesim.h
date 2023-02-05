@@ -58,6 +58,8 @@ public:
     _single_inst = NULL;
   }
 
+  void initGlobalFanout (ActSimCore *, XyceSim *);
+
   /* -- initialize simulator -- */
   void initXyce ();
   void updateDAC ();
@@ -126,6 +128,9 @@ private:
   Event *_pending;		// current pending event
 
   xyceIO *_ioiface;
+
+  A_DECL (netlist_global_port, xyce_glob);
+  
 };
 
 
@@ -147,6 +152,8 @@ class XyceSim : public ActSimObj {
   int getGlobalBool (int off) {
     return _sc->getBool (off);
   }
+
+  ActSimCore *getSimCore() { return _sc; }
 
   int hasOffset (act_connection *cx) {
     return _sc->hasLocalOffset (cx, _si);

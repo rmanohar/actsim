@@ -558,7 +558,6 @@ void XyceActInterface::initXyce ()
 
   fprintf (sfp, "*\n* instances\n*\n");
 
-  A_DECL(netlist_global_port, xyce_glob);
   A_DECL(int, analog_inst_id);
   A_INIT(xyce_glob);
   A_INIT(analog_inst_id);
@@ -743,6 +742,9 @@ void XyceActInterface::initXyce ()
       }
     }
   }
+
+  XyceActInterface *xf = XyceActInterface::getXyceInterface ();
+  xf->initGlobalFanout (_analog_inst[0]->getSimCore(), _analog_inst[0]);
 
   fprintf (sfp, "*\n* ADCs and DACs\n*\n");
 
@@ -952,8 +954,8 @@ void XyceActInterface::updateDAC ()
 	for (int i=0; i < A_LEN (xf->dac_id); i++) {
 	  char buf[10240];
 	  snprintf (buf, 10240, "ydac!%s", xf->dac_id[i]);
-#if 0
-	  printf (" > update: %s (id = %d)\n", buf);
+#if 1
+	  printf (" > update: %s (id = %d)\n", buf, i);
 #endif
 	  if (_case_for_sim) {
 	    for (int j=0; buf[j]; j++) {
@@ -1163,10 +1165,23 @@ int XyceSim::Step (Event * /*ev*/)
   return 1;
 }
 
+void XyceActInterface::initGlobalFanout (ActSimCore *sc, XyceSim *x)
+{
+  for (int i=0; i < A_LEN (xyce_glob); i++) {
+    if (xyce_glob[i].bidir) {
+      /* we only interface unidirectional signals */
+      continue;
+    }
+    if (xyce_glob[i].input) {
+      sc->incFanout (x->getOffset (xyce_glob[i].c), 0, x);
+    }
+  }
+}
+
 void XyceSim::computeFanout()
 {
   act_boolean_netlist_t *bnl;
-  
+
   bnl = _sc->getbnl (_proc);
   Assert (bnl, "Hmm");
   for (int i=0; i < A_LEN (bnl->ports); i++) {
