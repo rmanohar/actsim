@@ -592,12 +592,12 @@ void XyceActInterface::initXyce ()
       delete tid;
 
       a->mangle_string (buf2, buf, 10240);
-      fprintf (sfp, "%s ", buf);
 
       /* circuit simulators are case insensitive... */
       for (int k=0; buf[k]; k++) {
 	buf[k] = tolower (buf[k]);
       }
+      fprintf (sfp, "%s ", buf);
 
       int off;
       if (is_bb) {
