@@ -47,3 +47,8 @@ Building `actsim`:
       *  Run `./grab_xyce.sh <path>` where `<path>` is the path to the cmake build directory for your Xyce build
       *  Alternatively, you can copy the file `src/CMakeFiles/Xyce.dir/link.txt` from your cmake build directory for Xyce, place it it any directory, and run `grab_xyce.sh` with the path set to the directory containing `link.txt`
    * After this, you can build actsim.
+
+### Running the simulator
+
+To start a simulation, use `actsim <file.act> <top-level-process>`. 
+More information on running a simulation is [available](https://avlsi.csl.yale.edu/act/doku.php?id=tools:actsim).
