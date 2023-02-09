@@ -2441,8 +2441,14 @@ void ActTimingConstraint::Init ()
 
 #define TIMING_TRIGGER(x)  (((v) == 1 && f[x].up) || ((v) == 0 && f[x].dn))
 
+extern ActSim *glob_sim;
+
 void ActTimingConstraint::update (int sig, int v)
 {
+  if (glob_sim->isResetMode()) {
+    return;
+  }
+  
   if (n[0] == sig) {
     if (TIMING_TRIGGER (0)) {
       state = ACT_TIMING_START;
