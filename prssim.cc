@@ -397,6 +397,8 @@ void PrsSimGraph::_add_one_gate (ActSimCore *sc, act_prs_lang_t *p)
   struct prssim_stmt *s;
   NEW (s, struct prssim_stmt);
   s->next = NULL;
+  s->delay_up = 10;
+  s->delay_dn = 10;
   if (p->u.p.g) {
     if (p->u.p._g) {
       s->type = PRSSIM_TGATE;

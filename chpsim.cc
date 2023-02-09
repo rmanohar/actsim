@@ -1644,51 +1644,64 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
   }
 
   if (c->fragmented) {
+#if 0
+    printf ("[send %p] fragmented; in-st: %d / %d; wake-up: %d\n", c,
+	    c->sfrag_st, c->sufrag_st, wakeup);
+#endif
     *frag = 1;
-    if (c->frag_st == 0) {
+    if (c->sfrag_st == 0) {
       c->data = v;
-      c->frag_st = 1;
-      c->ufrag_st = 0;
+      c->sfrag_st = 1;
+      c->sufrag_st = 0;
     }
 
     if (_sc->isResetMode()) {
       list_iappend (_stalled_pc, pc);
       sStall ();
+#if 0
+	printf ("[send %p] stall\n", c);
+#endif
       return 1;
     }
 
-    while (c->ufrag_st >= 0) {
+    while (c->sufrag_st >= 0) {
       int idx;
-      if (c->frag_st == 1) {
+      if (c->sfrag_st == 1) {
 	idx = ACT_METHOD_SET;
       }
-      else if (c->frag_st == 2) {
+      else if (c->sfrag_st == 2) {
 	idx = ACT_METHOD_SEND_UP;
       }
-      else if (c->frag_st == 3) {
+      else if (c->sfrag_st == 3) {
 	idx = ACT_METHOD_SEND_REST;
       }
       else {
 	/* finished protocol */
-	c->frag_st = 0;
+	c->sfrag_st = 0;
 	if (bidir) {
 	  *xchg = c->data2;
 	}
         c->count++;
+#if 0
+	printf ("[send %p] done\n", c);
+#endif
 	return 0;
       }
-      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
-      if (c->ufrag_st == 0xff) { /* -1 */
-	c->frag_st++;
-	c->ufrag_st = 0;
+      c->sufrag_st = c->cm->runMethod (_sc, c, idx, c->sufrag_st);
+      if (c->sufrag_st == 0xff) { /* -1 */
+	c->sfrag_st++;
+	c->sufrag_st = 0;
 
 	/* if flavors, then we are done half way as well */
 	if (c->use_flavors && c->send_flavor == 1) {
-	  if (c->frag_st == 3) {
+	  if (c->sfrag_st == 3) {
 	    if (bidir) {
 	      *xchg = c->data2;
 	    }
             c->count++;
+#if 0
+	printf ("[send %p] done\n", c);
+#endif
 	    return 0;
 	  }
 	}
@@ -1696,10 +1709,14 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
       else {
 	list_iappend (_stalled_pc, pc);
 	sStall ();
+#if 0
+	printf ("[send %p] stall\n", c);
+#endif
 	return 1;
       }
     }
   }
+  Assert (!c->fragmented, "Hmm");
   *frag = 0;
 
 #ifdef DUMP_ALL  
@@ -1831,44 +1848,60 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
   
 
   if (c->fragmented) {
+#if 0
+    printf ("[recv %p] fragmented; in-st: %d / %d\n", c,
+	    c->rfrag_st, c->rufrag_st);
+#endif
     *frag = 1;
-    if (c->frag_st == 0) {
+    if (c->rfrag_st == 0) {
       if (bidir) {
 	c->data2 = xchg;
       }
-      c->frag_st = 1;
-      c->ufrag_st = 0;
+      c->rfrag_st = 1;
+      c->rufrag_st = 0;
     }
 
     if (_sc->isResetMode()) {
       list_iappend (_stalled_pc, pc);
       sStall ();
+#if 0
+	printf ("[recv %p] stall\n", c);
+#endif
       return 1;
     }
     
-    while (c->ufrag_st >= 0) {
+    while (c->rufrag_st >= 0) {
       int idx;
-      if (c->frag_st == 1) {
+      if (c->rfrag_st == 1) {
 	idx = ACT_METHOD_GET;
       }
-      else if (c->frag_st == 2) {
+      else if (c->rfrag_st == 2) {
 	idx = ACT_METHOD_RECV_UP;
       }
-      else if (c->frag_st == 3) {
+      else if (c->rfrag_st == 3) {
 	idx = ACT_METHOD_RECV_REST;
       }
       else {
 	/* finished protocol */
-	c->frag_st = 0;
+#if 0
+	printf ("[recv %p] done\n", c);
+#endif
+	c->rfrag_st = 0;
 	(*v) = c->data;
 	return 0;
       }
-      c->ufrag_st = c->cm->runMethod (_sc, c, idx, c->ufrag_st);
-      if (c->ufrag_st == 0xff) { /* -1 */
-	c->frag_st++;
-	c->ufrag_st = 0;
+#if 0
+      printf ("[recv %p] run method %d\n", c, idx);
+#endif
+      c->rufrag_st = c->cm->runMethod (_sc, c, idx, c->rufrag_st);
+      if (c->rufrag_st == 0xff) { /* -1 */
+	c->rfrag_st++;
+	c->rufrag_st = 0;
 	if (c->use_flavors && c->recv_flavor == 1) {
-	  if (c->frag_st == 3) {
+	  if (c->rfrag_st == 3) {
+#if 0
+	    printf ("[recv %p] done\n", c);
+#endif
 	    (*v) = c->data;
 	    return 0;
 	  }
@@ -1877,10 +1910,14 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
       else {
 	list_iappend (_stalled_pc, pc);
 	sStall ();
+#if 0
+	printf ("[recv %p] stall\n", c);
+#endif
 	return 1;
       }
     }
   }
+  Assert (!c->fragmented, "What?");
   
   *frag = 0;
   

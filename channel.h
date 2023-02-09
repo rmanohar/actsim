@@ -56,9 +56,12 @@ struct act_channel_state {
   
 
 
-  unsigned int frag_st:2;	// send/recv, send_up/recv_up, or
+  unsigned int sfrag_st:2;	// send/recv, send_up/recv_up, or
 				// send_rest/recv_rest
-  unsigned int ufrag_st:8;	// micro-state within frag state
+  unsigned int rfrag_st:2;	// send/recv, send_up/recv_up, or
+				// send_rest/recv_rest
+  unsigned int sufrag_st:8;	// micro-state within frag state
+  unsigned int rufrag_st:8;	// micro-state within frag state
 
   unsigned int use_flavors:1;	// 1 if !+/!- are in use
   unsigned int send_flavor:1;	// state of send flavor

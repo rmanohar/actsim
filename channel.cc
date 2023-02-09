@@ -534,8 +534,10 @@ act_channel_state::act_channel_state(expr_multires &vinit)
   w = new WaitForOne(0);
   probe = NULL;
   fragmented = 0;
-  frag_st = 0;
-  ufrag_st = 0;
+  sfrag_st = 0;
+  sufrag_st = 0;
+  rfrag_st = 0;
+  rufrag_st = 0;
   ct = NULL;
   fH = NULL;
   cm = NULL;
