@@ -403,6 +403,7 @@ int ChanMethods::runProbe (ActSimCore *sim,
     fprintf (stderr, "\n");
     return 0;
   }
+  ch->_dummy->setNameAlias (ch->inst_id);
   BigInt r = ch->_dummy->exprEval (e);
   if (r.getVal (0)) {
     return 1;
@@ -428,6 +429,7 @@ int ChanMethods::runMethod (ActSimCore *sim,
     ch->_dummy->setFrag (ch);
   }
 
+  ch->_dummy->setNameAlias (ch->inst_id);
   while (from < A_LEN (_ops[idx].op)) {
     switch (_ops[idx].op[from].type) {
     case CHAN_OP_SKIP:

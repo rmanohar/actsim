@@ -149,6 +149,7 @@ public:
 
   virtual void zeroInit () { }
 
+  void setNameAlias (ActId *id) { name = id; }
   void setName (ActId *id) { if (id) { name = id->Clone(); } else { name = NULL; } }
   ActId *getName () { return name; }
   Process *getProc () { return _proc; }
