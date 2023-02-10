@@ -538,6 +538,7 @@ act_channel_state::act_channel_state(expr_multires &vinit)
   sufrag_st = 0;
   rfrag_st = 0;
   rufrag_st = 0;
+  frag_warn = 0;
   ct = NULL;
   fH = NULL;
   cm = NULL;

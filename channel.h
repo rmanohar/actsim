@@ -60,6 +60,7 @@ struct act_channel_state {
 				// send_rest/recv_rest
   unsigned int rfrag_st:2;	// send/recv, send_up/recv_up, or
 				// send_rest/recv_rest
+  unsigned int frag_warn:1;	// warning for double frag
   unsigned int sufrag_st:8;	// micro-state within frag state
   unsigned int rufrag_st:8;	// micro-state within frag state
 

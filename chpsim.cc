@@ -1644,6 +1644,20 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
   }
 
   if (c->fragmented) {
+    if (c->rfrag_st != 0 && !c->frag_warn) {
+      int dy;
+      ActId *pr;
+      act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      msgPrefix(actsim_log_fp());
+      fprintf (actsim_log_fp(), "Channel has fragmented send and recv? (`");
+      pr = x->toid();
+      pr->Print (actsim_log_fp());
+      fprintf (actsim_log_fp(), "')\n");
+      msgPrefix (actsim_log_fp());
+      fprintf (actsim_log_fp(), "CHP+hse/circuits are driving the same end of the channel?\n");
+      c->frag_warn = 1;
+      delete pr;
+    }
 #if 0
     printf ("[send %p] fragmented; in-st: %d / %d; wake-up: %d\n", c,
 	    c->sfrag_st, c->sufrag_st, wakeup);
@@ -1848,6 +1862,20 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
   
 
   if (c->fragmented) {
+    if (c->sfrag_st != 0 && !c->frag_warn) {
+      int dy;
+      ActId *pr;
+      act_connection *x = _sc->getConnFromOffset (_proc, id, 2, &dy);
+      msgPrefix(actsim_log_fp());
+      fprintf (actsim_log_fp(), "Channel has fragmented send and recv? (`");
+      pr = x->toid();
+      pr->Print (actsim_log_fp());
+      fprintf (actsim_log_fp(), "')\n");
+      msgPrefix (actsim_log_fp());
+      fprintf (actsim_log_fp(), "CHP+hse/circuits are driving the same end of the channel?\n");
+      c->frag_warn = 1;
+      delete pr;
+    }
 #if 0
     printf ("[recv %p] fragmented; in-st: %d / %d\n", c,
 	    c->rfrag_st, c->rufrag_st);
