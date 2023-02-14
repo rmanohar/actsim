@@ -2704,10 +2704,10 @@ void ActSimCore::recordTrace (const watchpt_bucket *w, int type,
   if (type == 0) {
     int v = val.getVal (0);
     if (v == 0) {
-      v = ACT_SIG_BOOL_TRUE;
+      v = ACT_SIG_BOOL_FALSE;
     }
     else if (v == 1) {
-      v = ACT_SIG_BOOL_FALSE;
+      v = ACT_SIG_BOOL_TRUE;
     }
     else if (v == 2) {
       v = ACT_SIG_BOOL_X;
