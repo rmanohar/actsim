@@ -1403,13 +1403,14 @@ void ActSimCore::_add_all_inst (Scope *sc)
     }
   }
 
-  stack_pop (_si_stack);
+  _cursi = (stateinfo_t *) stack_pop (_si_stack);
   stack_pop (_obj_stack);
 }
 
 
 void ActSimCore::computeFanout (ActInstTable *I)
 {
+  stateinfo_t *si = _cursi;
   if (I->obj) {
     _cursi = sp->getStateInfo (I->obj->getProc());
     I->obj->computeFanout();
@@ -1422,6 +1423,7 @@ void ActSimCore::computeFanout (ActInstTable *I)
       computeFanout ((ActInstTable *)b->v);
     }
   }
+  _cursi = si;
 }
 
 void ActSimCore::_initSim ()
