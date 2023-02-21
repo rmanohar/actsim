@@ -1426,6 +1426,8 @@ int debug_metrics;
 
 int main (int argc, char **argv)
 {
+  const char *metrics_tech_name;
+  
   config_set_default_int ("sim.chp.default_delay", 10);
   config_set_default_int ("sim.chp.default_energy", 0);
   config_set_default_real ("sim.chp.default_leakage", 0);
@@ -1446,6 +1448,15 @@ int main (int argc, char **argv)
   /* some usage check */
   if (argc != 3) {
     usage (argv[0]);
+  }
+
+  if (config_exists ("sim.chp.metrics_tech_name")) {
+    metrics_tech_name = config_get_string ("sim.chp.metrics_tech_name");
+    if (strcmp (metrics_tech_name, getenv ("ACT_TECH")) != 0) {
+      fprintf (stderr, "Simulator tech: `%s'; metrics conf file for: `%s'\n",
+	       getenv ("ACT_TECH"), metrics_tech_name);
+      fatal_error ("Simulator technology specified does not match config-specified metrics");
+    }
   }
 
   /* read in the ACT file */
