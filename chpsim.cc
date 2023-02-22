@@ -301,6 +301,9 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   if (config_exists (buf)) {
     if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->delay_cost = config_get_int (buf);
+    if (stmt->delay_cost < 0) {
+      stmt->delay_cost = 0;
+    }
   }
   else {
     // default delay is 10
@@ -320,6 +323,9 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   if (config_exists (buf)) {
     if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->energy_cost = config_get_int (buf);
+    if (stmt->energy_cost < 0) {
+      stmt->energy_cost = 0;
+    }
   }
   else {
     // default energy is 0
