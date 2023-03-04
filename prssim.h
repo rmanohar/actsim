@@ -125,7 +125,7 @@ class PrsSim : public ActSimObj {
   inline int isResetMode() { return _sc->isResetMode (); }
   inline int onWarning() { return _sc->onWarning(); }
 
-  void printStatus (int val);
+  void printStatus (int val, bool io_glob = false);
 
   void registerExcl ();
   

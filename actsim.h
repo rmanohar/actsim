@@ -158,7 +158,7 @@ public:
   virtual unsigned long getEnergy () { return 0; }
   virtual double getLeakage () { return 0.0; }
   virtual unsigned long getArea () { return 0; }
-  virtual void printStatus (int val) { }
+  virtual void printStatus (int val, bool io_glob = false) { }
 
   virtual void propagate ();
   virtual void computeFanout() { printf ("should not be here\n"); }

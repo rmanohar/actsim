@@ -1192,6 +1192,12 @@ int process_status (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   _compute_status (glob_sim->getInstTable(), val);
+
+  /* now dump status for all the primary I/O pins and globals */
+  if (glob_sim->getInstTable()->obj) {
+    glob_sim->getInstTable()->obj->printStatus (val, true);
+  }
+  
   return LISP_RET_TRUE;
 }
 

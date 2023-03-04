@@ -49,27 +49,64 @@ int PrsSim::Step (Event */*ev*/)
   return 1;
 }
 
-void PrsSim::printStatus (int val)
+extern ActSim *glob_sim;
+
+void PrsSim::printStatus (int val, bool io_glob)
 {
   listitem_t *li;
   int emit_name = 0;
-  
-  for (li = list_first (_sim); li; li = list_next (li)) {
-    if (((OnePrsSim *)list_value (li))->matches (val)) {
-      if (!emit_name) {
-	if (name) {
-	  name->Print (stdout);
+
+  if (io_glob) {
+    stateinfo_t *si = glob_sim->getsi (_proc);
+
+    if (!si) {
+      return;
+    }
+    
+    for (int i=0; i < si->ports.numBools(); i++) {
+      int port_idx = -(i+1)*2+1;
+      int pval = getBool (port_idx);
+      if (pval == val) {
+	int dy;
+	act_connection *c = glob_sim->getConnFromOffset (_proc, port_idx,
+							 0, &dy);
+	Assert (c, "Hmm");
+	
+	if (!emit_name) {
+	  if (name) {
+	    name->Print (stdout);
+	  }
+	  else {
+	    printf ("-top-");
+	  }
+	  printf (" port:{ ");
+	  emit_name = 1;
 	}
 	else {
-	  printf ("-top-");
+	  printf (" ");
 	}
-	printf (" { ");
-	emit_name = 1;
+	c->Print (stdout);
       }
-      else {
-	printf (" ");
+    }
+  }
+  else {
+    for (li = list_first (_sim); li; li = list_next (li)) {
+      if (((OnePrsSim *)list_value (li))->matches (val)) {
+	if (!emit_name) {
+	  if (name) {
+	    name->Print (stdout);
+	  }
+	  else {
+	    printf ("-top-");
+	  }
+	  printf (" { ");
+	  emit_name = 1;
+	}
+	else {
+	  printf (" ");
+	}
+	((OnePrsSim *)list_value (li))->printName ();
       }
-      ((OnePrsSim *)list_value (li))->printName ();
     }
   }
   if (emit_name) {
