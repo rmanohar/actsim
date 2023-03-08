@@ -5720,10 +5720,77 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
   return ret_break;
 }
 
-
 void ChpSim::_zeroStructure (struct chpsimderef *d)
 {
-  /* XXX: something here */
+  Assert (d, "Hmm");
+  int *struct_info;
+  int struct_len;
+
+  state_counts ts;
+  ActStatePass::getStructCount (d->d, &ts);
+  
+  if (d->range) {
+    /* array deref */
+    for (int i=0; i < d->range->nDims(); i++) {
+      BigInt res = exprEval (d->chp_idx[i]);
+      d->idx[i] = res.getVal (0);
+    }
+    int x = d->range->Offset (d->idx);
+    if (x == -1) {
+      fprintf (stderr, "In: ");
+      if (getName()) {
+	getName()->Print (stderr);
+      }
+      else {
+	fprintf (stderr, "<>");
+      }
+      fprintf (stderr, "  [ %s ]\n", _proc ? _proc->getName() : "-global-");
+      fprintf (stderr, "\tAccessing index ");
+      for (int i=0; i < d->range->nDims(); i++) {
+	fprintf (stderr, "[%d]", d->idx[i]);
+      }
+      fprintf (stderr, " from ");
+      d->cx->toid()->Print (stderr);
+      fprintf (stderr, "\n");
+      fatal_error ("Array out of bounds!");
+    }
+    int off_i, off_b, off;
+    MALLOC (struct_info, int, 3*(ts.numInts() + ts.numBools()));
+    off_i = d->offset + x*ts.numInts();
+    off_b = d->width + x*ts.numBools();
+    off = 0;
+    _add_deref_struct2 (d->d, struct_info, &off_i, &off_b, &off);
+  }
+  else {
+    struct_info = d->idx;
+  }
+  struct_len = 3*(ts.numInts() + ts.numBools());
+  for (int i=0; i < struct_len/3; i++) {
+    int off = getGlobalOffset (struct_info[3*i],
+			       struct_info[3*i+1] == 2 ?
+			       1 : struct_info[3*i+1]);
+    if (struct_info[3*i+1] == 1) {
+      BigInt tmp;
+      tmp.setWidth (struct_info[3*i+2]);
+      tmp.toStatic ();
+      _sc->setInt (off, tmp);
+    }
+    else if (struct_info[3*i+1] == 2) {
+      /* enum */
+      BigInt tmpv (64, 0, 0);
+      tmpv.setVal (0, struct_info[3*i+2]);
+      tmpv.setWidth (_ceil_log2 (struct_info[3*i+2]));
+      tmpv.toStatic ();
+      _sc->setInt (off, tmpv);
+    }
+    else {
+      Assert (struct_info[3*i+1] == 0, "What?");
+    }
+  }
+
+  if (struct_info != d->idx) {
+    FREE (struct_info);
+  }
 }
 
 
@@ -5750,7 +5817,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
   case CHPSIM_ASSIGN:
     /* ok now get the int! */
     if (g->stmt->u.assign.is_struct) {
-      /* XXX: FIXME structures */
+      _zeroStructure (&g->stmt->u.assign.d);
     }
     else {
       if (g->stmt->u.assign.isint != 0) {
@@ -5775,7 +5842,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
 
       if (g->stmt->u.sendrecv.d) {
 	if (g->stmt->u.sendrecv.d->d) {
-	  // XXX: fix structures
+	  _zeroStructure (g->stmt->u.sendrecv.d);
 	}
 	else {
 	  off = computeOffset (g->stmt->u.sendrecv.d);
@@ -5789,6 +5856,12 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
 	    v.toStatic();
 	    _sc->setInt (off, v);
 	  }
+	}
+      }
+      if (g->stmt->u.sendrecv.e) {
+	Expr *e = g->stmt->u.sendrecv.e;
+	if (e->type == E_CHP_VARSTRUCT || e->type == E_CHP_VARSTRUCT_DEREF) {
+	  _zeroStructure ((struct chpsimderef *)e->u.e.l);
 	}
       }
     }
