@@ -1,0 +1,21 @@
+deftype foo
+(
+   int  a
+  ;int  b
+  ;int  c
+){}
+
+defproc test ()
+{
+
+  foo f, f1;
+
+  chan(foo) X,X1;
+
+  chp {
+    f.a := 0; f.c := 0; *[ X!f ]
+||
+    *[ X?f1 ]
+  }
+}
+test t; 
