@@ -282,7 +282,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
   else {
     nsname = NULL;
   }
-  char tmpbuf[900];
+  char tmpbuf[900], tmpbuf2[900];
 
   if (nsname) {
     snprintf (tmpbuf, 900, "%s::%s", nsname+2, si->bnl->p->getName());
@@ -293,11 +293,13 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     snprintf (tmpbuf, 900, "%s", si->bnl->p->getName());
   }
 
+  id->sPrint (tmpbuf2, 900);
+  
   if (debug_metrics) {
-    fprintf (stderr, "Looking for metrics for: %s\n", tmpbuf);
+    fprintf (stderr, "Looking for metrics for: %s [%s]\n", tmpbuf, tmpbuf2);
   }
 
-  snprintf (buf, 1024, "sim.chp.%s.%s.D", tmpbuf, id->getName());
+  snprintf (buf, 1024, "sim.chp.%s.%s.D", tmpbuf, tmpbuf2);
   if (config_exists (buf)) {
     if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->delay_cost = config_get_int (buf);
@@ -310,7 +312,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     stmt->delay_cost = config_get_int ("sim.chp.default_delay");
   }
 
-  snprintf (buf, 1024, "sim.chp.%s.%s.D_bw", tmpbuf, id->getName());
+  snprintf (buf, 1024, "sim.chp.%s.%s.D_bw", tmpbuf, tmpbuf2);
   if (config_exists (buf)) {
     if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->bw_cost = config_get_int (buf);
@@ -319,7 +321,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
     stmt->bw_cost = 0;
   }
   
-  snprintf (buf, 1024, "sim.chp.%s.%s.E", tmpbuf, id->getName());
+  snprintf (buf, 1024, "sim.chp.%s.%s.E", tmpbuf, tmpbuf2);
   if (config_exists (buf)) {
     if (debug_metrics) fprintf (stderr, " >> found %s\n", buf);
     stmt->energy_cost = config_get_int (buf);
