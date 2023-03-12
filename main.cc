@@ -297,6 +297,10 @@ ActSimObj *find_object (ActId **id, ActInstTable *x)
   if (!(*id)) { return x->obj; }
   if (!x->H) { return x->obj; }
 
+  if ((*id)->isNamespace()) {
+    return x->obj;
+  }
+
   ActId *tmp = (*id)->Rest();
   (*id)->prune();
   (*id)->sPrint (buf, 1024);
@@ -1333,7 +1337,7 @@ int process_get_sim_time (int argc, char **argv)
     return LISP_RET_ERROR;
   }
   double cur_time = glob_sim->curTimeMetricUnits ();
-  LispSetReturnFloat (cur_time); 
+  LispSetReturnFloat (cur_time*1e12); 
   return LISP_RET_FLOAT;
 }
 
