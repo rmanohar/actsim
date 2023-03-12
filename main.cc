@@ -974,8 +974,8 @@ int process_unwatch (int argc, char **argv)
 
 int process_chcount (int argc, char **argv)
 {
-  if (argc < 2) {
-    fprintf (stderr, "Usage: %s <ch>\n", argv[0]);
+  if (argc != 2 && argc != 3) {
+    fprintf (stderr, "Usage: %s <ch> [#f]\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
@@ -991,8 +991,11 @@ int process_chcount (int argc, char **argv)
   }
   int goff = obj->getGlobalOffset (offset, type);
   act_channel_state *ch = glob_sim->getChan (goff);
-  printf ("Channel %s: completed actions %lu\n", argv[1], ch->count);
-  return LISP_RET_TRUE;
+  if (argc != 3) {
+    printf ("Channel %s: completed actions %lu\n", argv[1], ch->count);
+  }
+  LispSetReturnInt (ch->count);
+  return LISP_RET_INT;
 }
 
 int process_logfile (int argc, char **argv)
@@ -1341,6 +1344,22 @@ int process_get_sim_time (int argc, char **argv)
   return LISP_RET_FLOAT;
 }
 
+int process_get_sim_itime (int argc, char **argv)
+{
+  if (argc != 1) {
+    fprintf (stderr, "Usage: %s <t>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (!glob_sim) { 
+    fprintf (stderr, "%s: No simulation?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  BigInt tm = SimDES::CurTime();
+  LispSetReturnInt (tm.getVal (0));
+  return LISP_RET_INT;
+}
+
+
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
 
@@ -1373,7 +1392,7 @@ struct LispCliCommand Cmds[] = {
   
   { "get", "<name> [#f] - get value of a variable; optional arg turns off display", process_get },
   { "mget", "<name1> <name2> ... - multi-get value of a variable", process_mget },
-  { "chcount", "<name> - return the number of completed actions on named channel", process_chcount },
+  { "chcount", "<name> [#f] - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
@@ -1388,6 +1407,7 @@ struct LispCliCommand Cmds[] = {
 
   { "timescale", "<t> - set time scale to <t> picoseconds for tracing", process_timescale },
   { "get_sim_time", "- returns current simulation time in picoseconds", process_get_sim_time },
+  { "get_sim_itime", "- returns current simulation time (integer)", process_get_sim_itime },
   { "vcd_start", "<file> - Create Verilog change dump for all watched values", process_createvcd },
   { "vcd_stop", "- Stop VCD generation", process_stopvcd },
   { "trace_start", "<file> - Create ACT trace file for all watched values", process_createalint },
