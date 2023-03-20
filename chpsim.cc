@@ -1029,11 +1029,14 @@ void ChpSim::_remove_me (int pc)
   listitem_t *li;
   listitem_t *prev = NULL;
 
-  for (li = list_first (_stalled_pc); li; li = list_next (li)) {
-    if (list_ivalue (li) == pc) {
-      list_delete_next (_stalled_pc, prev);
-      sRemove ();
-      return;
+  if (sWaiting ()) {
+    for (li = list_first (_stalled_pc); li; li = list_next (li)) {
+      if (list_ivalue (li) == pc) {
+	list_delete_next (_stalled_pc, prev);
+	sRemove ();
+	return;
+      }
+      prev = li;
     }
   }
 }
@@ -1492,10 +1495,11 @@ int ChpSim::Step (Event *ev)
       _energy_cost += stmt->energy_cost;
       
       if (flag) {
+	int tmpret;
 	/*-- release wait conditions in case there are multiple --*/
-	if ((stmt->u.cond.is_shared || stmt->u.cond.is_probe) &&
-	   (_add_waitcond (&stmt->u.cond.c, pc, 1) || stmt->u.cond.is_shared)) {
-	    _remove_me (pc);
+	tmpret = _add_waitcond (&stmt->u.cond.c, pc, 1);
+	if (stmt->u.cond.is_shared || tmpret) {
+	  _remove_me (pc);
 	}
       }
 
@@ -1566,9 +1570,10 @@ int ChpSim::Step (Event *ev)
 	if (stmt->type == CHPSIM_COND || stmt->type == CHPSIM_CONDARB) {
 	  /* selection: we just try again later: add yourself to
 	     probed signals */
+	  int tmpret;
 	  forceret = 1;
-	  if ((stmt->u.cond.is_shared || stmt->u.cond.is_probe) &&
-	      (_add_waitcond (&stmt->u.cond.c, pc) || stmt->u.cond.is_shared)) {
+	  tmpret = _add_waitcond (&stmt->u.cond.c, pc);
+	  if (stmt->u.cond.is_shared || tmpret) {
 #ifdef DUMP_ALL	      
 	      printf (" [stall-sh]");
 #endif

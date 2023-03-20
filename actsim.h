@@ -173,6 +173,7 @@ public:
   void sWakeup() { _shared->Notify (MAX_LOCAL_PCS); }
   void sStall () { _shared->AddObject (this); }
   void sRemove() { _shared->DelObject (this); }
+  int  sWaiting() { return _shared->isWaiting (this); }
 
 protected:
   state_counts _o;		/* my state offsets for all local
