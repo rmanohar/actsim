@@ -1029,15 +1029,13 @@ void ChpSim::_remove_me (int pc)
   listitem_t *li;
   listitem_t *prev = NULL;
 
-  if (sWaiting ()) {
-    for (li = list_first (_stalled_pc); li; li = list_next (li)) {
-      if (list_ivalue (li) == pc) {
-	list_delete_next (_stalled_pc, prev);
-	sRemove ();
-	return;
-      }
-      prev = li;
+  for (li = list_first (_stalled_pc); li; li = list_next (li)) {
+    if (list_ivalue (li) == pc) {
+      list_delete_next (_stalled_pc, prev);
+      sRemove ();
+      return;
     }
+    prev = li;
   }
 }
 
@@ -1066,7 +1064,16 @@ int ChpSim::Step (Event *ev)
   int _breakpt = 0;
 
   if (pc == MAX_LOCAL_PCS) {
-    // wake-up from a shared variable scenario
+    // wake-up from a shared variable block.
+    
+    // Note that the shared variable block may have been pre-empted
+    // because you woke up on a channel action instead, followed by a
+    // remove_me operation. In this case the stalled pc list will be
+    // empty because it will have been cleared by a _remove_me()
+    // operation.
+    if (list_isempty (_stalled_pc)) {
+      return 1;
+    }
     Assert (!list_isempty (_stalled_pc), "What?");
     pc = list_delete_ihead (_stalled_pc);
   }
