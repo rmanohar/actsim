@@ -237,7 +237,7 @@ class ChpSim : public ActSimObj {
   int _collect_sharedvars (Expr *e, int pc, int undo);
   void _remove_me (int pc);
 
-  int _nextEvent (int pc);
+  int _nextEvent (int pc, int bw_delay);
   void _initEvent ();
   void _zeroAllIntsChans (ChpSimGraph *g);
   void _zeroStructure (struct chpsimderef *d);

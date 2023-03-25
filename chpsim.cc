@@ -481,7 +481,7 @@ void ChpSim::reStart (ChpSimGraph *g, int max_cnt)
     _tot[i] = 0;
   }
   _pc[0] = g;
-  _nextEvent (0);
+  _nextEvent (0, 0);
 }
 		     
 
@@ -501,14 +501,14 @@ ChpSim::~ChpSim()
   }
 }
 
-int ChpSim::_nextEvent (int pc)
+int ChpSim::_nextEvent (int pc, int bw_cost)
 {
   while (_pc[pc] && !_pc[pc]->stmt) {
     pc = _updatepc (pc);
   }
   if (_pc[pc]) {
     new Event (this, SIM_EV_MKTYPE (pc,0) /* pc */,
-	       _sc->getDelay (_pc[pc]->stmt->delay_cost));
+	       _sc->getDelay (_pc[pc]->stmt->delay_cost + bw_cost));
     return 1;
   }
   return 0;
@@ -516,7 +516,7 @@ int ChpSim::_nextEvent (int pc)
 
 void ChpSim::_initEvent ()
 {
-  _nextEvent (0);
+  _nextEvent (0, 0);
 }
 
 void ChpSim::computeFanout ()
@@ -1101,6 +1101,8 @@ int ChpSim::Step (Event *ev)
 
   chpsimstmt *stmt = _pc[pc]->stmt;
 
+  int bw_cost = stmt->bw_cost;
+
 #ifdef DUMP_ALL  
   printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
   if (name) {
@@ -1139,7 +1141,7 @@ int ChpSim::Step (Event *ev)
 #if 0	  
 	  printf (" idx:%d", idx);
 #endif
-	  _nextEvent (idx);
+	  _nextEvent (idx, bw_cost);
 	}
 	else {
 	  Assert (_pcused > 0, "What?");
@@ -1621,7 +1623,7 @@ int ChpSim::Step (Event *ev)
 #ifdef DUMP_ALL  
     printf (" [NEXT!]\n");
 #endif
-    _nextEvent (pc);
+    _nextEvent (pc, bw_cost);
   }
   return 1 - _breakpt;
 }
