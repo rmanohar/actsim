@@ -4299,6 +4299,7 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   ret->type = CHPSIM_COND;
   ret->delay_cost = 0;
   ret->energy_cost = 0;
+  ret->bw_cost = 0;
   tmp = NULL;
   ret->u.cond.stats = -1;
 
@@ -4388,6 +4389,7 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
 	branch->type = CHPSIM_COND;
 	branch->delay_cost = 0;
 	branch->energy_cost = 0;
+        branch->bw_cost = 0;
 	branch->u.cond.stats = -1;
 	branch->u.cond.is_shared = 0;
 	branch->u.cond.is_probe = 0;
@@ -4457,6 +4459,7 @@ static ChpSimGraph *_gen_nop (ActSimCore *sc)
   ret->stmt->type = CHPSIM_NOP;
   ret->stmt->delay_cost = 1;
   ret->stmt->energy_cost = 0;
+  ret->stmt->bw_cost = 0;
   return ret;
 }
 
@@ -4530,6 +4533,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       NEW (ret->stmt, chpsimstmt);
       ret->stmt->delay_cost = 0;
       ret->stmt->energy_cost = 0;
+      ret->stmt->bw_cost = 0;
       ret->stmt->type = CHPSIM_FORK;
       ret->stmt->u.fork = count;
       (*stop)->wait = count;
@@ -4811,6 +4815,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       NEW (ret->stmt, chpsimstmt);
       ret->stmt->delay_cost = 0;
       ret->stmt->energy_cost = 0;
+      ret->stmt->bw_cost = 0;
       ret->stmt->type = CHPSIM_FUNC;
       ret->stmt->u.fn.name = string_char (c->u.func.name);
       ret->stmt->u.fn.l = list_new();
