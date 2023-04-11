@@ -234,7 +234,12 @@ static unsigned long _get_energy (FILE *fp,
 	fprintf (fp, "  ");
       }
       fprintf (fp, " - ");
-      x->obj->getName()->Print (fp);
+      if (x->obj->getName()) {
+	x->obj->getName()->Print (fp);
+      }
+      else {
+	fprintf (fp, "-top-");
+      }
       fprintf (fp, " %lu  (%g W); area: %lu\n", tot, totl, tota);
     }
   }
