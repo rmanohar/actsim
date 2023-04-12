@@ -65,10 +65,11 @@ class OnePrsSim;
 #define MAX_LOCAL_PCS SIM_EV_MAX
 
 
+/*
+ * Maximum number of formats that are simultaneously supported in a
+ * session.
+ */
 #define TRACE_NUM_FORMATS 3
-#define TRACE_VCD  0
-#define TRACE_ATR  1
-#define TRACE_LXT2 2
 
 class ActSimState {
 public:
@@ -506,7 +507,44 @@ class ActSimCore {
 
   int isInternalParallel() { return _is_internal_parallel; }
   void setInternalParallel (int v) { _is_internal_parallel = v; }
-  
+
+  int trIndex (const char *s) {
+    for (int i=0; i < TRACE_NUM_FORMATS; i++) {
+      if (_trname[i] && strcmp (s, _trname[i]) == 0) {
+	return i;
+      }
+    }
+    return -1;
+  }
+
+  int useOrAllocTrIndex (const char *s) {
+    int i = trIndex (s);
+    if (i != -1) {
+      return i;
+    }
+    for (i=0; i < TRACE_NUM_FORMATS; i++) {
+      if (!_trname[i]) {
+	_trfn[i] = act_trace_load_format (s, NULL);
+	if (!_trfn[i]) {
+	  return -1;
+	}
+	_trname[i] = Strdup (s);
+	return i;
+      }
+    }
+    return -1;
+  }
+
+  /*
+   * Release the trace file 
+   */
+  void releaseTrIndex (const char *s) {
+    int i = trIndex (s);
+    /* close the trace file if it is open */
+    initTrace (i, NULL);
+    FREE (_trname[i]);
+    _trname[i] = NULL;
+  }
 
 protected:
   Act *a;
@@ -566,7 +604,7 @@ protected:
 
   act_extern_trace_func_t *_trfn[TRACE_NUM_FORMATS];
   act_trace_t *_tr[TRACE_NUM_FORMATS];
-  static const char *_trname[TRACE_NUM_FORMATS];
+  static char *_trname[TRACE_NUM_FORMATS];
   float _int_to_float_timescale; // units to convert integer units
 				 // to time
   /*-- timing forks --*/
