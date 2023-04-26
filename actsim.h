@@ -518,10 +518,13 @@ class ActSimCore {
   }
 
   int useOrAllocTrIndex (const char *s) {
+    /* have we loaded this format already? */
     int i = trIndex (s);
     if (i != -1) {
       return i;
     }
+
+    /* is there an open slot to load the format? */
     for (i=0; i < TRACE_NUM_FORMATS; i++) {
       if (!_trname[i]) {
 	_trfn[i] = act_trace_load_format (s, NULL);
@@ -532,6 +535,24 @@ class ActSimCore {
 	return i;
       }
     }
+    
+    /* can we free an earlier loaded format and replace it with this
+       one? */
+    for (i=0; i < TRACE_NUM_FORMATS; i++) {
+      if (!_tr[i]) {
+	act_extern_trace_func_t *tmp = act_trace_load_format (s, NULL);
+	if (!tmp) {
+	  return -1;
+	}
+	FREE (_trname[i]);
+	act_trace_close_format (_trfn[i]);
+	_trfn[i] = tmp;
+	_trname[i] = Strdup (s);
+	return i;
+      }
+    }
+
+    /* all attempts failed */
     return -1;
   }
 

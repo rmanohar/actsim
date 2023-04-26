@@ -3469,9 +3469,26 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
       }
       
       for (int i=0; i < d->getNumPorts(); i++) {
+	InstType *xit;
 	tmp = new ActId (d->getPortName(i));
 	tail->Append (tmp);
-	_mark_vars_used (_sc, id, H);
+	xit = d->getPortType (i);
+
+	if (xit->arrayInfo()) {
+	  Arraystep *as = xit->arrayInfo()->stepper();
+	  while (!as->isend()) {
+	    Array *a = as->toArray();
+	    tmp->setArray (a);
+	    _mark_vars_used (_sc, id, H);
+	    delete a;
+	    as->step();
+	  }
+	  tmp->setArray (NULL);
+	  delete as;
+	}
+	else {
+	  _mark_vars_used (_sc, id, H);
+	}
 	tail->prune();
 	delete tmp;
       }
@@ -3805,20 +3822,49 @@ static void _add_deref_struct (ActSimCore *sc,
     InstType *it = d->getPortType (i);
     tmp = new ActId (d->getPortName(i));
     tail->Append (tmp);
-    if (TypeFactory::isStructure (it)) {
-      Data *x = dynamic_cast<Data *> (it->BaseType());
-      Assert (x, "What?");
-      _add_deref_struct (sc, id, x, ds);
+
+    if (it->arrayInfo()) {
+      Arraystep *as = it->arrayInfo()->stepper();
+      while (!as->isend()) {
+	Array *a = as->toArray();
+	tmp->setArray (a);
+
+	if (TypeFactory::isStructure (it)) {
+	  Data *x = dynamic_cast<Data *> (it->BaseType());
+	  Assert (x, "What?");
+	  _add_deref_struct (sc, id, x, ds);
+	}
+	else {
+	  ds->idx[ds->offset] = sc->getLocalOffset (id, sc->cursi(),
+						    &ds->idx[ds->offset+1],
+						    &ds->idx[ds->offset+2]);
+	  if (TypeFactory::isEnum (it)) {
+	    ds->idx[ds->offset+1] = 2;
+	    ds->idx[ds->offset+2] = TypeFactory::enumNum (it);
+	  }
+	  ds->offset += 3;
+	}
+	delete a;
+	as->step();
+      }
+      tmp->setArray (NULL);
     }
     else {
-      ds->idx[ds->offset] = sc->getLocalOffset (id, sc->cursi(),
-						&ds->idx[ds->offset+1],
-						&ds->idx[ds->offset+2]);
-      if (TypeFactory::isEnum (it)) {
-	ds->idx[ds->offset+1] = 2;
-	ds->idx[ds->offset+2] = TypeFactory::enumNum (it);
+      if (TypeFactory::isStructure (it)) {
+	Data *x = dynamic_cast<Data *> (it->BaseType());
+	Assert (x, "What?");
+	_add_deref_struct (sc, id, x, ds);
       }
-      ds->offset += 3;
+      else {
+	ds->idx[ds->offset] = sc->getLocalOffset (id, sc->cursi(),
+						  &ds->idx[ds->offset+1],
+						  &ds->idx[ds->offset+2]);
+	if (TypeFactory::isEnum (it)) {
+	  ds->idx[ds->offset+1] = 2;
+	  ds->idx[ds->offset+2] = TypeFactory::enumNum (it);
+	}
+	ds->offset += 3;
+      }
     }
     tail->prune ();
     delete tmp;
@@ -3833,31 +3879,39 @@ static void _add_deref_struct2 (Data *d,
 {
   for (int i=0; i < d->getNumPorts(); i++) {
     InstType *it = d->getPortType (i);
-    if (TypeFactory::isStructure (it)) {
-      Data *x = dynamic_cast<Data *> (it->BaseType());
-      Assert (x, "What?");
-      _add_deref_struct2 (x, idx, off_i, off_b, off);
+    int sz = 1;
+    
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
     }
-    else if (TypeFactory::isIntType (it)) {
-      idx[*off] = *off_i;
-      idx[*off+1] = 1;
-      idx[*off+2] = TypeFactory::bitWidth (it);
-
-      if (TypeFactory::isEnum (it)) {
-	idx[*off+1] = 2;
-	idx[*off+2] = TypeFactory::enumNum (it);
+    while (sz > 0) {
+      if (TypeFactory::isStructure (it)) {
+	Data *x = dynamic_cast<Data *> (it->BaseType());
+	Assert (x, "What?");
+	_add_deref_struct2 (x, idx, off_i, off_b, off);
       }
+      else if (TypeFactory::isIntType (it)) {
+	idx[*off] = *off_i;
+	idx[*off+1] = 1;
+	idx[*off+2] = TypeFactory::bitWidth (it);
+
+	if (TypeFactory::isEnum (it)) {
+	  idx[*off+1] = 2;
+	  idx[*off+2] = TypeFactory::enumNum (it);
+	}
       
-      *off_i = *off_i + 1;
-      *off += 3;
-    }
-    else {
-      Assert (TypeFactory::isBoolType (it), "Hmm");
-      idx[*off] = *off_b;
-      idx[*off+1] = 0;
-      idx[*off+2] = 1;
-      *off_b = *off_b + 1;
-      *off += 3;
+	*off_i = *off_i + 1;
+	*off += 3;
+      }
+      else {
+	Assert (TypeFactory::isBoolType (it), "Hmm");
+	idx[*off] = *off_b;
+	idx[*off+1] = 0;
+	idx[*off+2] = 1;
+	*off_b = *off_b + 1;
+	*off += 3;
+      }
+      sz--;
     }
   }
 }
@@ -5323,11 +5377,16 @@ int expr_multires::_count (Data *d)
   int n = 0;
   Assert (d, "What?");
   for (int i=0; i < d->getNumPorts(); i++) {
-    if (TypeFactory::isStructure (d->getPortType(i))) {
-      n += _count (dynamic_cast<Data *>(d->getPortType(i)->BaseType()));
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
+    }
+    if (TypeFactory::isStructure (it)) {
+      n += _count (dynamic_cast<Data *>(d->getPortType(i)->BaseType()))*sz;
     }
     else {
-      n++;
+      n += sz;
     }
   }
   return n;
@@ -5337,19 +5396,33 @@ void expr_multires::_init_helper (Data *d, int *pos)
 {
   Assert (d, "What?");
   for (int i=0; i < d->getNumPorts(); i++) {
-    if (TypeFactory::isStructure (d->getPortType(i))) {
-      _init_helper (dynamic_cast<Data *>(d->getPortType(i)->BaseType()), pos);
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
     }
-    else if (TypeFactory::isBoolType (d->getPortType(i))) {
-      v[*pos].setWidth (1);
-      v[*pos].setVal (0, 0);
-      *pos = (*pos) + 1;
+    if (TypeFactory::isStructure (it)) {
+      while (sz > 0) {
+	_init_helper (dynamic_cast<Data *>(it->BaseType()), pos);
+	sz--;
+      }
     }
-    else if (TypeFactory::isIntType (d->getPortType(i))) {
-      v[*pos].setWidth (1);
-      v[*pos].setVal (0, 0);
-      v[*pos].setWidth (TypeFactory::bitWidth (d->getPortType(i)));
-      *pos = *pos + 1;
+    else if (TypeFactory::isBoolType (it)) {
+      while (sz > 0) {
+	v[*pos].setWidth (1);
+	v[*pos].setVal (0, 0);
+	*pos = (*pos) + 1;
+	sz--;
+      }
+    }
+    else if (TypeFactory::isIntType (it)) {
+      while (sz > 0) {
+	v[*pos].setWidth (1);
+	v[*pos].setVal (0, 0);
+	v[*pos].setWidth (TypeFactory::bitWidth (it));
+	*pos = *pos + 1;
+	sz--;
+      }
     }
   }
 }
@@ -5372,24 +5445,38 @@ void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, in
 {
   Assert (d, "Hmm");
   for (int i=0; i < d->getNumPorts(); i++) {
-    if (TypeFactory::isStructure (d->getPortType(i))) {
-      _fill_helper (dynamic_cast<Data *>(d->getPortType(i)->BaseType()),
-		    sc, pos, oi, ob);
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
     }
-    else if (TypeFactory::isBoolType (d->getPortType(i))) {
-      if (sc->getBool (*ob)) {
-	v[*pos].setVal (0, 1);
+    if (TypeFactory::isStructure (it)) {
+      while (sz > 0) {
+	_fill_helper (dynamic_cast<Data *>(it->BaseType()),
+		      sc, pos, oi, ob);
+	sz--;
       }
-      else {
-	v[*pos].setVal (0, 0);
-      }
-      *ob = *ob + 1;
-      *pos = (*pos) + 1;
     }
-    else if (TypeFactory::isIntType (d->getPortType(i))) {
-      v[*pos] = *(sc->getInt (*oi));
-      *oi = *oi + 1;
-      *pos = *pos + 1;
+    else if (TypeFactory::isBoolType (it)) {
+      while (sz > 0) {
+	if (sc->getBool (*ob)) {
+	  v[*pos].setVal (0, 1);
+	}
+	else {
+	  v[*pos].setVal (0, 0);
+	}
+	*ob = *ob + 1;
+	*pos = (*pos) + 1;
+	sz--;
+      }
+    }
+    else if (TypeFactory::isIntType (it)) {
+      while (sz > 0) {
+	v[*pos] = *(sc->getInt (*oi));
+	*oi = *oi + 1;
+	*pos = *pos + 1;
+	sz--;
+      }
     }
   }
 }
