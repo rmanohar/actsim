@@ -1110,6 +1110,7 @@ bool PrsSim::setBool (int lid, int v)
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 				      ActId *id, int read_only)
 {
+  if (!id) return;
   sc->checkFragmentation (id, ps, sc->cursi(), read_only);
 }
 
