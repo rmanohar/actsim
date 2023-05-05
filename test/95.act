@@ -1,0 +1,25 @@
+deftype bar(int<1> a){}
+
+deftype foo(bar a[2]){}
+
+function baz(foo f) : int
+{
+  chp {
+    [ f.a[0].a = 0 -> self := 0
+    []else -> self := 1
+    ]
+  }
+}
+
+defproc test ()
+{
+
+  int x;
+  foo f;
+
+  chp {
+    x := baz(f);
+    log ("got ", x)
+  }
+}
+test t; 
