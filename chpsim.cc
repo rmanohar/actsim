@@ -807,7 +807,7 @@ int ChpSim::computeOffset (const struct chpsimderef *d)
     fprintf (stderr, "\n");
     fatal_error ("Array out of bounds!");
   }
-  return d->offset + x;
+  return d->offset + x*d->stride;
 }
 
 void ChpSimGraph::printStmt (FILE *fp, Process *p)
@@ -1188,7 +1188,7 @@ int ChpSim::Step (Event *ev)
       if (stmt->u.assign.isint == 0) {
 	off = getGlobalOffset (off, 0);
 #if 0
-	printf (" [glob=%d]", off);
+	printf (" [bglob=%d]", off);
 #endif
 	if (chkWatchBreakPt (0, my_loff, off, v)) {
 	  _breakpt = 1;
@@ -1198,8 +1198,8 @@ int ChpSim::Step (Event *ev)
       }
       else {
 	off = getGlobalOffset (off, 1);
-#if 0      
-	printf (" [glob=%d]", off);
+#if 0
+	printf (" [iglob=%d]", off);
 #endif
 	v.setWidth (stmt->u.assign.isint);
 	v.toStatic ();
@@ -3051,7 +3051,6 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
       Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
       x2 = new expr_multires (xd);
       b->v = x2;
-
       //printf ("allocated struct (%s), nvals = %d, ptr = %p\n",
       //vx->getName(), x2->nvals, x2->v);
     }
@@ -3150,6 +3149,13 @@ expr_multires ChpSim::exprStruct (Expr *e)
       Assert (b, "what?");
       //printf ("looked up state: %s\n", ((ActId *)e->u.e.l)->getName());
       res = *((expr_multires *)b->v);
+      if (((ActId *)e->u.e.l)->Rest()) {
+	/*
+	  ok, now re-construct a new expr_multires as a set of
+	  fields from the original expr, with the appropriate type! 
+	*/
+	res = res.getStruct (((ActId *)e->u.e.l)->Rest());
+      }
       //printf ("res = %d (%p)\n", res.nvals, res.v);
     }
     break;
@@ -3730,16 +3736,68 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
 {
   struct chpsimderef *d;
   Scope *sc = s->cursi()->bnl->cur;
+  int intype;
 
   ValueIdx *vx = id->rootVx (sc);
   Assert (vx->connection(), "What?");
 
   NEW (d, struct chpsimderef);
+  d->stride = 1;
   d->idx = NULL;
   d->d = NULL;
   d->cx = vx->connection();
+
+  /*
+    If the base is a structure, and we are de-referencing a piece of
+    it, then we need the offset *into* the structure itself
+  */
+
+  intype = *type;
+
   d->offset = s->getLocalOffset (vx->connection()->primary(),
 				 s->cursi(), type, &d->width);
+
+  if (intype != -1 && TypeFactory::isStructure (vx->t)) {
+
+#if 0
+    printf ("hi, I'm here, intype=%d\n", intype);
+    printf ("id: "); id->Print (stdout);
+    printf ("\n");
+#endif
+
+    Data *dt = dynamic_cast<Data *> (vx->t->BaseType());
+    int i_off, b_off;
+    if (dt->getStructOffsetPair (id->Rest(), &b_off, &i_off) == 0) {
+      warning ("Illegal offset; how did this happen?");
+      i_off = 0;
+      b_off = 0;
+    }
+
+#if 0
+    printf ("i-off: %d; b-off: %d\n", i_off, b_off);
+#endif
+
+    if (intype == 0) {
+      d->offset += b_off;
+      *type = 0;
+    }
+    else {
+      d->offset += i_off;
+      *type = 1;
+      d->width = intype;
+    }
+    dt->getStructCount (&b_off, &i_off);
+    if (intype == 0) {
+      d->stride = b_off;
+    }
+    else {
+      d->stride = i_off;
+    }
+#if 0
+    printf ("offset: %d; stride: %d\n", d->offset, d->stride);
+#endif
+  }
+
   if (width) {
     *width = d->width;
   }
@@ -3779,6 +3837,7 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   Assert (vx->connection(), "What?");
 
   NEW (d, struct chpsimderef);
+  d->stride = 1;
   d->cx = vx->connection();
   d->d = dynamic_cast<Data *> (vx->t->BaseType());
   d->isbool = 0;
@@ -3924,6 +3983,7 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   Scope *sc = s->cursi()->bnl->cur;
 
   NEW (ds, struct chpsimderef);
+  ds->stride = 1;
   ds->range = NULL;
   ds->idx = NULL;
   ds->d = d;
@@ -4160,10 +4220,12 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
       if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
 					   ((ActId *)e->u.e.l))) {
+	type = 1;
 	d = _mk_deref ((ActId *)e->u.e.l, s, &type);
       }
       else {
 	NEW (d, struct chpsimderef);
+	d->stride = 1;
 	d->range = NULL;
 	d->idx = NULL;
 	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
@@ -4195,7 +4257,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
   case E_VAR:
     {
-      int type;
+      int type = -1;
 
       InstType *it = s->cursi()->bnl->cur->FullLookup ((ActId *)e->u.e.l,
 						       NULL);
@@ -4209,6 +4271,13 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	  ret->type = E_CHP_VARSTRUCT_DEREF;
 	}
 	else {
+	  if (TypeFactory::isBaseBoolType (it)) {
+	    type = 0;
+	  }
+	  else {
+	    type = TypeFactory::bitWidth (it);
+	  }
+
 	  struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
 	  ret->u.e.l = (Expr *) d;
 	  ret->u.e.r = (Expr *) d->cx;
@@ -4711,7 +4780,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       if (c->u.comm.var) {
 	ActId *id = c->u.comm.var;
-	int type;
+	int type = -1;
 	struct chpsimderef *d;
 
 	if (TypeFactory::isStructure (ch->acktype())) {
@@ -4729,11 +4798,18 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	else {
 	  ret->stmt->u.sendrecv.is_structx = 1;
+	  if (TypeFactory::isBaseBoolType (ch->acktype())) {
+	    type = 0;
+	  }
+	  else {
+	    type = TypeFactory::bitWidth (ch->acktype());
+	  }
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
 	    d = _mk_deref (id, sc, &type);
 	  }
 	  else {
 	    NEW (d, struct chpsimderef);
+	    d->stride = 1;
 	    d->d = NULL;
 	    d->range = NULL;
 	    d->idx = NULL;
@@ -4809,7 +4885,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       if (c->u.comm.var) {
 	ActId *id = c->u.comm.var;
-	int type;
+	int type = -1;
 	struct chpsimderef *d;
 
 	/*-- if this is a structure, unravel the structure! --*/
@@ -4826,10 +4902,17 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	else {
 	  if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, id)) {
+	    if (TypeFactory::isBaseBoolType (ch->datatype())) {
+	      type = 0;
+	    }
+	    else {
+	      type = TypeFactory::bitWidth (ch->datatype());
+	    }
 	    d = _mk_deref (id, sc, &type);
 	  }
 	  else {
 	    NEW (d, struct chpsimderef);
+	    d->stride = 1;
 	    d->d = NULL;
 	    d->range = NULL;
 	    d->idx = NULL;
@@ -4928,11 +5011,19 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       else {
 	if (ActBooleanizePass::isDynamicRef (sc->cursi()->bnl, c->u.assign.id)) {
+	  if (TypeFactory::isBaseBoolType (it)) {
+	    type = 0;
+	  }
+	  else {
+	    type = TypeFactory::bitWidth (it);
+	  }
+
 	  struct chpsimderef *d = _mk_deref (c->u.assign.id, sc, &type, &width);
 	  ret->stmt->u.assign.d = *d;
 	  FREE (d);
 	}
 	else {
+	  ret->stmt->u.assign.d.stride = 1;
 	  ret->stmt->u.assign.d.range = NULL;
 	  ret->stmt->u.assign.d.idx = NULL;
 	  ret->stmt->u.assign.d.offset =
@@ -5371,123 +5462,6 @@ ChpSimGraph::~ChpSimGraph ()
   next = NULL;
 }
 
-
-int expr_multires::_count (Data *d)
-{
-  int n = 0;
-  Assert (d, "What?");
-  for (int i=0; i < d->getNumPorts(); i++) {
-    int sz = 1;
-    InstType *it = d->getPortType (i);
-    if (it->arrayInfo()) {
-      sz = it->arrayInfo()->size();
-    }
-    if (TypeFactory::isStructure (it)) {
-      n += _count (dynamic_cast<Data *>(d->getPortType(i)->BaseType()))*sz;
-    }
-    else {
-      n += sz;
-    }
-  }
-  return n;
-}
-
-void expr_multires::_init_helper (Data *d, int *pos)
-{
-  Assert (d, "What?");
-  for (int i=0; i < d->getNumPorts(); i++) {
-    int sz = 1;
-    InstType *it = d->getPortType (i);
-    if (it->arrayInfo()) {
-      sz = it->arrayInfo()->size();
-    }
-    if (TypeFactory::isStructure (it)) {
-      while (sz > 0) {
-	_init_helper (dynamic_cast<Data *>(it->BaseType()), pos);
-	sz--;
-      }
-    }
-    else if (TypeFactory::isBoolType (it)) {
-      while (sz > 0) {
-	v[*pos].setWidth (1);
-	v[*pos].setVal (0, 0);
-	*pos = (*pos) + 1;
-	sz--;
-      }
-    }
-    else if (TypeFactory::isIntType (it)) {
-      while (sz > 0) {
-	v[*pos].setWidth (1);
-	v[*pos].setVal (0, 0);
-	v[*pos].setWidth (TypeFactory::bitWidth (it));
-	*pos = *pos + 1;
-	sz--;
-      }
-    }
-  }
-}
-
-void expr_multires::_init (Data *d)
-{
-  if (!d) return;
-  _d = d;
-  nvals = _count (d);
-  MALLOC (v, BigInt, nvals);
-  for (int i=0; i < nvals; i++) {
-    new (&v[i]) BigInt;
-  }
-  int pos = 0;
-  _init_helper (d, &pos);
-  Assert (pos == nvals, "What?");
-}
-
-void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob)
-{
-  Assert (d, "Hmm");
-  for (int i=0; i < d->getNumPorts(); i++) {
-    int sz = 1;
-    InstType *it = d->getPortType (i);
-    if (it->arrayInfo()) {
-      sz = it->arrayInfo()->size();
-    }
-    if (TypeFactory::isStructure (it)) {
-      while (sz > 0) {
-	_fill_helper (dynamic_cast<Data *>(it->BaseType()),
-		      sc, pos, oi, ob);
-	sz--;
-      }
-    }
-    else if (TypeFactory::isBoolType (it)) {
-      while (sz > 0) {
-	if (sc->getBool (*ob)) {
-	  v[*pos].setVal (0, 1);
-	}
-	else {
-	  v[*pos].setVal (0, 0);
-	}
-	*ob = *ob + 1;
-	*pos = (*pos) + 1;
-	sz--;
-      }
-    }
-    else if (TypeFactory::isIntType (it)) {
-      while (sz > 0) {
-	v[*pos] = *(sc->getInt (*oi));
-	*oi = *oi + 1;
-	*pos = *pos + 1;
-	sz--;
-      }
-    }
-  }
-}
-
-void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
-{
-  int pos = 0;
-  _fill_helper (d, sc, &pos, &off_i, &off_b);
-}
-
-
 int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 {
   Assert (d && v, "Hmm");
@@ -5497,7 +5471,7 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 
   state_counts ts;
   ActStatePass::getStructCount (d->d, &ts);
-  
+
   if (d->range) {
     /* array deref */
     for (int i=0; i < d->range->nDims(); i++) {
@@ -5573,55 +5547,6 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 
   return ret;
 }
-
-BigInt *expr_multires::getField (ActId *x)
-{
-  Assert (x, "setField with scalar called with NULL ID value");
-  int off = _d->getStructOffset (x, NULL);
-  Assert (0 <= off && off < nvals, "Hmm");
-  return &v[off];
-}
-
-void expr_multires::setField (ActId *x, BigInt *val)
-{
-  Assert (x, "setField with scalar called with NULL ID value");
-  int off = _d->getStructOffset (x, NULL);
-  Assert (0 <= off && off < nvals, "Hmm");
-
-  int w = v[off].getWidth();
-
-  v[off] = *val;
-  v[off].setWidth (w);
-}
-
-void expr_multires::setField (ActId *x, expr_multires *m)
-{
-  if (!x) {
-    //m->Print (stdout);
-    //printf ("\n");
-    *this = *m;
-  }
-  else {
-    int off = _d->getStructOffset (x, NULL);
-    Assert (0 <= off && off < nvals, "Hmm");
-    Assert (off + m->nvals <= nvals, "What?");
-    for (int i=0; i < m->nvals; i++) {
-      int w = v[off + i].getWidth ();
-      v[off + i] = m->v[i];
-      v[off + i].setWidth (w);
-    }
-  }
-}
-
-
-void expr_multires::Print (FILE *fp)
-{
-  fprintf (fp, "v:%d;", nvals);
-  for (int i=0; i < nvals; i++) {
-    fprintf (fp, " %d(w=%d):%lu", i, v[i].getWidth(), v[i].getVal (0));
-  }
-}
-
 
 void ChpSim::boolProp (int glob_off)
 {

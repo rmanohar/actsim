@@ -167,3 +167,199 @@ void *ActSimState::allocState (int sz)
   list_append (extra_state, s);
   return s->space;
 }
+
+
+
+int expr_multires::_count (Data *d)
+{
+  int n = 0;
+  Assert (d, "What?");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
+    }
+    if (TypeFactory::isStructure (it)) {
+      n += _count (dynamic_cast<Data *>(d->getPortType(i)->BaseType()))*sz;
+    }
+    else {
+      n += sz;
+    }
+  }
+  return n;
+}
+
+void expr_multires::_init_helper (Data *d, int *pos)
+{
+  Assert (d, "What?");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
+    }
+    if (TypeFactory::isStructure (it)) {
+      while (sz > 0) {
+	_init_helper (dynamic_cast<Data *>(it->BaseType()), pos);
+	sz--;
+      }
+    }
+    else if (TypeFactory::isBoolType (it)) {
+      while (sz > 0) {
+	v[*pos].setWidth (1);
+	v[*pos].setVal (0, 0);
+	*pos = (*pos) + 1;
+	sz--;
+      }
+    }
+    else if (TypeFactory::isIntType (it)) {
+      while (sz > 0) {
+	v[*pos].setWidth (1);
+	v[*pos].setVal (0, 0);
+	v[*pos].setWidth (TypeFactory::bitWidth (it));
+	*pos = *pos + 1;
+	sz--;
+      }
+    }
+  }
+}
+
+void expr_multires::_init (Data *d)
+{
+  if (!d) return;
+  _d = d;
+  nvals = _count (d);
+  MALLOC (v, BigInt, nvals);
+  for (int i=0; i < nvals; i++) {
+    new (&v[i]) BigInt;
+  }
+  int pos = 0;
+  _init_helper (d, &pos);
+  Assert (pos == nvals, "What?");
+}
+
+void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob)
+{
+  Assert (d, "Hmm");
+  for (int i=0; i < d->getNumPorts(); i++) {
+    int sz = 1;
+    InstType *it = d->getPortType (i);
+    if (it->arrayInfo()) {
+      sz = it->arrayInfo()->size();
+    }
+    if (TypeFactory::isStructure (it)) {
+      while (sz > 0) {
+	_fill_helper (dynamic_cast<Data *>(it->BaseType()),
+		      sc, pos, oi, ob);
+	sz--;
+      }
+    }
+    else if (TypeFactory::isBoolType (it)) {
+      while (sz > 0) {
+	if (sc->getBool (*ob)) {
+	  v[*pos].setVal (0, 1);
+	}
+	else {
+	  v[*pos].setVal (0, 0);
+	}
+	*ob = *ob + 1;
+	*pos = (*pos) + 1;
+	sz--;
+      }
+    }
+    else if (TypeFactory::isIntType (it)) {
+      while (sz > 0) {
+	v[*pos] = *(sc->getInt (*oi));
+	*oi = *oi + 1;
+	*pos = *pos + 1;
+	sz--;
+      }
+    }
+  }
+}
+
+void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
+{
+  int pos = 0;
+  _fill_helper (d, sc, &pos, &off_i, &off_b);
+}
+
+
+BigInt *expr_multires::getField (ActId *x)
+{
+  Assert (x, "setField with scalar called with NULL ID value");
+  int off = _d->getStructOffset (x, NULL);
+  Assert (0 <= off && off < nvals, "Hmm");
+  return &v[off];
+}
+
+void expr_multires::setField (ActId *x, BigInt *val)
+{
+  Assert (x, "setField with scalar called with NULL ID value");
+  int off = _d->getStructOffset (x, NULL);
+  Assert (0 <= off && off < nvals, "Hmm");
+
+  int w = v[off].getWidth();
+
+  v[off] = *val;
+  v[off].setWidth (w);
+}
+
+void expr_multires::setField (ActId *x, expr_multires *m)
+{
+  if (!x) {
+    //m->Print (stdout);
+    //printf ("\n");
+    *this = *m;
+  }
+  else {
+    int off = _d->getStructOffset (x, NULL);
+    Assert (0 <= off && off < nvals, "Hmm");
+    Assert (off + m->nvals <= nvals, "What?");
+    for (int i=0; i < m->nvals; i++) {
+      int w = v[off + i].getWidth ();
+      v[off + i] = m->v[i];
+      v[off + i].setWidth (w);
+    }
+  }
+}
+
+
+void expr_multires::Print (FILE *fp)
+{
+  fprintf (fp, "v:%d;", nvals);
+  for (int i=0; i < nvals; i++) {
+    fprintf (fp, " %d(w=%d):%lu", i, v[i].getWidth(), v[i].getVal (0));
+  }
+}
+
+
+expr_multires expr_multires::getStruct (ActId *x)
+{
+  InstType *it;
+  int off, sz;
+
+  off = _d->getStructOffset (x, &sz, &it);
+
+  if (off == -1) {
+    warning ("expr_multires::getStruct(): failed for field starting with %s", x->getName());
+    return *this;
+  }
+  if (!TypeFactory::isStructure (it)) {
+    warning ("expr_multires::getStruct(): not a structure! Failed for field starting with %s", x->getName());
+    return *this;
+  }
+  Data *d = dynamic_cast<Data *> (it->BaseType());
+  Assert (d, "Hmm");
+
+  expr_multires m(d);
+
+  Assert (m.nvals == sz, "What are we doing?");
+
+  for (int i=off; i < off + sz; i++) {
+    m.v[i-off] = v[i];
+  }
+
+  return m;
+}

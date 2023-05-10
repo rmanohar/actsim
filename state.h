@@ -119,6 +119,7 @@ class expr_multires {
   void setField (ActId *field, BigInt *v);
   void setField (ActId *field, expr_multires *v);
   BigInt *getField (ActId *x);
+  expr_multires getStruct (ActId *x);
 
   BigInt *v;
   int nvals;

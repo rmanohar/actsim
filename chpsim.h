@@ -53,6 +53,7 @@ struct chpsimderef {
   Data *d;			// used for structures
 
   int offset;			// offset / offseti for struct
+  int stride;			// stride for struct arrays
   unsigned int isbool:1;	// is this a bool type?
   unsigned int isenum:1;	// is this an enumeration?
   int enum_sz;			// used for enumerations

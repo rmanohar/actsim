@@ -1,0 +1,22 @@
+deftype struct (bool x, y; int w) { }
+
+defproc test()
+{
+   struct s[100];
+   int i;
+   bool qrst;
+
+   chp {
+      i := 0;
+      s[0].w := 1;
+      s[0].x := false;
+      s[1].x := false;
+      log ("got ", s[0].x, " ", s[0].w);
+      log ("got ", s[1].x);
+      s[i].x := true;
+      s[0].w := s[0].w + 2;
+      s[i+1].x := true; qrst := true;
+      log ("got ", s[0].x, " ", s[0].w);
+      log ("got ", s[1].x)
+   }
+}
