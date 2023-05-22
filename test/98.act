@@ -1,0 +1,29 @@
+defproc p1(chan(int<1>) A, B, D)
+{
+  chp {
+    *[  A!,B!; D? ]
+  }
+}
+
+defproc p2(chan(int<1>) A, B, D)
+{
+  chp {
+    *[ A?,B?; D! ]
+  }
+}
+
+defproc test()
+{
+  chan(int<1>) A, B, D;
+  int i;
+
+  chp {
+    ( i := 0; *[ i < 1000 -> A!,B!; D?; i := i + 1 ] )
+   ||
+    *[ A?,B?; D! ]
+   }
+/*
+  p1 x(A,B,D);
+  p2 y(A,B,D);
+*/
+} 

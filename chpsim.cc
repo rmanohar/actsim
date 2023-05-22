@@ -3697,6 +3697,9 @@ ChpSimGraph *ChpSimGraph::completed (int pc, int *tot, int *done)
     return NULL;
   }
   if (next->wait > 0) {
+#ifdef DUMP_ALL
+    printf (" [wt=%d cur=%d{%d}]", next->wait, tot[next->totidx], next->totidx);
+#endif
     tot[next->totidx]++;
     if (next->wait == tot[next->totidx]) {
       *done = 1;
@@ -4595,6 +4598,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   int i, count;
   int tmp;
   int width;
+  int used_slots = 0;
   
   if (!c) return NULL;
 
@@ -4606,6 +4610,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	(sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
     }
+    used_slots = cur_pending_count;
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
       cur_pending_count = count;
@@ -4621,7 +4626,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  *stop = tmp2;
 	}
       }
+      used_slots = MAX(used_slots, cur_pending_count);
     }
+    cur_pending_count = used_slots;
     break;
 
   case ACT_CHP_COMMA:
@@ -4642,6 +4649,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     count = 0;
     MALLOC (ret->all, ChpSimGraph *, list_length (c->u.semi_comma.cmd));
     i = 0;
+
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
       ret->all[i] = _buildChpSimGraph (sc,
