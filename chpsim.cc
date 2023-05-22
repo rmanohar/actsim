@@ -4696,7 +4696,10 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     ret->next = (*stop);
     //}
     i = 0;
+    used_slots = cur_pending_count;
+    count = cur_pending_count;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
+      cur_pending_count = count;
       ret->all[i] = _buildChpSimGraph (sc, gc->s, &tmp2);
       if (ret->all[i]) {
 	if (c->type == ACT_CHP_LOOP) {
@@ -4716,7 +4719,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
       }
       i++;
+      used_slots = MAX (used_slots, cur_pending_count);
     }
+    cur_pending_count = used_slots;
     break;
     
   case ACT_CHP_DOLOOP:
