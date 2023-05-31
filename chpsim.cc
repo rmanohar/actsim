@@ -700,6 +700,20 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 	    _probe = new WaitForOne (0);
 	  }
 	  if (c->probe && c->probe != _probe) {
+	    int dy;
+	    fprintf (stderr, "Process %s: channel `",
+		     _proc ? _proc->getName() : "-global-");
+	    act_connection *x = _sc->getConnFromOffset (_proc, e->u.x.val, 2, &dy);
+	    x->Print (stderr);
+	    fprintf (stderr, "'; ");
+	    fprintf (stderr, "Instance: ");
+	    if (getName()) {
+	      getName()->Print (stderr);
+	    }
+	    else {
+	      fprintf (stderr, "<>");
+	    }
+	    fprintf (stderr, "\n");
 	    fatal_error ("Channel is being probed by multiple processes!");
 	  }
 	  c->probe = _probe;
@@ -717,6 +731,20 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
 	    _probe = new WaitForOne (0);
 	  }
 	  if (c->probe && c->probe != _probe) {
+	    int dy;
+	    fprintf (stderr, "Process %s: channel `",
+		     _proc ? _proc->getName() : "-global-");
+	    act_connection *x = _sc->getConnFromOffset (_proc, e->u.x.val, 2, &dy);
+	    x->Print (stderr);
+	    fprintf (stderr, "'; ");
+	    fprintf (stderr, "Instance: ");
+	    if (getName()) {
+	      getName()->Print (stderr);
+	    }
+	    else {
+	      fprintf (stderr, "<>");
+	    }
+	    fprintf (stderr, "\n");
 	    fatal_error ("Channel is being probed by multiple processes!");
 	  }
 	  c->probe = _probe;
