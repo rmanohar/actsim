@@ -546,24 +546,6 @@ int ChpSim::_updatepc (int pc)
     printf (" [joined #%d / %d %d]", pc, _pcused, _pc[pc]->wait);
 #endif
   }
-#if 0  
-  if (pc >= _pcused) {
-    ChpSimGraph *tmp = _pc[pc];
-    _pc[pc] = NULL;
-    for (int i=_pcused-1; i >= 0; i--) {
-      if (!_pc[i]) {
-	pc = i;
-	_pc[pc] = tmp;
-	tmp = NULL;
-	break;
-      }
-    }
-    Assert (tmp == NULL, "What?");
-#ifdef DUMP_ALL
-    printf (" [pc-adjust %d]", pc);
-#endif
-  }
-#endif  
   return pc;
 }
 
@@ -1079,6 +1061,18 @@ static void _enum_error (Process *p, BigInt &v, int enum_sz)
 }
 
 
+static SimDES *_matchme_obj;
+static int _matchme_pc;
+
+static bool _matchme (Event *ev)
+{
+  if (ev->getObj() == _matchme_obj &&
+      ev->getType() == SIM_EV_MKTYPE (_matchme_pc, 1)) {
+    return true;
+  }
+  return false;
+}
+
 int ChpSim::Step (Event *ev)
 {
   int ev_type = ev->getType ();
@@ -1090,6 +1084,7 @@ int ChpSim::Step (Event *ev)
   expr_multires vs, xchg;
   int off, goff;
   int _breakpt = 0;
+  int sh_wakeup = 0;
 
   if (pc == MAX_LOCAL_PCS) {
     // wake-up from a shared variable block.
@@ -1104,6 +1099,11 @@ int ChpSim::Step (Event *ev)
     }
     Assert (!list_isempty (_stalled_pc), "What?");
     pc = list_delete_ihead (_stalled_pc);
+
+#ifdef DUMP_ALL
+    printf ("<< conv: %d >>\n", pc);
+#endif
+    sh_wakeup = 1;
   }
 
   //Assert (0 <= pc && pc < _pcused, "What?");
@@ -1131,7 +1131,10 @@ int ChpSim::Step (Event *ev)
 
   int bw_cost = stmt->bw_cost;
 
-#ifdef DUMP_ALL  
+#ifdef DUMP_ALL
+#if 0
+  SimDES::showAll (stdout);
+#endif
   printf ("[%8lu %d; pc:%d(%d)] <", CurTimeLo(), flag, pc, _pcused);
   if (name) {
     name->Print (stdout);
@@ -1323,10 +1326,9 @@ int ChpSim::Step (Event *ev)
 	    if (stmt->u.sendrecv.is_structx == 1) {
 	      if (type == 0) {
 		off = getGlobalOffset (id, 0);
-#if 0	    
+#if 0
 		printf (" [glob=%d]", off);
 #endif
-
 		if (chkWatchBreakPt (0, id, off, v)) {
 		  _breakpt = 1;
 		}
@@ -1537,6 +1539,18 @@ int ChpSim::Step (Event *ev)
 	tmpret = _add_waitcond (&stmt->u.cond.c, pc, 1);
 	if (stmt->u.cond.is_shared || tmpret) {
 	  _remove_me (pc);
+	}
+	if (_probe && sh_wakeup) {
+	  /* search and delete probe event, if any */
+	  _matchme_obj = this;
+	  _matchme_pc = pc;
+	  Event *ev = SimDES::matchPendingEvent (_matchme);
+	  if (ev) {
+	    ev->Remove();
+#ifdef DUMP_ALL
+	    printf (" [pruned ev]");
+#endif
+	  }
 	}
       }
 
@@ -1803,7 +1817,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 
   if (WAITING_RECEIVER (c)) {
 #ifdef DUMP_ALL
-    printf (" [waiting-recv %d]", pc);
+    printf (" [waiting-recv %d]", c->recv_here-1);
 #endif
     // blocked receive, because there was no data
     c->data = v;
@@ -1840,8 +1854,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 #endif    
     if (WAITING_RECV_PROBE (c)) {
 #ifdef DUMP_ALL      
-      printf (" [waiting-recvprobe %d]", pc);
-#endif      
+      printf (" [waiting-recvprobe %d]", c->recv_here-1);
+#endif
       c->probe->Notify (c->recv_here-1);
       c->recv_here = 0;
       c->receiver_probe = 0;
@@ -2032,7 +2046,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
   
   if (WAITING_SENDER (c)) {
 #ifdef DUMP_ALL    
-    printf (" [waiting-send %d]", pc);
+    printf (" [waiting-send %d]", c->send_here-1);
 #endif    
     *v = c->data2;
     if (bidir) {
@@ -2050,7 +2064,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 #endif    
     if (WAITING_SEND_PROBE (c)) {
 #ifdef DUMP_ALL      
-      printf (" [waiting-sendprobe %d]", pc);
+      printf (" [waiting-sendprobe %d]", c->send_here-1);
 #endif      
       c->probe->Notify (c->send_here-1);
       c->send_here = 0;
@@ -5595,12 +5609,15 @@ void ChpSim::boolProp (int glob_off)
   arr = _sc->getFO (glob_off, 0);
 
 #ifdef DUMP_ALL
+#if 0
   printf ("  >>> propagate %d\n", _sc->numFanout (glob_off, 0));
-#endif  
+#endif
+#endif
   for (int i=0; i < _sc->numFanout (glob_off, 0); i++) {
     ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
     Assert (p, "What?");
 #ifdef DUMP_ALL
+#if 0
       printf ("   prop: ");
       {
 	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
@@ -5617,7 +5634,8 @@ void ChpSim::boolProp (int glob_off)
 	}
       }
       printf ("\n");
-#endif      
+#endif
+#endif
     p->propagate ();
   }
 }
@@ -5628,12 +5646,15 @@ void ChpSim::intProp (int glob_off)
   arr = _sc->getFO (glob_off, 1);
 
 #ifdef DUMP_ALL
+#if 0
   printf ("  >>> propagate %d\n", _sc->numFanout (glob_off, 0));
-#endif  
+#endif
+#endif
   for (int i=0; i < _sc->numFanout (glob_off, 1); i++) {
     ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
     Assert (p, "What?");
 #ifdef DUMP_ALL
+#if 0
       printf ("   prop: ");
       {
 	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
@@ -5650,7 +5671,8 @@ void ChpSim::intProp (int glob_off)
 	}
       }
       printf ("\n");
-#endif      
+#endif
+#endif
     p->propagate ();
   }
 }
