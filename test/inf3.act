@@ -1,0 +1,70 @@
+template <pint W, V, D>
+defproc src (chan!(int<W>) SRC)
+{
+  int<W> tmp;
+  int<1> dir;
+
+  int cnt;
+
+  chp {
+    tmp := int(V, W);
+    dir := 0;
+    cnt := 0;
+    *[ 
+      [ cnt = 0 -> 
+        SRC!tmp; 
+        log("%xSOURCED VALUE: ", tmp); 
+        tmp := dir = 0 ? tmp >> 1 : tmp << 1; 
+        dir := ~dir;
+        cnt := D != 0 ? cnt + 1 : 0
+      []cnt = D & D != 0 -> 
+        cnt := 0
+      []else -> 
+        cnt := cnt + 1
+      ]
+    ]
+  }
+}
+
+template <pint W,D>
+defproc buffer (chan(int<W>) IN; chan(int<W>) OUT)
+{
+
+  int<W> c[D];
+  chan(int<W>) C[D];
+  int<W> x;
+
+  chp {
+     *[ IN!0 ],
+    *[ 
+      [|#IN -> IN?c[0]; C[0]!c[0] |] 
+    ],
+    (,k:1..D-2: *[ C[k-1]?c[k]; C[k]!c[k] ] ),
+    *[ C[D-2]?c[D-1]; OUT!c[D-1]],
+    *[ OUT?x ]
+  }
+}
+
+template <pint W>
+defproc sink (chan?(int<W>) SINK)
+{
+  int<W> tmp;
+
+  chp {
+    tmp := 0;
+    *[ SINK?tmp; log("%xSINKED VALUE: ", tmp) ]
+  }
+}
+
+defproc test ()
+{
+
+//  src<8,8,0> src;
+//  sink<8> sink;
+  buffer<8,16> buffer;
+
+//  src.SRC = buffer.IN;
+//  buffer.OUT = sink.SINK;
+}
+
+test t;

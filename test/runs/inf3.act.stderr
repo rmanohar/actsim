@@ -1,0 +1,19 @@
+In expanding buffer<8,16> (inf3.act:29)
+In expanding test (inf3.act:59)
+In expanding ::<Global>
+Error on or near line number 37.
+WARNING: potential write conflict in CHP description
+   Variable: `C[1]' (count=2)
+   Variable: `C[2]' (count=2)
+   Variable: `C[3]' (count=2)
+   Variable: `C[4]' (count=2)
+   Variable: `C[5]' (count=2)
+   Variable: `C[6]' (count=2)
+   Variable: `C[7]' (count=2)
+   Variable: `C[8]' (count=2)
+   Variable: `C[9]' (count=2)
+   Variable: `C[10]' (count=2)
+   Variable: `C[11]' (count=2)
+   Variable: `C[12]' (count=2)
+   Variable: `C[13]' (count=2)
+WARNING: buffer<8,16>: substituting chp model (requested prs, not found)
