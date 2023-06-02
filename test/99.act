@@ -1,0 +1,7 @@
+defproc test()
+{
+  int x, y;
+  chp {
+     (x := 1, skip,  y:= 2); log ("got hi")
+   }
+}

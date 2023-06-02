@@ -1157,27 +1157,22 @@ int ChpSim::Step (Event *ev)
       int idx;
       ChpSimGraph *g = _pc[pc];
       for (int i=0; i < stmt->u.fork; i++) {
-	if (first) {
-	  idx = pc;
-	  first = 0;
-	}
-	else {
-	  Assert (_pcused < _npc, "What?");
-	  idx = _holes[_pcused++];
-	  _holes[_pcused-1] = -1;
-	  count++;
-	}
-	_pc[idx] = g->all[i];
 	if (g->all[i]) {
-#if 0	  
+	  if (first) {
+	    idx = pc;
+	    first = 0;
+	  }
+	  else {
+	    Assert (_pcused < _npc, "What?");
+	    idx = _holes[_pcused++];
+	    _holes[_pcused-1] = -1;
+	    count++;
+	  }
+	  _pc[idx] = g->all[i];
+#if 0
 	  printf (" idx:%d", idx);
 #endif
 	  _nextEvent (idx, bw_cost);
-	}
-	else {
-	  Assert (_pcused > 0, "What?");
-	  _holes[_pcused-1] = idx;
-	  _pcused--;
 	}
       }
       //_pcused += stmt->u.fork - 1;
@@ -4641,6 +4636,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   int tmp;
   int width;
   int used_slots = 0;
+  ChpSimGraph *ostop;
   
   if (!c) return NULL;
 
@@ -4680,6 +4676,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
     }
     ret = new ChpSimGraph (sc);
+    ostop = *stop;
     *stop = new ChpSimGraph (sc);
     tmp = cur_pending_count++;
     if (cur_pending_count > max_pending_count) {
@@ -4708,9 +4705,16 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret->stmt->energy_cost = 0;
       ret->stmt->bw_cost = 0;
       ret->stmt->type = CHPSIM_FORK;
-      ret->stmt->u.fork = count;
+      ret->stmt->u.fork = i;
       (*stop)->wait = count;
       (*stop)->totidx = tmp;
+    }
+    else {
+      FREE (ret->all);
+      FREE (ret);
+      FREE (*stop);
+      *stop = ostop;
+      ret = NULL;
     }
     break;
 
