@@ -26,18 +26,18 @@
 
 L_A_DECL (FILE *, rom_fp);
 
-expr_res actsim_rom_read (int argc, struct expr_res *args)
+expr_res actsim_read_rom (int argc, struct expr_res *args)
 {
   expr_res ret;
   ret.width = 64; 
   ret.v = 0;
   if (argc != 1) {
-    fprintf (stderr, "actim_rom_read: should have 1 argument only\n"); 
+    fprintf (stderr, "actim_read_rom: should have 1 argument only\n"); 
     return ret;
   }
 
   if (args[0].v > 4000) {
-    fprintf (stderr, "actsim_rom_read: more than 4000 ROMSs?!\n");
+    fprintf (stderr, "actsim_read_rom: more than 4000 ROMSs?!\n");
     return ret;
   }
 
