@@ -34,6 +34,11 @@
 #include <lispCli.h>
 #include <ctype.h>
 
+static ActId *my_parse_id (const char *s)
+{
+   return ActId::parseId (s);
+}
+
 static void signal_handler (int sig)
 {
   LispInterruptExecution = 1;
@@ -350,7 +355,7 @@ int process_procinfo (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = ActId::parseId (argv[1]);
+    id = my_parse_id (argv[1]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
 	       argv[1]);
@@ -405,7 +410,7 @@ int process_getenergy (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = ActId::parseId (argv[2]);
+    id = my_parse_id (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
 	       argv[2]);
@@ -458,7 +463,7 @@ int process_coverage (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = ActId::parseId (argv[1]);
+    id = my_parse_id (argv[1]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
 	       argv[1]);
@@ -486,7 +491,7 @@ int process_coverage (int argc, char **argv)
 
 static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
-  ActId *id = ActId::parseId (s);
+  ActId *id = my_parse_id (s);
   if (!id) {
     fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
     return 0;
@@ -720,7 +725,7 @@ int process_wakeup (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  ActId *id = ActId::parseId (argv[1]);
+  ActId *id = my_parse_id (argv[1]);
   ActId *orig = id;
   if (!id) {
     fprintf (stderr, "%s: could not parse `%s' into an identifier",
@@ -769,7 +774,7 @@ int process_skipcomm (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  ActId *id = ActId::parseId (argv[1]);
+  ActId *id = my_parse_id (argv[1]);
   ActId *orig = id;
   if (!id) {
     fprintf (stderr, "%s: could not parse `%s' into an identifier",
