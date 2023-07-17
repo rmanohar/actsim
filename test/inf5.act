@@ -1,0 +1,52 @@
+defproc test1(chan?(bool) in; chan!(int<1>) out)
+{
+  chp {
+    *[ [#in]; out!int(in);in? ]
+  }
+}
+
+defproc boolsrc(chan!(bool) X)
+{ 
+  chp {
+   *[ X!true; X!false ]
+  }
+}
+
+defproc intsrc(chan!(int<1>) X)
+{
+  chp {
+   *[ X!0; X!1 ]
+  }
+}
+
+defproc test2(chan?(int<1>) in; chan!(bool) out)
+{
+  chp {
+   *[ [#in];out!bool(in);in? ]
+  }
+}
+
+defproc boolsink(chan?(bool) W)
+{
+   bool x;
+
+   chp {
+     *[ W?x; log ("got bool: ", x) ]
+   }
+}
+
+defproc intsink(chan?(int<1>) W)
+{
+   int<1> x;
+
+   chp {
+     *[ W?x; log ("got int: ", x) ]
+   }
+}
+
+defproc test()
+{
+   intsrc s;
+   test2 t(s.X);
+   boolsink ix(t.out);
+}

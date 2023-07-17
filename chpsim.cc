@@ -5946,7 +5946,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
 	}
 	else {
 	  off = computeOffset (g->stmt->u.sendrecv.d);
-	  if (g->stmt->u.sendrecv.d->isbool) {
+	  if (g->stmt->u.sendrecv.d_type == 0) {
 	    // nothing to do
 	  }
 	  else {
