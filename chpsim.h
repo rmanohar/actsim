@@ -226,9 +226,11 @@ class ChpSim : public ActSimObj {
   /* type == 3 : probe */
 
   int varSend (int pc, int wakeup, int id, int off, int flavor,
-	       expr_multires &v, int bidir, expr_multires *xchg, int *frag);
+	       expr_multires &v, int bidir, expr_multires *xchg, int *frag,
+	       int *skipwrite);
   int varRecv (int pc, int wakeup, int id, int off, int flavor,
-	       expr_multires *v, int bidir, expr_multires &xchg, int *frag);
+	       expr_multires *v, int bidir, expr_multires &xchg, int *frag,
+	       int *skipwrite);
 
   int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v, int flag = 0);
   

@@ -67,6 +67,8 @@ struct act_channel_state {
   unsigned int use_flavors:1;	// 1 if !+/!- are in use
   unsigned int send_flavor:1;	// state of send flavor
   unsigned int recv_flavor:1;	// state of recv flavor
+
+  unsigned int skip_action:1;	// used for skip-comm
   
 
   struct iHashtable *fH;	// fragment hash table

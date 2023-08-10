@@ -550,6 +550,7 @@ act_channel_state::act_channel_state(expr_multires &vinit)
   recv_flavor = 0;
   inst_id = NULL;
   count = 0;
+  skip_action = 0;
 }
 
 act_channel_state::~act_channel_state()

@@ -1254,6 +1254,7 @@ int ChpSim::Step (Event *ev)
       int id;
       int type;
       int rv;
+      int skipwrite = 0;
 
       if (stmt->u.sendrecv.is_structx) {
 	/* bidirectional */
@@ -1294,7 +1295,7 @@ int ChpSim::Step (Event *ev)
       goff = getGlobalOffset (stmt->u.sendrecv.chvar, 2);
       rv = varSend (pc, flag, stmt->u.sendrecv.chvar, goff,
 		    stmt->u.sendrecv.flavor, vs, stmt->u.sendrecv.is_structx,
-		    &xchg, &frag);
+		    &xchg, &frag, &skipwrite);
 
       if (stmt->u.sendrecv.is_structx) {
 	if (!rv && xchg.nvals > 0) {
@@ -1317,7 +1318,7 @@ int ChpSim::Step (Event *ev)
 #endif
 	_energy_cost += stmt->energy_cost;
 	if (stmt->u.sendrecv.is_structx) {
-	  if (type != -1) {
+	  if (type != -1 && skipwrite == 0) {
 	    if (stmt->u.sendrecv.is_structx == 1) {
 	      if (type == 0) {
 		off = getGlobalOffset (id, 0);
@@ -1372,6 +1373,7 @@ int ChpSim::Step (Event *ev)
       int id;
       int type;
       int rv;
+      int skipwrite = 0;
       
       if (stmt->u.sendrecv.d) {
 	type = stmt->u.sendrecv.d_type;
@@ -1405,7 +1407,7 @@ int ChpSim::Step (Event *ev)
       goff = getGlobalOffset (stmt->u.sendrecv.chvar, 2);
       rv = varRecv (pc, flag, stmt->u.sendrecv.chvar, goff,
 		    stmt->u.sendrecv.flavor, &vs,
-		    stmt->u.sendrecv.is_structx, xchg, &frag);
+		    stmt->u.sendrecv.is_structx, xchg, &frag, &skipwrite);
       
       if (!rv && vs.nvals > 0) {
 	v = vs.v[0];
@@ -1427,7 +1429,7 @@ int ChpSim::Step (Event *ev)
 #ifdef DUMP_ALL	
 	printf ("recv got %lu!", v.getVal (0));
 #endif	
-	if (type != -1) {
+	if (type != -1 && skipwrite == 0) {
 	  if (stmt->u.sendrecv.is_struct == 0) {
 	    if (type == 0) {
 	      off = getGlobalOffset (id, 0);
@@ -1669,7 +1671,8 @@ int ChpSim::Step (Event *ev)
 /* returns 1 if blocked */
 int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 		     expr_multires &v, int bidir,
-		     expr_multires *xchg, int *frag)
+		     expr_multires *xchg, int *frag,
+		     int *skipwrite)
 {
   act_channel_state *c;
   c = _sc->getChan (off);
@@ -1753,6 +1756,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 	c->sfrag_st = 0;
 	if (bidir) {
 	  *xchg = c->data2;
+	  *skipwrite = c->skip_action;
+	  c->skip_action = 0;
 	}
         c->count++;
 #if 0
@@ -1770,6 +1775,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 	  if (c->sfrag_st == 3) {
 	    if (bidir) {
 	      *xchg = c->data2;
+	      *skipwrite = c->skip_action;
+	      c->skip_action = 0;
 	    }
             c->count++;
 #if 0
@@ -1805,6 +1812,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 
     if (bidir) {
       *xchg = c->data;
+      *skipwrite = c->skip_action;
+      c->skip_action = 0;
     }
     c->count++;
     return 0;
@@ -1818,6 +1827,8 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
     c->data = v;
     if (bidir) {
       *xchg = c->data2;
+      *skipwrite = c->skip_action;
+      c->skip_action = 0;
     }
     c->w->Notify (c->recv_here-1);
     c->recv_here = 0;
@@ -1886,7 +1897,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 /* returns 1 if blocked */
 int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 		     expr_multires *v, int bidir,
-		     expr_multires &xchg, int *frag)
+		     expr_multires &xchg, int *frag, int *skipwrite)
 {
   act_channel_state *c;
   c = _sc->getChan (off);
@@ -1975,6 +1986,8 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 #endif
 	c->rfrag_st = 0;
 	(*v) = c->data;
+	*skipwrite = c->skip_action;
+	c->skip_action = 0;
 	return 0;
       }
 #if 0
@@ -1990,6 +2003,8 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 	    printf ("[recv %p] done\n", c);
 #endif
 	    (*v) = c->data;
+	    *skipwrite = c->skip_action;
+	    c->skip_action = 0;
 	    return 0;
 	  }
 	}
@@ -2018,6 +2033,8 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 #endif
     //v->v[0].v = c->data;
     *v = c->data;
+    *skipwrite = c->skip_action;
+    c->skip_action = 0;
     if (c->recv_here != 0) {
       act_connection *x;
       int dy;
@@ -2044,6 +2061,8 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
     printf (" [waiting-send %d]", c->send_here-1);
 #endif    
     *v = c->data2;
+    *skipwrite = c->skip_action;
+    c->skip_action = 0;
     if (bidir) {
       c->data = xchg;
     }
@@ -6017,6 +6036,7 @@ void ChpSim::skipChannelAction (int is_send, int offset)
     chk_pc = c->recv_here - 1;
   }
 
+
   if (chk_pc < 0 || chk_pc >= _npc) {
     printf ("unexpected error!\n");
     return;
@@ -6027,6 +6047,8 @@ void ChpSim::skipChannelAction (int is_send, int offset)
     return;
   }
 
+  c->skip_action = 1;
+  
   // clear the channel state
   if (is_send) {
     c->w->Notify (chk_pc);
