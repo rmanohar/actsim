@@ -1,0 +1,11 @@
+defproc test()
+{
+  int<70> a;
+
+  chp {
+    a := 1 << 20;
+//    log (a);
+//    log ("%b", a);
+    log ("%b", a{17})
+   }
+}
