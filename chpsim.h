@@ -24,6 +24,7 @@
 
 #include <common/simdes.h>
 #include "actsim.h"
+#include <common/hash.h>
 
 
 /*--- CHP simulation data structures ---*/
@@ -103,6 +104,30 @@ struct chpsimstmt {
 
 /* --- Each unique process has a CHP sim graph associated with it --- */
 
+/**
+ * The overall information about the chpsim graph
+ *  - g : the entry point into the graph
+ *  - e : ?
+ *  - max_count : number of slots needed to keep track of internal joins
+ *  - max_stats : number of slots needed to keep track of any run-time
+ *  - labels : map from label to chpsimgraph pointer
+ * statistics.
+ */
+class ChpSimGraph;
+
+struct chpsimgraph_info {
+  chpsimgraph_info() {
+    g = NULL; labels = NULL; e = NULL; max_count = 0; max_stats = 0;
+  }
+  ~chpsimgraph_info() { }
+  ChpSimGraph *g;
+  Expr *e;			/* for probes, if needed */
+  int max_count;
+  int max_stats;
+  struct Hashtable *labels;
+};
+
+
 class ChpSimGraph {
  public:
   ChpSimGraph (ActSimCore *);
@@ -119,9 +144,10 @@ class ChpSimGraph {
   ChpSimGraph *completed (int pc, int *tot, int *done);
   void printStmt (FILE *fp, Process *p);
 
-  static ChpSimGraph *buildChpSimGraph (ActSimCore *, act_chp_lang_t *);
+  static chpsimgraph_info *buildChpSimGraph (ActSimCore *, act_chp_lang_t *);
   static int max_pending_count;
   static int max_stats;
+  static struct Hashtable *labels;
 
   static void checkFragmentation (ActSimCore *, ChpSim *, act_chp_lang_t *);
   static void checkFragmentation (ActSimCore *, ChpSim *, Expr *);
@@ -136,18 +162,23 @@ private:
 };
 
 
+
+
+
+
 /* --- each unique instance has a ChpSim object associated with it --- */
 
 class ChpSim : public ActSimObj {
  public:
-  ChpSim (ChpSimGraph *, int maxcnt, int maxstats,
-	  act_chp_lang_t *, ActSimCore *sim, Process *p);
+  ChpSim (chpsimgraph_info *, act_chp_lang_t *, ActSimCore *sim, Process *p);
      /* initialize simulation, and create initial event */
   ~ChpSim ();
 
   int Step (Event *ev);		/* run a step of the simulation */
 
   void reStart (ChpSimGraph *g, int maxcnt);
+  
+  int jumpTo (const char *s);
 
   void computeFanout ();
 
@@ -183,6 +214,9 @@ class ChpSim : public ActSimObj {
   int _npc;			/* # of program counters */
   int _pcused;			/* # of _pc[] slots currently being
 				   used */
+  
+  struct Hashtable *_labels;	/* label map */
+  
   ChpSimGraph **_pc;		/* current PC state of simulation */
   int *_holes;			/* available slots in the _pc array */
   int *_tot;			/* current pending concurrent count */
@@ -244,6 +278,7 @@ class ChpSim : public ActSimObj {
   void _initEvent ();
   void _zeroAllIntsChans (ChpSimGraph *g);
   void _zeroStructure (struct chpsimderef *d);
+
 };
 
 

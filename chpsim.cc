@@ -35,6 +35,7 @@ class ChpSim;
 int ChpSimGraph::cur_pending_count = 0;
 int ChpSimGraph::max_pending_count = 0;
 int ChpSimGraph::max_stats = 0;
+struct Hashtable *ChpSimGraph::labels = NULL;
 
 extern ActSim *glob_sim;
 
@@ -358,11 +359,24 @@ static void _clrhash ()
   _ZEROHASH = NULL;
 }
 
-ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, int max_stats,
+ChpSim::ChpSim (chpsimgraph_info *cgi,
 		act_chp_lang_t *c, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
 {
+  ChpSimGraph *g;
+  int max_cnt, max_stats;
   char buf[1024];
+
+  if (cgi) {
+    g = cgi->g;
+    max_cnt = cgi->max_count;
+    max_stats = cgi->max_stats;
+  }
+  else {
+    g = NULL;
+    max_cnt = 0;
+    max_stats = 0;
+  }
 
   _deadlock_pc = NULL;
   _stalled_pc = list_new ();
@@ -455,7 +469,9 @@ ChpSim::ChpSim (ChpSimGraph *g, int max_cnt, int max_stats,
     _pc[0] = g;
     _statestk = list_new ();
     _initEvent ();
-
+    if (cgi) {
+      _labels = cgi->labels;
+    }
   }
   else {
     _pc = NULL;
@@ -4513,13 +4529,20 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
   return ret;
 }
 
-ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
-					    act_chp_lang_t *c)
+chpsimgraph_info *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
+						 act_chp_lang_t *c)
 {
   ChpSimGraph *stop;
+  chpsimgraph_info *gi;
+
   cur_pending_count = 0;
   max_pending_count = 0;
   max_stats = 0;
+  labels = NULL;
+
+  if (!c) return NULL;
+
+  gi = new chpsimgraph_info;
 
   if (c->type == ACT_HSE_FRAGMENTS) {
     int len = 0;
@@ -4628,10 +4651,21 @@ ChpSimGraph *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     stop = frags[0];
     FREE (frags);
     FREE (nstop);
-    return stop;
+    gi->g = stop;
+    gi->max_count = max_pending_count;
+    gi->max_stats = max_stats;
+    gi->labels = labels;
+    gi->e = NULL;
+    return gi;
   }
   stop = new ChpSimGraph (sc);
-  return _buildChpSimGraph (sc, c, &stop);
+  gi->g = _buildChpSimGraph (sc, c, &stop);
+  gi->max_count = max_pending_count;
+  gi->max_stats = max_stats;
+  gi->e = NULL;
+  gi->labels = labels;
+  
+  return gi;
 }
 
 static ChpSimGraph *_gen_nop (ActSimCore *sc)
@@ -4645,6 +4679,24 @@ static ChpSimGraph *_gen_nop (ActSimCore *sc)
   return ret;
 }
 
+static void _update_label (struct Hashtable **H,
+			   const char *l, ChpSimGraph *ptr)
+{
+  if (!l) return;
+  
+  if (!(*H)) {
+    *H = hash_new (2);
+  }
+  if (hash_lookup (*H, l)) {
+    warning ("Duplicate label `%s'; ignored", l);
+  }
+  else {
+    hash_bucket_t *b;
+    b = hash_add (*H, l);
+    b->v = ptr;
+  }
+}
+    
 ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 					    act_chp_lang_t *c,
 					    ChpSimGraph **stop)
@@ -4656,6 +4708,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   int width;
   int used_slots = 0;
   ChpSimGraph *ostop;
+  hash_bucket_t *b;
   
   if (!c) return NULL;
 
@@ -4663,9 +4716,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_SEMI:
     count = cur_pending_count;
     if (list_length (c->u.semi_comma.cmd)== 1) {
-      return _buildChpSimGraph
+      ret = _buildChpSimGraph
 	(sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+      _update_label (&labels, c->label, ret);
+      return ret;
     }
     used_slots = cur_pending_count;
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
@@ -4690,9 +4745,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
   case ACT_CHP_COMMA:
     if (list_length (c->u.semi_comma.cmd)== 1) {
-      return _buildChpSimGraph
+      ret = _buildChpSimGraph
 	(sc,
 	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+      _update_label (&labels, c->label, ret);
+      return ret;
     }
     ret = new ChpSimGraph (sc);
     ostop = *stop;
@@ -5134,6 +5191,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     fatal_error ("Unknown chp type %d\n", c->type);
     break;
   }
+  _update_label (&labels, c->label, ret);
   return ret;
 }
 
@@ -6058,4 +6116,39 @@ void ChpSim::skipChannelAction (int is_send, int offset)
     c->w->Notify (chk_pc);
     c->recv_here = 0;
   }
+}
+
+int ChpSim::jumpTo (const char *l)
+{
+  hash_bucket_t *b;
+  if (!_labels) {
+    fprintf (stderr, ">> goto operation failed; no labels in process!\n");
+    return 0;
+  }
+  b = hash_lookup (_labels, l);
+  if (!b) {
+    fprintf (stderr, ">> goto operation failed; label `%s' does not exist!\n", l);
+    return 0;
+  }
+  if (_pcused > 1) {
+    fprintf (stderr, ">> goto operation failed; multiple (%d) active threads of execution.\n", _pcused);
+    return 0;
+  }
+  int slot = -1;
+  for (int i=0; i < _npc; i++) {
+    if (_pc[i]) {
+      if (slot == -1) {
+	slot = i;
+      }
+      else {
+	warning ("Internal issue with goto operation!");
+      }
+    }
+  }
+  if (slot == -1) {
+    fprintf (stderr, ">> goto operation failed; no active program counter?\n");
+    return 0;
+  }
+  _pc[slot] = (ChpSimGraph *) b->v;
+  return 1;
 }

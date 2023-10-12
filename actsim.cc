@@ -46,13 +46,6 @@
 
 */
 
-struct chpsimgraph_info {
-  ChpSimGraph *g;
-  Expr *e;			/* for probes, if needed */
-  int max_count;
-  int max_stats;
-};
-
 struct process_info {
   process_info() { chp = NULL; hse = NULL; prs = NULL; }
   chpsimgraph_info *chp, *hse;
@@ -344,24 +337,18 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       b->v = pgi;
     }
     if (!pgi->chp) {
-      NEW (pgi->chp, chpsimgraph_info);
       if (c->c && c->c->type == ACT_CHP_COMMA) {
 	setInternalParallel (1);
       }
       else {
 	setInternalParallel (0);
       }
-      pgi->chp->g = ChpSimGraph::buildChpSimGraph (this, c->c);
-      pgi->chp->e = NULL;
-      pgi->chp->max_count = ChpSimGraph::max_pending_count;
-      pgi->chp->max_stats = ChpSimGraph::max_stats;
+      pgi->chp = ChpSimGraph::buildChpSimGraph (this, c->c);
     }
-    x = new ChpSim (pgi->chp->g, pgi->chp->max_count,
-		    pgi->chp->max_stats,
-		    c->c, this, _curproc);
+    x = new ChpSim (pgi->chp, c->c, this, _curproc);
   }
   else {
-    x = new ChpSim (NULL, 0, 0, NULL, this, _curproc);
+    x = new ChpSim (NULL, NULL, this, _curproc);
   }
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
@@ -413,21 +400,15 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
   }
 
   if (!pgi->hse) {
-    NEW (pgi->hse, chpsimgraph_info);
-
     if (c->c && c->c->type == ACT_CHP_COMMA) {
       setInternalParallel (1);
     }
     else {
       setInternalParallel (0);
     }
-    pgi->hse->g = ChpSimGraph::buildChpSimGraph (this, c->c);
-    pgi->hse->max_count = ChpSimGraph::max_pending_count;
-    pgi->hse->max_stats = ChpSimGraph::max_stats;
+    pgi->hse = ChpSimGraph::buildChpSimGraph (this, c->c);
   }
-  ChpSim *x = new ChpSim (pgi->hse->g, pgi->hse->max_count,
-			  pgi->hse->max_stats,
-			  c->c, this, _curproc);
+  ChpSim *x = new ChpSim (pgi->hse, c->c, this, _curproc);
   x->setHseMode ();
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
@@ -2035,12 +2016,14 @@ void ActSim::runInit ()
     for (int i=0; i < num; i++) {
       if (lia[i] && list_next (lia[i])) {
 	act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
-	ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c);
+	chpsimgraph_info *ci = ChpSimGraph::buildChpSimGraph (this, c);
 	ChpSim *sim_init =
-	  new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
+	  new ChpSim (ci, c, this, NULL);
 
 	list_append (_init_simobjs, sim_init);
-	list_append (_init_simobjs, sg);
+	list_append (_init_simobjs, ci->g);
+	
+	delete ci;
 	  
 	lia[i] = list_next (lia[i]);
 	
@@ -2065,12 +2048,15 @@ void ActSim::runInit ()
   for (int i=0; i < num; i++) {
     if (lia[i]) {
       act_chp_lang_t *c = (act_chp_lang_t *) list_value (lia[i]);
-      ChpSimGraph *sg = ChpSimGraph::buildChpSimGraph (this, c);
+      chpsimgraph_info *ci = ChpSimGraph::buildChpSimGraph (this, c);
+      
       ChpSim *sim_init =
-	new ChpSim (sg, ChpSimGraph::max_pending_count, 0, c, this, NULL);
+	new ChpSim (ci, c, this, NULL);
 
       list_append (_init_simobjs, sim_init);
-      list_append (_init_simobjs, sg);
+      list_append (_init_simobjs, ci->g);
+      
+      delete ci;
 	  
       lia[i] = list_next (lia[i]);
     }

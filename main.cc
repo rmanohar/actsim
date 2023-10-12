@@ -489,6 +489,47 @@ int process_coverage (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_goto (int argc, char **argv)
+{
+  ActId *id;
+  FILE *fp;
+  if (argc != 3 && argc != 2) {
+    fprintf (stderr, "Usage: %s [<inst-name>] <label>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (argc == 3) {
+    id = my_parse_id (argv[1]);
+    if (id == NULL) {
+      fprintf (stderr, "Could not parse `%s' into an instance name\n",
+	       argv[1]);
+      return LISP_RET_ERROR;
+    }
+  }
+  else {
+    id = NULL;
+  }
+
+  /*-- find this process --*/
+  ActInstTable *inst = find_table (id, glob_sim->getInstTable());
+  if (!inst) {
+    fprintf (stderr, "Could not find instance `%s'\n", argv[1]);
+    return LISP_RET_ERROR;
+  }
+  ChpSim *chp = dynamic_cast<ChpSim *>(inst->obj);
+  if (!chp) {
+    fprintf (stderr, "Instance `%s' is not a CHP process.\n", argv[1]);
+    return LISP_RET_ERROR;
+  }
+  if (chp->jumpTo (argv[argc-1])) {
+    return LISP_RET_TRUE;
+  }
+  else {
+    return LISP_RET_ERROR;
+  }
+}
+
+
 static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
   ActId *id = my_parse_id (s);
@@ -1507,7 +1548,8 @@ struct LispCliCommand Cmds[] = {
   
   { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
   { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy },
-  { "coverage", "<filename> [<inst-name>] - report coverage for guards", process_coverage }
+  { "coverage", "<filename> [<inst-name>] - report coverage for guards", process_coverage },
+  { "goto", "[<inst-name>] <label> - for a single-threaded state, jump to label", process_goto }
 };
 
 /* -- access top-level Act  -- */
