@@ -1455,9 +1455,9 @@ void ActSimCore::_initSim ()
     }
   }
 
+#if 0
   Assert (chpports_exist_bool >= ports_exist, "What?");
   chpports_exist_bool -= ports_exist;
-#if 0
   printf ("ports_exist = %d\n", ports_exist);
   printf ("chpports_exist_chan = %d\n", chpports_exist_chan);
   printf ("chpports_exist_int = %d\n", chpports_exist_int);
