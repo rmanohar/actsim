@@ -569,7 +569,7 @@ static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pob
   }
 
   if (!tmp->validateDeref (si->bnl->cur)) {
-    fprintf (stderr, "Array index is missing/out of bounds!\n");
+    fprintf (stderr, "Array index is missing/out of bounds in `%s'!\n", s);
     return 0;
   }
 
