@@ -3127,3 +3127,48 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
     delete id;
   }
 }
+
+
+/* pending events */
+
+static int _pend_count;
+static int _pend_prs;
+
+static bool _match_count (Event *e)
+{
+  _pend_count++;
+  if (dynamic_cast <OnePrsSim *> (e->getObj())) {
+    _pend_prs++;
+  }
+  return false;
+}
+
+static bool _match_verbose (Event *e)
+{
+  OnePrsSim *op = dynamic_cast<OnePrsSim *> (e->getObj());
+  if (op) {
+    return false;
+  }
+  ChpSim *ch = dynamic_cast<ChpSim *> (e->getObj());
+  if (ch) {
+    return false;
+  }
+  return false;
+}
+
+void runPending (bool verbose)
+{
+  _pend_count = 0;
+  _pend_prs = 0;
+  SimDES::matchPendingEvent (_match_count);
+  printf ("Pending events: %d", _pend_count);
+  if (_pend_prs > 0) {
+    printf ("; prs events: %d", _pend_prs);
+  }
+  printf ("\n");
+#if 0  
+  if (verbose) {
+    SimDES::matchPendingEvent (_match_verbose);
+  }
+#endif  
+}

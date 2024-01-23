@@ -1442,7 +1442,7 @@ int process_timescale (int argc, char **argv)
 int process_get_sim_time (int argc, char **argv)
 {
   if (argc != 1) {
-    fprintf (stderr, "Usage: %s <t>\n", argv[0]);
+    fprintf (stderr, "Usage: %s\n", argv[0]);
     return LISP_RET_ERROR;
   }
   if (!glob_sim) { 
@@ -1457,7 +1457,7 @@ int process_get_sim_time (int argc, char **argv)
 int process_get_sim_itime (int argc, char **argv)
 {
   if (argc != 1) {
-    fprintf (stderr, "Usage: %s <t>\n", argv[0]);
+    fprintf (stderr, "Usage: %s\n", argv[0]);
     return LISP_RET_ERROR;
   }
   if (!glob_sim) { 
@@ -1467,6 +1467,29 @@ int process_get_sim_itime (int argc, char **argv)
   BigInt tm = SimDES::CurTime();
   LispSetReturnInt (tm.getVal (0));
   return LISP_RET_INT;
+}
+
+int process_pending (int argc, char **argv)
+{
+  if (argc != 1 && argc != 2) {
+    fprintf (stderr, "Usage: %s [-v]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  bool verbose = false;
+  if (argc == 2 && strcmp (argv[1], "-v") == 0) {
+    verbose = true;
+  }
+  else if (argc == 2) {
+    fprintf (stderr, "Usage: %s [-v]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (!SimDES::hasPendingEvent()) {
+    return LISP_RET_FALSE;
+  }
+  
+  runPending (verbose);
+  return LISP_RET_TRUE;
 }
 
 
@@ -1496,6 +1519,8 @@ struct LispCliCommand Cmds[] = {
   { "advance", "<delay> - run for <delay> time", process_advance },
   { "cycle", "- run until simulation stops", process_cycle },
 
+  { "pending", "- dump pending events", process_pending },
+  
   { "set", "<name> <val> - set a variable to a value", process_set },
   { "gc-retry", "<name> - re-try guards in a deadlocked process", process_wakeup },
   { "skip-comm", "<name> - skip the communication action", process_skipcomm },
@@ -1525,9 +1550,8 @@ struct LispCliCommand Cmds[] = {
   { "lxt2_start", "<file> - Create LXT2 format trace file for all watched values", process_createlxt2 },
   { "lxt2_stop", "- Stop LXT2 trace file generation", process_stoplxt2 },
 
-#if 0  
-  { "pending", "- dump pending events", process_pending },
 
+#if 0  
   { NULL, "Production rule tracing", NULL },
 
   { "fanin", "<n> - list fanin for <n>", process_fanin },

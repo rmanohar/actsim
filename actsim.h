@@ -727,5 +727,6 @@ Act *actsim_Act();
 Process *actsim_top();
 int is_rand_excl ();
 bool _match_hseprs (Event *);
+void runPending (bool verbose);
 
 #endif /* __ACT_SIM_H__ */
