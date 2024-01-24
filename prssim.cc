@@ -616,18 +616,34 @@ int OnePrsSim::eval (prssim_expr *x)
 
 static int _breakpt;
 
+/**
+ * @brief Macro for setting the node to a certain value. It creates a new event with the delay dependent on the current mode
+ * of the node.
+ * 
+ * There are several possible delay modes a node can have. It can either:
+ * Have a set up/down delay.
+ * Derive its up/down delay from global delay bounds randomly.
+ * Get assigned an unconstrained random delay.
+ * Derive its up/down delay from node delay bounds randomly (not implemented yet).
+ * 
+ */
 #define DO_SET_VAL(nid,x)					\
   do {								\
     if (_proc->getBool (nid) != (x)) {				\
       if (flags != (1 + (x))) {					\
 	flags = (1 + (x));					\
 	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
-			      _proc->getDelay ((x) == 0 ?	\
-					       _me->delay_dn :	\
-					       _me->delay_up));	\
+			      _me->delay_override_length == 0 ? \
+                 _proc->getDelay ((x) == 0 ?	\
+					            _me->delay_dn :	\
+					            _me->delay_up) : \
+                 _me->delay_override_length \
+                        );	\
+  _me->delay_override_length = 0; /* we need to reset this once it has fulfilled its purpose*/\ 
       }								\
     }								\
   } while (0)
+
 
 int OnePrsSim::Step (Event *ev)
 {
@@ -642,6 +658,12 @@ int OnePrsSim::Step (Event *ev)
   case PRSSIM_PASSP:
   case PRSSIM_PASSN:
   case PRSSIM_TGATE:
+
+    // if this is an SEU or delay event, ignore
+    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT || t == PRSSIM_SEU_STOP_EVENT || t == PRSSIM_SED_EVENT) {
+      break;
+    }
+
     if (flags == (1+t)) {
       flags = PENDING_NONE;
     }
@@ -654,9 +676,42 @@ int OnePrsSim::Step (Event *ev)
     if (flags == (1 + t)) {
       flags = PENDING_NONE;
     }
-    if (!_proc->setBool (_me->vid, t)) {
+
+    // if this is a delay upset event, just set the flags and override values
+    if ((t & 0b11111) == PRSSIM_SED_EVENT) {
+      _me->delay_override_length = t >> 5;
+      printf("DEBUG_REMOVE: SED event initiated for duration %i\n", t >>5);
+      // there is nothing else to do
+      return 1-_breakpt;
+    }
+
+    if (!_me->seu_in_progress && !_proc->setBool (_me->vid, (t & 0b11))) {
       flags = PENDING_NONE;
     }
+
+    // if this change was caused by an SEU event, we set the flag and end here
+    if ((t && 0b11100) == PRSSIM_SEU_START_EVENT) {
+      Assert (!_me->seu_in_progress, "No two SEUs at the same time allowed! Too upsetting...");
+      _me->seu_in_progress = 1;
+      printf("DEBUG_REMOVE: SEU event started, setting flags, forcing value to %i\n", t & 0b11);
+      return 1-_breakpt;
+    }
+
+    // if the input changed but there is an SEU in progress, we need to store the value for later
+    if (_me->seu_in_progress) {
+      _me->hidden_value = t & 0b11;
+      printf("DEBUG_REMOVE: Value should have changed but SEU in progress; Value stored was %i\n", _me->hidden_value);
+    }
+
+    // return to normal operation once the SEU has ended
+    if (t == PRSSIM_SEU_STOP_EVENT) {
+      _me->seu_in_progress = false;
+      printf("DEBUG_REMOVE: SEU has ended, returning to normal operation. Assuming value %i now\n", _me->hidden_value);
+      if (!_proc->setBool (_me->vid, _me->hidden_value)) {
+  flags = PENDING_NONE;
+      }
+    }
+
     /* 
        I just set this node to X and there is nothing pending;
        so check if there should be a X -> 0 or X -> 1 tarnsition
@@ -1215,6 +1270,37 @@ void OnePrsSim::registerExcl ()
       xc = xc->getNext (gid);
     }
   }
+}
+
+
+
+bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_value) {
+  printf("DEBUG_REMOVE: Registering SEU\n");
+
+  // create the upset start event
+  int start_event = 0b10000 | (force_value & 0b11);
+
+  // we don't really need to do anything beyond creating the events
+  // the constructor automatically inserts them into the event queue
+  new Event (this, SIM_EV_MKTYPE ((start_event), 0), start_delay);
+  new Event (this, SIM_EV_MKTYPE ((0b10100), 0), start_delay + upset_duration);
+
+  return true;
+}
+
+
+
+bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
+  printf("DEBUG_REMOVE: Registering SED\n");
+
+  // create the delay event
+  int delay_event = 0b11100 | (delay_duration << 5);
+
+  // we don't really need to do anything beyond creating the events
+  // the constructor automatically inserts them into the event queue
+  new Event (this, SIM_EV_MKTYPE ((delay_event), 0), start_delay);
+
+  return true;
 }
 
 

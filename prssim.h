@@ -56,11 +56,23 @@ struct prssim_expr {
 #define PRSSIM_NORM 0
 #define PRSSIM_WEAK 1
 
+/* 
+ * Special event types for single event upset and single event delay
+ */
+#define PRSSIM_SEU_START_EVENT 16
+#define PRSSIM_SEU_STOP_EVENT 20
+#define PRSSIM_SED_EVENT 28
+
 struct prssim_stmt {
   unsigned int type:2; /* RULE, P, N, TRANSGATE */
   unsigned int unstab:1; /* is unstable? */
   struct prssim_stmt *next;
   int delay_up, delay_dn;
+  int delay_up_max, delay_dn_max; /* used when delay for a node is random, then delay_up/down are used for minimum delay */
+  unsigned int seu_in_progress:1;
+  int hidden_value; /* value hidden by an ongoing SEU */
+  int delay_override_length; /* The next event has a manually overridden delay */
+
   union {
     struct {
       prssim_expr *up[2], *dn[2];
@@ -115,7 +127,17 @@ class PrsSim : public ActSimObj {
   bool isHazard (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isHazard (off); }
   
   int myGid (int lid) { return getGlobalOffset (lid, 0); }
-    
+
+
+  /**
+   * @brief Set the value of the current node to the given value, report the change up the chain for logging, 
+   * and propagate the signal down to all nodes this one fans out to.
+   * 
+   * @param lid ID of the signal we are looking to change.
+   * @param v The target value to change it to.
+   * @return true The state of the node was successfully changed in the state vector.
+   * @return false Changing the state of the node in the global state vector failed.
+   */
   bool setBool (int lid, int v);
   void printName (FILE *fp, int lid);
 
@@ -151,13 +173,59 @@ private:
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x);
+
+
+  /**
+   * @brief Takes an event and parses it. If the event changes the value of the node, do so by calling setBool
+   * 
+   * The method can take separate kinds of events, the lowest two bits set values while upper bits provide more information.
+   * If t & 0b11100 is a value other than 0, a special event is parsed. This is either the begin or of a single event upset
+   * (0b100xx and 0b10100 respectively, where xx indicates the value the node should be forced to), or a single event delay,
+   * (0bxx11100 where the bits above the event type encode the length of the delay).
+   * 
+   * @param ev The event to parse
+   * @return int 
+   */
   int Step (Event *ev);
+
+
+  /**
+   * @brief Propagate an incoming logic change event to all nodes connected to this one.
+   * For this, all incoming rules for these nodes are evaluated and, if a logic level change
+   * is required, an event is scheduled for the change to happen after the node's delay.
+   * 
+   */
   void propagate ();
+
+  
   void printName ();
   int matches (int val);
   void registerExcl ();
   void flushPending ();
   int isPending() { return _pending == NULL ? 0 : 1; }
+
+  /**
+  * @brief Create and register SEU start and end events and put them into the event queue
+  * 
+  * @param start_delay The delay from the start of the simulation to the start of the SEU
+  * @param upset_duration The duration of the SEU
+  * @param force_value The value the SEU forces the node to
+  * @return true Always returned at the moment
+  * @return false Not used currently
+  */
+  bool registerSEU(int start_delay, int upset_duration, int force_value);
+  
+  
+  /**
+   * @brief Create and register an SED event and put it into the event queue
+   * 
+   * @param start_delay The delay from the start of the simulation to the start of the SED
+   * @param delay_duration The duration of the artificial delay
+   * @return true Always returned at the moment
+   * @return false Not used currently
+   */
+  bool registerSED(int start_delay, int delay_duration);
+
 };
 
 
