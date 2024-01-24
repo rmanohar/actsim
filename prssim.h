@@ -213,7 +213,7 @@ public:
    * @param nid ID of the node to affect
    * @param val Value to set the node to
    */
-  void set_val(int nid, int val);
+  void setVal(int nid, int val);
   
   void printName ();
   int matches (int val);
