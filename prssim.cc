@@ -616,33 +616,22 @@ int OnePrsSim::eval (prssim_expr *x)
 
 static int _breakpt;
 
-/**
- * @brief Macro for setting the node to a certain value. It creates a new event with the delay dependent on the current mode
- * of the node.
- * 
- * There are several possible delay modes a node can have. It can either:
- * Have a set up/down delay.
- * Derive its up/down delay from global delay bounds randomly.
- * Get assigned an unconstrained random delay.
- * Derive its up/down delay from node delay bounds randomly (not implemented yet).
- * 
- */
-#define DO_SET_VAL(nid,x)					\
-  do {								\
-    if (_proc->getBool (nid) != (x)) {				\
-      if (flags != (1 + (x))) {					\
-	flags = (1 + (x));					\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
-			      _me->delay_override_length == 0 ? \
-                 _proc->getDelay ((x) == 0 ?	\
-					            _me->delay_dn :	\
-					            _me->delay_up) : \
-                 _me->delay_override_length \
-                        );	\
-  _me->delay_override_length = 0; /* we need to reset this once it has fulfilled its purpose*/\ 
-      }								\
-    }								\
-  } while (0)
+
+void OnePrsSim::set_val(int nid, int x) {
+  if (_proc->getBool (nid) != (x)) {
+    if (flags != (1 + (x))) {
+	    flags = (1 + (x));
+	    _pending = new Event (
+        this, 
+        SIM_EV_MKTYPE ((x), 0),
+			  _me->delay_override_length == 0 ?
+          _proc->getDelay ((x) == 0 ? _me->delay_dn : _me->delay_up) :
+          _me->delay_override_length
+      );
+      _me->delay_override_length = 0; /* we need to reset this once it has fulfilled its purpose*/
+    }
+  }
+}
 
 
 int OnePrsSim::Step (Event *ev)
@@ -738,22 +727,22 @@ int OnePrsSim::Step (Event *ev)
       /* copied from propagate() */
       if (u_state == 0) {
 	if (d_state == 1) {
-	  DO_SET_VAL (_me->vid, 0);
+	  set_val (_me->vid, 0);
 	}
       }
       else if (u_state == 1) {
 	if (d_state == 0) {
-	  DO_SET_VAL (_me->vid, 1);
+	  set_val (_me->vid, 1);
 	}
 	else if (d_state == 2 && (!u_weak && d_weak)) {
-	  DO_SET_VAL (_me->vid, 1);
+	  set_val (_me->vid, 1);
 	}
 	else if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, 0);
+	    set_val (_me->vid, 0);
 	  }
 	  else if (!u_weak && d_weak) {
-	    DO_SET_VAL (_me->vid, 1);
+	    set_val (_me->vid, 1);
 	  }
 	}
       }
@@ -761,7 +750,7 @@ int OnePrsSim::Step (Event *ev)
 	/* u_state == 2 */
 	if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, 0);
+	    set_val (_me->vid, 0);
 	  }
 	}
       }
@@ -840,7 +829,7 @@ void OnePrsSim::propagate ()
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 1 && d_weak != 1) {
-	DO_SET_VAL (_me->t2, 1);
+	set_val (_me->t2, 1);
       }
       else if (u_weak == 2 && d_weak != 2) {
 	MAKE_NODE_X (_me->t2);
@@ -861,7 +850,7 @@ void OnePrsSim::propagate ()
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 0 && d_weak != 0) {
-	DO_SET_VAL (_me->t2, 0);
+	set_val (_me->t2, 0);
       }
       else if (u_weak == 2 && d_weak != 2) {
 	MAKE_NODE_X (_me->t2);
@@ -883,7 +872,7 @@ void OnePrsSim::propagate ()
     d_weak = _proc->getBool (_me->t2);
     if (u_weak == 1) {
       if (u_state == 0) {
-	DO_SET_VAL (_me->t2, 1);
+	set_val (_me->t2, 1);
       }
       else if (u_state == 2) {
 	MAKE_NODE_X (_me->t2);
@@ -891,7 +880,7 @@ void OnePrsSim::propagate ()
     }
     else if (u_weak == 0) {
       if (d_state == 1) {
-	DO_SET_VAL (_me->t2, 0);
+	set_val (_me->t2, 0);
       }
       else if (d_state == 2) {
 	MAKE_NODE_X (_me->t2);
@@ -975,7 +964,7 @@ void OnePrsSim::propagate ()
 
       case 1:
 	/* set to 0 */
-	DO_SET_VAL (_me->vid, 0);
+	set_val (_me->vid, 0);
 	break;
 	
       case 2:
@@ -990,12 +979,12 @@ void OnePrsSim::propagate ()
       switch (d_state) {
       case 0:
 	/* set to 1 */
-	DO_SET_VAL (_me->vid, 1);
+	set_val (_me->vid, 1);
 	break;
 
       case 2:
 	if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, 1);
+	  set_val (_me->vid, 1);
 	}
 	else {
 	  if (!_proc->isResetMode()) {
@@ -1008,10 +997,10 @@ void OnePrsSim::propagate ()
       case 1:
 	/* interference */
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL (_me->vid, 0);
+	  set_val (_me->vid, 0);
 	}
 	else if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, 1);
+	  set_val (_me->vid, 1);
 	}
 	else {
 	  WARNING_MSG ("interference", "");
@@ -1032,7 +1021,7 @@ void OnePrsSim::propagate ()
       case 1:
 	if (u_weak && !d_weak) {
 	  /* set to 0 */
-	  DO_SET_VAL (_me->vid, 0);
+	  set_val (_me->vid, 0);
 	}
 	else {
 	  if (!_proc->isResetMode()) {

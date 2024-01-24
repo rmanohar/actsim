@@ -197,6 +197,23 @@ public:
    */
   void propagate ();
 
+
+  /**
+   * @brief Set the node to a given value. 
+   * 
+   * It creates a new event with the delay dependent on the current mode
+   * of the node.
+   * 
+   * There are several possible delay modes a node can have. It can either:
+   * Have a set up/down delay.
+   * Derive its up/down delay from global delay bounds randomly.
+   * Get assigned an unconstrained random delay.
+   * Derive its up/down delay from node delay bounds randomly (not implemented yet).
+   * 
+   * @param nid ID of the node to affect
+   * @param val Value to set the node to
+   */
+  void set_val(int nid, int val);
   
   void printName ();
   int matches (int val);
