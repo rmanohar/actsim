@@ -56,21 +56,12 @@ struct prssim_expr {
 #define PRSSIM_NORM 0
 #define PRSSIM_WEAK 1
 
-/* 
- * Special event types for single event upset and single event delay
- */
-#define PRSSIM_SEU_START_EVENT 16
-#define PRSSIM_SEU_STOP_EVENT 20
-#define PRSSIM_SED_EVENT 28
-
 struct prssim_stmt {
   unsigned int type:2; /* RULE, P, N, TRANSGATE */
   unsigned int unstab:1; /* is unstable? */
   struct prssim_stmt *next;
   int delay_up, delay_dn;
   int delay_up_max, delay_dn_max; /* used when delay for a node is random, then delay_up/down are used for minimum delay */
-  unsigned int seu_in_progress:1;
-  int hidden_value; /* value hidden by an ongoing SEU */
   int delay_override_length; /* The next event has a manually overridden delay */
 
   union {
@@ -139,6 +130,43 @@ class PrsSim : public ActSimObj {
    * @return false Changing the state of the node in the global state vector failed.
    */
   bool setBool (int lid, int v);
+
+  /**
+   * @brief Set the node to a forced logic value
+   * 
+   * This will override any rules that might be in place and propagate the new
+   * forced value the node was set to. Subsequent calls to setBool will not affect the
+   * displayed value of the node.
+   * 
+   * The value of the node before the force call and all calls made to setBool after are
+   * buffered. The latest valid value this node would have had, had the force never occurred,
+   * will be restored by calling unmask
+   * 
+   * @param lid Local ID of the node to force
+   * @param v Value to force the node to
+   */
+  void setForced (int lid, int v);
+
+  /**
+   * @brief Test if the current node is masked by a forced value
+   * 
+   * @param x Local ID of the node to be tested
+   * @return true The true value is hidden
+   * @return false The value displayed is not externally forced
+   */
+  bool isMasked (int lid) { int off = getGlobalOffset (lid, 0); _sc->isMasked (off); }
+
+  /**
+   * @brief Restore normal operation of the node after value force
+   * 
+   * Restore the value of the node to what it should be displaying, had the value force not happened.
+   * 
+   * @param lid Local ID of the node to force
+   * @return true The actual node value was successfully unmasked
+   * @return false The actual node value was never masked to begin with
+   */
+  bool unmask (int lid);
+
   void printName (FILE *fp, int lid);
 
   void dumpState (FILE *fp);

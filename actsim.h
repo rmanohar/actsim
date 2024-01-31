@@ -78,10 +78,71 @@ public:
 
   BigInt *getInt (int x);
   void setInt (int x, BigInt &v);
+
+  /**
+   * @brief Get the value of the given node
+   * 
+   * @param x Global offset of the node to retrieve
+   * @return int Logic value of the node; 2 returned if value is X
+   */
   int getBool (int x);
-  inline bool isSpecialBool (int x) { return bitset_tst (bits, 3*x+2); }
-  void mkSpecialBool (int x) { bitset_set (bits, 3*x+2); }
-  bool setBool (int x, int v); // success == true
+
+  /**
+   * @brief Inform whether or not more metadata is needed to evaluate this value
+   * 
+   * @param x global offset of the node to retrieve
+   * @return true 
+   * @return false 
+   */
+  inline bool isSpecialBool (int x) { return bitset_tst (bits, 6*x+2); }
+  void mkSpecialBool (int x) { bitset_set (bits, 6*x+2); }
+
+  /**
+   * @brief Set the value of the node
+   * 
+   * If the value to be changed is marked as a special bool, constraints on this
+   * node are checked to make sure the value can indeed be changed.
+   * 
+   * @param x global offset of the node to be changed
+   * @param v value the node should be set to
+   * @return true The value change succeeded
+   * @return false The value change failed because of a constraint
+   */
+  bool setBool (int x, int v);
+
+  /**
+   * @brief Set the node to a forced value and mask the original one
+   * 
+   * This will mask the last valid value of the node with a new forced one without
+   * checking value or timing constraints. Calls to setBool will no longer cause
+   * updates to the value and update the hidden value instead. The hidden value can
+   * be restored by calling unmask
+   * 
+   * @param x Global offset of the node to update
+   * @param v Value to force the node to
+   */
+  void setForced (int x, int v);
+
+  /**
+   * @brief Test if the current node is masked by a forced value
+   * 
+   * @param x Global offset of the node to be tested
+   * @return true The true value is hidden
+   * @return false The value displayed is not externally forced
+   */
+  inline bool isMasked (unsigned int x) { return bitset_tst(bits, 6*x+3); }
+
+  /**
+   * @brief Restore the true value of the node
+   * 
+   * Removes the forced value from the node and restores the masked value.
+   * 
+   * @param x Global offset of the node to be restored
+   * @return true The node was successfully unmasked
+   * @return false The node was not masked to begin with
+   */
+  bool unmask (int x);
+
   act_channel_state *getChan (int x);
   int numChans () { return nchans; }
 
@@ -291,8 +352,68 @@ class ActSimCore {
 
   BigInt *getInt (int x) { return state->getInt (x); }
   void setInt (int x, BigInt &v) { state->setInt (x, v); }
+
+  /**
+   * @brief Get the current node value from the state vector
+   * 
+   * @param x Global offset of the node to retrieve
+   * @return int Current logical value of the node
+   */
   int getBool (int x) { return state->getBool (x); }
+
+  /**
+   * @brief Set the logic value of a given node
+   * 
+   * @param x Global offset of the node to be changed
+   * @param v Value to set the node to
+   * @return true Value change succeeded
+   * @return false Value change failed, likely because of a constraint violation
+   */
   bool setBool (int x, int v) { return state->setBool (x, v); }
+
+  /**
+   * @brief Set the node to a forced value and mask the currently displayed value
+   * 
+   * Updating the value of this node using setBool after calling this function will
+   * not change the exhibited value of this node but update a hidden buffer.
+   * 
+   * This buffer (and normal operation) can be restored by calling unmask
+   * 
+   * Subsequent calls to this function will update the value this node is forced to,
+   * which will change the observable value. It will not change the buffered hidden
+   * value of the node.
+   * 
+   * @param x Global offset of the node
+   * @param v Value to force the node to
+   */
+  void setForced (int x, int v) { state->setForced (x, v); }
+
+  /**
+   * @brief Test if the current node is masked by a forced value
+   * 
+   * @param x Global offset of the node to be tested
+   * @return true The true value is hidden
+   * @return false The value displayed is not externally forced
+   */
+  inline bool isMasked (int x) { state->isMasked (x); }
+
+  /**
+   * @brief Restore the true value of the node
+   * 
+   * Removes the forced value from the node and restores the masked value.
+   * 
+   * @param x Global offset of the node to be restored
+   * @return true The node was successfully unmasked
+   * @return false The node was not masked to begin with
+   */
+  bool unmask (int x) { state->unmask (x); }
+
+  /**
+   * @brief The node has metadata attached to it (like constraints)
+   * 
+   * @param x Global offset of the node
+   * @return int 0 if no metadata attached, 1 otherwise
+   */
   int isSpecialBool (int x)  { return state->isSpecialBool (x); }
   bool isHazard (int x) { return state->isHazard (x); }
   

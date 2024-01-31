@@ -23,7 +23,13 @@
 #include "prssim.h"
 #include <common/qops.h>
 
-//#define DUMP_ALL
+/* 
+ * Special event types for single event upset and single event delay
+ */
+#define PRSSIM_SEU_START_EVENT 16
+#define PRSSIM_SEU_STOP_EVENT 20
+#define PRSSIM_SED_EVENT 28
+
 
 PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
@@ -673,43 +679,36 @@ int OnePrsSim::Step (Event *ev)
     break;
 
   case PRSSIM_RULE:
-    if (flags == (1 + t)) {
-      flags = PENDING_NONE;
-    }
 
-    // if this is a delay upset event, just set the flags and override values
+    // if this is an SED event, install the delay and continue
     if ((t & 0b11111) == PRSSIM_SED_EVENT) {
       _me->delay_override_length = t >> 5;
-      printf("DEBUG_REMOVE: SED event initiated for duration %i\n", t >>5);
-      // there is nothing else to do
       return 1-_breakpt;
     }
 
-    if (!_me->seu_in_progress && !_proc->setBool (_me->vid, (t & 0b11))) {
-      flags = PENDING_NONE;
-    }
-
-    // if this change was caused by an SEU event, we set the flag and end here
-    if ((t && 0b11100) == PRSSIM_SEU_START_EVENT) {
-      Assert (!_me->seu_in_progress, "No two SEUs at the same time allowed! Too upsetting...");
-      _me->seu_in_progress = 1;
+    // if this is an SEU event, force the value immediately
+    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT) {
+      Assert (!_proc->isMasked (_me->vid), "No two SEUs at the same time allowed! Too upsetting...");
       printf("DEBUG_REMOVE: SEU event started, setting flags, forcing value to %i\n", t & 0b11);
-      return 1-_breakpt;
-    }
 
-    // if the input changed but there is an SEU in progress, we need to store the value for later
-    if (_me->seu_in_progress) {
-      _me->hidden_value = t & 0b11;
-      printf("DEBUG_REMOVE: Value should have changed but SEU in progress; Value stored was %i\n", _me->hidden_value);
+      _proc->setForced (_me->vid, t & 0b11);
+      return 1-_breakpt;
     }
 
     // return to normal operation once the SEU has ended
     if (t == PRSSIM_SEU_STOP_EVENT) {
-      _me->seu_in_progress = false;
-      printf("DEBUG_REMOVE: SEU has ended, returning to normal operation. Assuming value %i now\n", _me->hidden_value);
-      if (!_proc->setBool (_me->vid, _me->hidden_value)) {
-  flags = PENDING_NONE;
-      }
+      printf("DEBUG_REMOVE: SEU has ended, returning to normal operation.\n");
+      
+      _proc->unmask (_me->vid);
+      return 1-_breakpt;
+    }
+
+    // it seems to be a normal value update
+    if (flags == (1 + t)) {
+      flags = PENDING_NONE;
+    }
+    if (!_proc->setBool (_me->vid, t)) {
+      flags = PENDING_NONE;
     }
 
     /* 
@@ -719,51 +718,67 @@ int OnePrsSim::Step (Event *ev)
     */
     if (t == 2 /* X */ && flags == PENDING_NONE) {
       int u_state, d_state, u_weak, d_weak;
+
+      // evaluate the pullup network
       u_state = eval (_me->up[PRSSIM_NORM]);
       if (u_state == 0) {
-	u_state = eval (_me->up[PRSSIM_WEAK]);
-	if (u_state != 0) {
-	  u_weak = 1;
-	}
+	      u_state = eval (_me->up[PRSSIM_WEAK]);
+	      if (u_state != 0) {
+	        u_weak = 1;
+	      }
       }
 
+      // evaluate the pulldown network
       d_state = eval (_me->dn[PRSSIM_NORM]);
       if (d_state == 0) {
-	d_state = eval (_me->dn[PRSSIM_WEAK]);
-	if (d_state != 0) {
-	  d_weak = 1;
-	}
+	      d_state = eval (_me->dn[PRSSIM_WEAK]);
+	      if (d_state != 0) {
+	        d_weak = 1;
+	      }
       }
 
       /* copied from propagate() */
+
+      // we're being pulled down, update to 0
       if (u_state == 0) {
-	if (d_state == 1) {
-	  setVal (_me->vid, 0);
-	}
+	      if (d_state == 1) {
+	        setVal (_me->vid, 0);
+	      }
       }
+
+      // something is pulling up
       else if (u_state == 1) {
-	if (d_state == 0) {
-	  setVal (_me->vid, 1);
-	}
-	else if (d_state == 2 && (!u_weak && d_weak)) {
-	  setVal (_me->vid, 1);
-	}
-	else if (d_state == 1) {
-	  if (u_weak && !d_weak) {
-	    setVal (_me->vid, 0);
-	  }
-	  else if (!u_weak && d_weak) {
-	    setVal (_me->vid, 1);
-	  }
-	}
+
+        // and nothing's pulling down, update to 1
+        if (d_state == 0) {
+          setVal (_me->vid, 1);
+        }
+
+        // pullup is strong and pulldown is weak, update to 1
+        else if (d_state == 2 && (!u_weak && d_weak)) {
+          setVal (_me->vid, 1);
+        }
+
+        else if (d_state == 1) {
+
+          // pullup is weak and pulldown is strong, update to 0
+          if (u_weak && !d_weak) {
+            setVal (_me->vid, 0);
+          }
+
+          // pullup is strong and pulldown is weak, update to 1
+          else if (!u_weak && d_weak) {
+            setVal (_me->vid, 1);
+          }
+        }
       }
       else {
-	/* u_state == 2 */
-	if (d_state == 1) {
-	  if (u_weak && !d_weak) {
-	    setVal (_me->vid, 0);
-	  }
-	}
+        /* u_state == 2 */
+        if (d_state == 1) {
+          if (u_weak && !d_weak) {
+            setVal (_me->vid, 0);
+          }
+        }
       }
     }
     break;
@@ -1080,7 +1095,9 @@ void PrsSim::printName (FILE *fp, int lid)
 
 bool PrsSim::setBool (int lid, int v)
 {
+  // grab the global offset of this node
   int off = getGlobalOffset (lid, 0);
+
   SimDES **arr;
   const ActSimCore::watchpt_bucket *nm;
   const char *nm2;
@@ -1088,15 +1105,22 @@ bool PrsSim::setBool (int lid, int v)
   int oval;
 
   verb = 0;
+
 #ifdef DUMP_ALL
   verb = 1;
-#endif  
+#endif
+
+  // check if this node is watched
   if ((nm = _sc->chkWatchPt (0, off))) {
     verb = 1;
   }
+
+  // check if this node is a break point
   if ((nm2 = _sc->chkBreakPt (0, off))) {
     verb |= 2;
   }
+
+  // if either is true, we need to get the value first
   if (verb) {
     oval = _sc->getBool (off);
   }
@@ -1109,51 +1133,273 @@ bool PrsSim::setBool (int lid, int v)
   }
 #endif  
   
+  // try to set the node to a new value
   if (_sc->setBool (off, v)) {
+    
+    // if the node is being watched in some form, handle that
     if (verb) {
       if (oval != v) {
-	if (verb & 1) {
-	  msgPrefix ();
-	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+      	if (verb & 1) {
+      	  msgPrefix ();
+      	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
 
-	  BigInt tmpv;
-	  tmpv = v;
-	  _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
-			    
-	}
-	if (verb & 2) {
-	  msgPrefix ();
-	  printf ("*** breakpoint %s\n", nm2);
-	  _breakpt = 1;
-	}
+      	  BigInt tmpv;
+      	  tmpv = v;
+      	  _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+
+      	}
+
+      	if (verb & 2) {
+      	  msgPrefix ();
+      	  printf ("*** breakpoint %s\n", nm2);
+      	  _breakpt = 1;
+      	}
       }
     }
+
+    // if the node is not currently masked by a forced value,
+    // propagate the new value to the fanout of the node
+    if (!_sc->isMasked (off)) {
+      
+      // grab the fanout
+      arr = _sc->getFO (off, 0);
+
+#ifdef DUMP_ALL
+      printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+#endif
+
+      // for every fanout connection, propagate the new value
+      for (int i=0; i < _sc->numFanout (off, 0); i++) {
+        ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+        Assert (p, "What?");
+
+#ifdef DUMP_ALL
+        printf ("   prop: ");
+        {
+        	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+        	if (obj) {
+        	  if (obj->getName()) {
+        	    obj->getName()->Print (stdout);
+        	  }
+        	  else {
+        	    printf ("-none-");
+        	  }
+        	}
+        	else {
+        	  printf ("#%p", p);
+        	}
+        }
+        printf ("\n");
+#endif
+
+        p->propagate ();
+      }
+    }
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+void PrsSim::setForced (int lid, int v) 
+{
+  // grab the global ID
+  int off = getGlobalOffset (lid, 0);
+
+  SimDES **arr;
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
+  int verb;
+  int oval;
+
+  verb = 0;
+
+#ifdef DUMP_ALL
+  verb = 1;
+#endif
+
+  // check if this node is watched
+  if ((nm = _sc->chkWatchPt (0, off))) {
+    verb = 1;
+  }
+
+  // check if this node is a break point
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
+    verb |= 2;
+  }
+
+  oval = _sc->getBool (off);
+
+#ifdef DUMP_ALL
+  char buf[100];
+  if (!nm) {
+    snprintf (buf, 100, "nm#%d:g%d", lid, off);
+    nm = buf;
+  }
+#endif  
+  
+  // force the node to the new value
+  _sc->setForced (off, v);
+  
+  // if the node is being watched in some form, handle that
+  if (verb) {
+    if (verb & 1) {
+      msgPrefix ();
+      printf ("%s <= %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+      BigInt tmpv;
+      tmpv = v;
+      _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+
+    }
+
+    if (verb & 2) {
+      msgPrefix ();
+      printf ("*** breakpoint %s\n", nm2);
+      _breakpt = 1;
+    }
+  }
+
+  // if the forced value is different to the old value of the node,
+  // propagate the new value to the fanout of the node
+  if (v != oval) {
+    
+    // grab the fanout
     arr = _sc->getFO (off, 0);
+
 #ifdef DUMP_ALL
     printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
 #endif
+
+    // for every fanout connection, propagate the new value
     for (int i=0; i < _sc->numFanout (off, 0); i++) {
       ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
       Assert (p, "What?");
+
 #ifdef DUMP_ALL
       printf ("   prop: ");
       {
-	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
-	if (obj) {
-	  if (obj->getName()) {
-	    obj->getName()->Print (stdout);
-	  }
-	  else {
-	    printf ("-none-");
-	  }
-	}
-	else {
-	  printf ("#%p", p);
-	}
+        ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+        if (obj) {
+          if (obj->getName()) {
+            obj->getName()->Print (stdout);
+          }
+          else {
+            printf ("-none-");
+          }
+        }
+        else {
+          printf ("#%p", p);
+        }
       }
       printf ("\n");
-#endif      
+#endif
+
       p->propagate ();
+    }
+  }
+}
+
+bool PrsSim::unmask (int lid)
+{
+  // grab the global ID
+  int off = getGlobalOffset (lid, 0);
+
+  SimDES **arr;
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
+  int verb;
+  int oval;
+
+  verb = 0;
+
+#ifdef DUMP_ALL
+  verb = 1;
+#endif
+
+  // check if this node is watched
+  if ((nm = _sc->chkWatchPt (0, off))) {
+    verb = 1;
+  }
+
+  // check if this node is a break point
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
+    verb |= 2;
+  }
+
+  oval = _sc->getBool (off);
+
+#ifdef DUMP_ALL
+  char buf[100];
+  if (!nm) {
+    snprintf (buf, 100, "nm#%d:g%d", lid, off);
+    nm = buf;
+  }
+#endif  
+  
+  // try to unmask the node
+  if (_sc->unmask (off)) {
+
+    // get the restored value
+    int v = _sc->getBool (off);
+    
+    // if the node is being watched in some form, handle that
+    if (verb) {
+      if (verb & 1) {
+        msgPrefix ();
+        printf ("%s <- %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+        BigInt tmpv;
+        tmpv = v;
+        _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+
+      }
+
+      if (verb & 2) {
+        msgPrefix ();
+        printf ("*** breakpoint %s\n", nm2);
+        _breakpt = 1;
+      }
+    }
+
+    // if the restored value is different than the forced value,
+    // propagate the new value to the fanout of the node
+    if (v != oval) {
+      
+      // grab the fanout
+      arr = _sc->getFO (off, 0);
+
+#ifdef DUMP_ALL
+      printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+#endif
+
+      // for every fanout connection, propagate the new value
+      for (int i=0; i < _sc->numFanout (off, 0); i++) {
+        ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+        Assert (p, "What?");
+
+#ifdef DUMP_ALL
+        printf ("   prop: ");
+        {
+        	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+        	if (obj) {
+        	  if (obj->getName()) {
+        	    obj->getName()->Print (stdout);
+        	  }
+        	  else {
+        	    printf ("-none-");
+        	  }
+        	}
+        	else {
+        	  printf ("#%p", p);
+        	}
+        }
+        printf ("\n");
+#endif
+
+        p->propagate ();
+      }
     }
     return true;
   }
