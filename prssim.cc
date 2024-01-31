@@ -1141,7 +1141,15 @@ bool PrsSim::setBool (int lid, int v)
       if (oval != v) {
       	if (verb & 1) {
       	  msgPrefix ();
-      	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+          // if the node is masked, because a different value is forced onto it
+          // right now, mark that in the output
+          if (_sc->isMasked (off)) {
+      	    printf ("%s |= %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+          }
+          else {
+      	    printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+          }
 
       	  BigInt tmpv;
       	  tmpv = v;
