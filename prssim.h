@@ -154,7 +154,7 @@ class PrsSim : public ActSimObj {
    * @return true The true value is hidden
    * @return false The value displayed is not externally forced
    */
-  bool isMasked (int lid) { int off = getGlobalOffset (lid, 0); _sc->isMasked (off); }
+  bool isMasked (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isMasked (off); }
 
   /**
    * @brief Restore normal operation of the node after value force
@@ -166,6 +166,14 @@ class PrsSim : public ActSimObj {
    * @return false The actual node value was never masked to begin with
    */
   bool unmask (int lid);
+
+  /**
+   * @brief Find the PRS rule for a given local ID
+   * 
+   * @param vid Local ID of the node
+   * @return OnePrsSim* 
+   */
+  OnePrsSim* findRule (int vid);
 
   void printName (FILE *fp, int lid);
 
@@ -244,6 +252,7 @@ public:
   void setVal(int nid, int val);
   
   void printName ();
+  inline int getMyLocalID () { return _me->vid; };
   int matches (int val);
   void registerExcl ();
   void flushPending ();

@@ -358,6 +358,9 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     s->unstab = 0;
     s->delay_up = 10;
     s->delay_dn = 10;
+    s->delay_up_max = 10;
+    s->delay_dn_max = 10;
+    s->delay_override_length = 0;
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -689,7 +692,6 @@ int OnePrsSim::Step (Event *ev)
     // if this is an SEU event, force the value immediately
     if ((t & 0b11100) == PRSSIM_SEU_START_EVENT) {
       Assert (!_proc->isMasked (_me->vid), "No two SEUs at the same time allowed! Too upsetting...");
-      printf("DEBUG_REMOVE: SEU event started, setting flags, forcing value to %i\n", t & 0b11);
 
       _proc->setForced (_me->vid, t & 0b11);
       return 1-_breakpt;
@@ -697,7 +699,6 @@ int OnePrsSim::Step (Event *ev)
 
     // return to normal operation once the SEU has ended
     if (t == PRSSIM_SEU_STOP_EVENT) {
-      printf("DEBUG_REMOVE: SEU has ended, returning to normal operation.\n");
       
       _proc->unmask (_me->vid);
       return 1-_breakpt;
@@ -1416,6 +1417,22 @@ bool PrsSim::unmask (int lid)
   }
 }
 
+OnePrsSim* PrsSim::findRule (int vid) 
+{
+  listitem_t *li;
+
+  // find the node which corresponds to the given global ID
+  for (li = list_first (_sim); li; li = list_next (li)) {
+    OnePrsSim *rule = (OnePrsSim *)list_value (li);
+
+    if (rule->getMyLocalID() == vid) return rule;
+    
+  }
+
+  Assert(0, "Rule not in here despite sim thinks it is");
+  return nullptr;
+}
+
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
 				      ActId *id, int read_only)
 {
@@ -1529,8 +1546,6 @@ void OnePrsSim::registerExcl ()
 
 
 bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_value) {
-  printf("DEBUG_REMOVE: Registering SEU\n");
-
   // create the upset start event
   int start_event = 0b10000 | (force_value & 0b11);
 
@@ -1545,8 +1560,6 @@ bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_valu
 
 
 bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
-  printf("DEBUG_REMOVE: Registering SED\n");
-
   // create the delay event
   int delay_event = 0b11100 | (delay_duration << 5);
 

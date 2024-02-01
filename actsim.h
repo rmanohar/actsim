@@ -395,7 +395,7 @@ class ActSimCore {
    * @return true The true value is hidden
    * @return false The value displayed is not externally forced
    */
-  inline bool isMasked (int x) { state->isMasked (x); }
+  inline bool isMasked (int x) { return state->isMasked (x); }
 
   /**
    * @brief Restore the true value of the node
@@ -406,7 +406,7 @@ class ActSimCore {
    * @return true The node was successfully unmasked
    * @return false The node was not masked to begin with
    */
-  bool unmask (int x) { state->unmask (x); }
+  bool unmask (int x) { return state->unmask (x); }
 
   /**
    * @brief The node has metadata attached to it (like constraints)
