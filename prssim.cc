@@ -389,12 +389,14 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
       _merge_prs (sc, &s->up[weak], p->u.one.e, 0);
       if (delay >= 0) {
 	s->delay_up = delay;
+	s->delay_up_max = delay;
       }
     }
     else {
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       if (delay >= 0) {
 	s->delay_dn = delay;
+  s->delay_dn_max = delay;
       }
     }
     break;
@@ -411,7 +413,9 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     }
     if (delay >= 0) {
       s->delay_up = delay;
+      s->delay_up_max = delay;
       s->delay_dn = delay;
+      s->delay_dn_max = delay;
     }
     break;
     
@@ -427,7 +431,9 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     }
     if (delay >= 0) {
       s->delay_up = delay;
+      s->delay_up_max = delay;
       s->delay_dn = delay;
+      s->delay_dn_max = delay;
     }
     break;
     
@@ -444,7 +450,9 @@ void PrsSimGraph::_add_one_gate (ActSimCore *sc, act_prs_lang_t *p)
   NEW (s, struct prssim_stmt);
   s->next = NULL;
   s->delay_up = 10;
+  s->delay_up_max = 10;
   s->delay_dn = 10;
+  s->delay_dn_max = 10;
   if (p->u.p.g) {
     if (p->u.p._g) {
       s->type = PRSSIM_TGATE;
@@ -638,7 +646,12 @@ void OnePrsSim::setVal(int nid, int value) {
       // We always need to call getDelay, even if we are currently 
       // overriding the delay time. This is because the pseudorand 
       // generator must be stepped for simulations to be reproducible.
-      int delay = _proc->getDelay ((value) == 0 ? _me->delay_dn : _me->delay_up);
+      int delay;
+      if (value) {
+        delay = _proc->getDelay (_me->delay_dn, _me->delay_dn_max);
+      } else {
+        delay = _proc->getDelay (_me->delay_up, _me->delay_up_max);
+      }
 
       // create a new event to change the value
 	    _pending = new Event (

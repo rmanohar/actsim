@@ -473,6 +473,9 @@ class ActSimCore {
   void setRandom (int min, int max) {
     _sim_rand = 2; _rand_min = min; _rand_max = max;
   }
+  void setLocalRandom (int min, int max) {
+    _sim_rand = 3; _rand_min = min; _rand_max = max;
+  }
   void setRandomSeed (unsigned seed) { _seed = seed; }
   void setRandomChoice (int v) { _sim_rand_excl = v; }
   int isRandomChoice() { return _sim_rand_excl; }
@@ -497,16 +500,51 @@ class ActSimCore {
     double d;
     unsigned long val;
 
+    // check if randomness was turned off or the bound is 0
     if (_sim_rand == 0 || delay == 0) {
       return delay;
     }
+    // if global randomness was selected, select a value from the absolute range
     else if (_sim_rand == 1) {
       d = (0.0 + rand_r (&_seed))/RAND_MAX;
       val = exp(d*LN_MAX_VAL)-1;
     }
+    // if globally constrained random was selected, select something between the global bounds
+    // if we are in locally constrained random mode, whatever called this does not support it,
+    // use the global bounds instead
+    else if (_sim_rand == 2 || _sim_rand == 3) {
+      d = (0.0 + rand_r (&_seed))/RAND_MAX;
+      val = _rand_min + d*(_rand_max - _rand_min);
+    }
+    else {
+      val = 0;
+    }
+    if (val == 0) { val = 1; }
+    return val;
+  }
+
+  inline int getDelay (int lower_bound, int upper_bound) {
+    double d;
+    unsigned long val;
+
+    // check if randomness was turned off or both bounds are 0
+    if (_sim_rand == 0 || (lower_bound == 0 && upper_bound == 0)) {
+      return lower_bound;
+    }
+    // if global randomness was selected, select a value from the absolute range
+    else if (_sim_rand == 1) {
+      d = (0.0 + rand_r (&_seed))/RAND_MAX;
+      val = exp(d*LN_MAX_VAL)-1;
+    }
+    // if globally constrained random was selected, select something between the global bounds
     else if (_sim_rand == 2) {
       d = (0.0 + rand_r (&_seed))/RAND_MAX;
       val = _rand_min + d*(_rand_max - _rand_min);
+    }
+    // if locally constrained random was selected, select something between the local bounds
+    else if (_sim_rand == 3) {
+      d = (0.0 + rand_r (&_seed))/RAND_MAX;
+      val = lower_bound + d*(upper_bound - lower_bound);
     }
     else {
       val = 0;

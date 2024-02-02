@@ -179,7 +179,7 @@ class PrsSim : public ActSimObj {
 
   void dumpState (FILE *fp);
 
-  inline int getDelay (int delay) { return _sc->getDelay (delay); }
+  inline int getDelay (int lower_bound, int upper_bound) { return _sc->getDelay (lower_bound, upper_bound); }
   inline int isResetMode() { return _sc->isResetMode (); }
   inline int onWarning() { return _sc->onWarning(); }
 
