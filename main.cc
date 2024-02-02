@@ -1776,7 +1776,6 @@ int main (int argc, char **argv)
 	       sizeof (Cmds)/sizeof (Cmds[0]));
 
   while (!LispCliRun (stdin)) {
-    fprintf(stderr, "Command\n");
     if (LispInterruptExecution) {
       fprintf (stderr, " *** interrupted\n");
     }
