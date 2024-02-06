@@ -906,7 +906,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
 
 
   case CHPSIM_FUNC:
-    fprintf (fp, "log");
+    fprintf (fp, "func");
     break;
 
   case CHPSIM_COND:
@@ -1498,29 +1498,72 @@ int ChpSim::Step (Event *ev)
       char buf[10240];
       buf[0] = '\0';
       if (name) {
-	name->sPrint (buf, 10240);
+	      name->sPrint (buf, 10240);
       }
-      if (_sc->isFiltered (buf)) {
-	int int_is_zero = 0;
-	int int_type = 0;
-	int int_width = -1;
-	msgPrefix (actsim_log_fp());
-	for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
-	  act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
-	  if (arg->isstring) {
-	    const char *stmp = _process_string (string_char (arg->u.s),
-						&int_is_zero,
-						&int_type,
-						&int_width);
-	    actsim_log ("%s", stmp);
-	  }
-	  else {
-	    v = exprEval (arg->u.e);
-	    _process_print_int (v, int_is_zero, int_type, int_width);
-	  }
-	}
-	actsim_log ("\n");
-	actsim_log_flush ();
+      if (strcmp (stmt->u.fn.name, "log") == 0) {
+        if (_sc->isFiltered (buf)) {
+          int int_is_zero = 0;
+          int int_type = 0;
+          int int_width = -1;
+          msgPrefix (actsim_log_fp());
+          for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
+            act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+            if (arg->isstring) {
+              const char *stmp = _process_string (string_char (arg->u.s),
+                    &int_is_zero,
+                    &int_type,
+                    &int_width);
+              actsim_log ("%s", stmp);
+            }
+            else {
+              v = exprEval (arg->u.e);
+              _process_print_int (v, int_is_zero, int_type, int_width);
+            }
+          }
+          actsim_log ("\n");
+          actsim_log_flush ();
+        }
+      }
+      else if (strcmp (stmt->u.fn.name, "assert") == 0) {
+        int int_is_zero = 0;
+        int int_type = 0;
+        int int_width = -1;
+        bool condition = true;
+        for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
+          act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+          
+          // evaluate the condition in the first argument
+          if (condition) {
+            Assert(!arg->isstring, "First assert argument is not an expression despite type check?");
+            if (exprEval (arg->u.e).isZero()) {
+              condition = false;
+              msgPrefix (actsim_log_fp());
+              actsim_log ("Assertion failed: ");
+            
+            // everything is fine, nothing more to do
+            } else {
+              break;
+            }
+          }
+          else {
+            if (arg->isstring) {
+              const char *stmp = _process_string (string_char (arg->u.s),
+                    &int_is_zero,
+                    &int_type,
+                    &int_width);
+              actsim_log ("%s", stmp);
+            }
+            else {
+              v = exprEval (arg->u.e);
+              _process_print_int (v, int_is_zero, int_type, int_width);
+            }
+          }
+        }
+        if (!condition) {
+          actsim_log ("\n");
+          actsim_log_flush ();
+          _breakpt = 1;
+        }
       }
       pc = _updatepc (pc);
     }
@@ -2293,32 +2336,69 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
     break;
     
   case ACT_CHP_FUNC:
-    if (strcmp (string_char (c->u.func.name), "log") != 0) {
-      warning ("Built-in function `%s' is not known; valid values: log",
-	       string_char (c->u.func.name));
-    }
-    else {
+    if (strcmp (string_char (c->u.func.name), "log") == 0) {
       listitem_t *li;
       int int_is_zero = 0;
       int int_type = 0;
       int int_width = -1;
       msgPrefix (actsim_log_fp());
       for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
-	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
-	if (tmp->isstring) {
-	  const char *stmp = _process_string (string_char (tmp->u.s),
-					      &int_is_zero,
-					      &int_type,
-					      &int_width);
-	  actsim_log ("%s", stmp);
-	}
-	else {
-	  BigInt v = exprEval (tmp->u.e);
-	  _process_print_int (v, int_is_zero, int_type, int_width);
-	}
+	      act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	      if (tmp->isstring) {
+	        const char *stmp = _process_string (string_char (tmp->u.s),
+	      				      &int_is_zero,
+	      				      &int_type,
+	      				      &int_width);
+	        actsim_log ("%s", stmp);
+	      }
+	      else {
+	        BigInt v = exprEval (tmp->u.e);
+	        _process_print_int (v, int_is_zero, int_type, int_width);
+	      }
       }
       actsim_log ("\n");
       actsim_log_flush ();
+    }
+    else if (strcmp (string_char (c->u.func.name), "assert") == 0) {
+      bool condition = true;
+      int int_is_zero = 0;
+      int int_type = 0;
+      int int_width = -1;
+
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	      act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+        if (condition) {
+          Assert (!tmp->isstring, "First assert argument is not an expression despite type check?");
+          // check if the expression holds
+          if (exprEval (tmp->u.e).isZero()) {
+            // the assertion failed!
+            msgPrefix (actsim_log_fp());
+            condition = false;
+          }
+          // the condition is true; nothing further to do
+          else {
+            break;
+          }
+        }
+        // print the rest of the arguments
+        else {
+          if (tmp->isstring) {
+	          const char *stmp = _process_string (string_char (tmp->u.s),
+	        				      &int_is_zero,
+	        				      &int_type,
+	        				      &int_width);
+	          actsim_log ("%s", stmp);
+	        }
+	        else {
+	          BigInt v = exprEval (tmp->u.e);
+	          _process_print_int (v, int_is_zero, int_type, int_width);
+	        }
+        }
+      }
+    }
+    else {
+      warning ("Built-in function `%s' is not known; valid values: log, assert",
+	       string_char (c->u.func.name));
     }
     break;
     
@@ -5077,11 +5157,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
 
   case ACT_CHP_FUNC:
-    if (strcmp (string_char (c->u.func.name), "log") != 0) {
-      warning ("Built-in function `%s' is not known; valid values: log",
-	       string_char (c->u.func.name));
-    }
-    else {
+    if (strcmp (string_char (c->u.func.name), "log") == 0) {
       listitem_t *li;
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
@@ -5106,6 +5182,44 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	list_append (ret->stmt->u.fn.l, x);
       }
       (*stop) = ret;
+    }
+    else if (strcmp (string_char (c->u.func.name), "assert") == 0) {
+      listitem_t *li;
+      bool condition = true;
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->delay_cost = 0;
+      ret->stmt->energy_cost = 0;
+      ret->stmt->bw_cost = 0;
+      ret->stmt->type = CHPSIM_FUNC;
+      ret->stmt->u.fn.name = string_char (c->u.func.name);
+      ret->stmt->u.fn.l = list_new();
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+  if (condition) {
+    if (tmp->isstring) {
+      fatal_error ("Built-in function 'assert' expects an expression as its first argument");
+    } else {
+      condition = false;
+    }
+  }
+	act_func_arguments_t *x;
+	NEW (x, act_func_arguments_t);
+	x->isstring = tmp->isstring;
+	if (tmp->isstring) {
+	  x->u.s = tmp->u.s;
+	}
+	else {
+	  int flags = 0;
+	  x->u.e = expr_to_chp_expr (tmp->u.e, sc, &flags);
+	}
+	list_append (ret->stmt->u.fn.l, x);
+      }
+      (*stop) = ret;
+    }
+    else {
+      warning ("Built-in function `%s' is not known; valid values: log, assert",
+	       string_char (c->u.func.name));
     }
     break;
     
@@ -6054,7 +6168,7 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
     }
     break;
 
-  case CHPSIM_FUNC: // log
+  case CHPSIM_FUNC: // log or assert
   case CHPSIM_NOP:
     break;
 
