@@ -29,6 +29,8 @@ OBJS=actsim.o main.o chpsim.o prssim.o state.o channel.o xycesim.o
 
 SRCS=$(OBJS:.o=.cc)
 
+CPPSTD=c++17
+
 include config.mk
 
 ifdef N_CIR_XyceCInterface_INCLUDE
@@ -38,6 +40,6 @@ endif
 include $(ACT_HOME)/scripts/Makefile.std
 
 $(EXE): $(OBJS) $(ACTPASSDEPEND) $(ACT_HOME)/lib/libtracelib.a
-	$(CXX) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ltracelib -lm -ldl -ledit $(LIBXYCE) -lz
+	$(CXX) $(SH_EXE_OPTIONS) $(CFLAGS) $(OBJS) -o $(EXE) $(LIBACTPASS) $(LIBASIM) $(LIBACTSCMCLI) -ltracelib -lm -ldl -ledit $(LIBXYCE) -lz -lpq -lpqxx
 
 -include Makefile.deps
