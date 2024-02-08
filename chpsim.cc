@@ -1500,12 +1500,13 @@ int ChpSim::Step (Event *ev)
       if (name) {
 	      name->sPrint (buf, 10240);
       }
-      if (strcmp (stmt->u.fn.name, "log") == 0) {
+      if (strcmp (stmt->u.fn.name, "log") == 0 || strcmp (stmt->u.fn.name, "log_p") == 0) {
+        bool is_full = strcmp (stmt->u.fn.name, "log") == 0;
         if (_sc->isFiltered (buf)) {
           int int_is_zero = 0;
           int int_type = 0;
           int int_width = -1;
-          msgPrefix (actsim_log_fp());
+          if (is_full) msgPrefix (actsim_log_fp());
           for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
             act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
             if (arg->isstring) {
@@ -1520,7 +1521,7 @@ int ChpSim::Step (Event *ev)
               _process_print_int (v, int_is_zero, int_type, int_width);
             }
           }
-          actsim_log ("\n");
+          if (is_full) actsim_log ("\n");
           actsim_log_flush ();
         }
       }
@@ -1538,7 +1539,7 @@ int ChpSim::Step (Event *ev)
             if (exprEval (arg->u.e).isZero()) {
               condition = false;
               msgPrefix (actsim_log_fp());
-              actsim_log ("Assertion failed: ");
+              actsim_log ("ASSERTION failed: ");
             
             // everything is fine, nothing more to do
             } else {
@@ -1563,6 +1564,18 @@ int ChpSim::Step (Event *ev)
           actsim_log ("\n");
           actsim_log_flush ();
           _breakpt = 1;
+        }
+      }
+      else if (strcmp (stmt->u.fn.name, "log_nl") == 0) {
+        if (_sc->isFiltered (buf)) {
+          actsim_log ("\n");
+          actsim_log_flush ();
+        }
+      }
+      else if (strcmp (stmt->u.fn.name, "log_st") == 0) {
+        if (_sc->isFiltered (buf)) {
+          msgPrefix (actsim_log_fp());
+          actsim_log_flush ();
         }
       }
       pc = _updatepc (pc);
@@ -2336,12 +2349,12 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
     break;
     
   case ACT_CHP_FUNC:
-    if (strcmp (string_char (c->u.func.name), "log") == 0) {
+    if (strcmp (string_char (c->u.func.name), "log") == 0 || strcmp (string_char (c->u.func.name), "log_p") == 0) {
       listitem_t *li;
       int int_is_zero = 0;
       int int_type = 0;
       int int_width = -1;
-      msgPrefix (actsim_log_fp());
+      if (strcmp (string_char (c->u.func.name), "log") == 0) msgPrefix (actsim_log_fp());
       for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
 	      act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
 	      if (tmp->isstring) {
@@ -2356,7 +2369,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	        _process_print_int (v, int_is_zero, int_type, int_width);
 	      }
       }
-      actsim_log ("\n");
+      if (strcmp (string_char (c->u.func.name), "log") == 0) actsim_log ("\n");
       actsim_log_flush ();
     }
     else if (strcmp (string_char (c->u.func.name), "assert") == 0) {
@@ -2373,6 +2386,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
           if (exprEval (tmp->u.e).isZero()) {
             // the assertion failed!
             msgPrefix (actsim_log_fp());
+            actsim_log ("ASSERTION failed: ");
             condition = false;
           }
           // the condition is true; nothing further to do
@@ -2395,6 +2409,14 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 	        }
         }
       }
+    }
+    else if (strcmp (string_char (c->u.func.name), "log_nl") == 0) {
+      actsim_log ("\n");
+      actsim_log_flush ();
+    }
+    else if (strcmp (string_char (c->u.func.name), "log_st") == 0) {
+      msgPrefix (actsim_log_fp());
+      actsim_log_flush ();
     }
     else {
       warning ("Built-in function `%s' is not known; valid values: log, assert",
@@ -5157,7 +5179,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
 
   case ACT_CHP_FUNC:
-    if (strcmp (string_char (c->u.func.name), "log") == 0) {
+    if (strcmp (string_char (c->u.func.name), "log") == 0 || strcmp (string_char (c->u.func.name), "log_p") == 0) {
       listitem_t *li;
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
@@ -5215,6 +5237,19 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	list_append (ret->stmt->u.fn.l, x);
       }
+      (*stop) = ret;
+    }
+    else if (strcmp (string_char (c->u.func.name), "log_nl") == 0 || strcmp (string_char (c->u.func.name), "log_st") == 0) {
+      listitem_t *li;
+      bool condition = true;
+      ret = new ChpSimGraph (sc);
+      NEW (ret->stmt, chpsimstmt);
+      ret->stmt->delay_cost = 0;
+      ret->stmt->energy_cost = 0;
+      ret->stmt->bw_cost = 0;
+      ret->stmt->type = CHPSIM_FUNC;
+      ret->stmt->u.fn.name = string_char (c->u.func.name);
+      ret->stmt->u.fn.l = list_new();
       (*stop) = ret;
     }
     else {
