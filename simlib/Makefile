@@ -22,7 +22,7 @@ SHLIB=libactsimext_sh_$(EXT).so
 
 TARGETLIBS=$(SHLIB)
 TARGETCONF=actsim.conf
-TARGETACT=sim.act rand.act _all_.act
+TARGETACT=sim.act rand.act scoreboards.act sources.act _all_.act
 TARGETACTSUBDIR=sim
 
 OBJS=random.os rom.os file.os rand_r.os
