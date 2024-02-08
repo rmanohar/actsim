@@ -1,0 +1,213 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2022 Rajit Manohar
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+/*
+ * Lockstep scoreboard
+ *
+ * Use this for a simple linear pipeline
+ *
+ * Features:
+ * - Input token logging
+ * - Input token to output token matching
+ * - Output token comparison
+ * - Token counter
+ *
+ * Assumes:
+ * - Input token corresponds directly to output token
+ * - Same number of tokens on all channels
+ * - Tokens on all channels in same order
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Number of input channels going to the model / design
+ * - OUT_CHANNELS: Number of output channels coming from the model / design
+ * - VERBOSE_TESTING: If false, only failed tests are logged
+ *
+ */
+export template <pint D_WIDTH, IN_CHANNELS, OUT_CHANNELS; pbool VERBOSE_TESTING>
+defproc scoreboard_lockstep(chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
+{
+    int<D_WIDTH> input[IN_CHANNELS], output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
+    bool not_failed;
+    int num;
+
+    chp {
+        
+        num := 0;
+
+        *[
+            // receive the data
+            (, i : IN_CHANNELS : IN[i]?input[i]);
+            (, i : OUT_CHANNELS : OUT_M[i]?output_m[i]),
+            (, j : OUT_CHANNELS : OUT_D[j]?output_d[j]);
+
+            // check the results
+            not_failed+;
+            (; i : OUT_CHANNELS : [not_failed -> not_failed := output_m[i] = output_d[i] [] else -> skip]);
+
+            // print the output
+            [ not_failed -> (
+                // only print successful tests if verbose testing is enabled
+                [ VERBOSE_TESTING -> (
+                    log_st ("");
+                    log_p ("TEST SUCCESS (", num, "): inputs {");
+                    (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                    log_p ("}, outputs {");
+                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], ") "));
+                    log_p ("}");
+                    log_nl ("")
+                )
+                [] else -> (
+                    skip
+                )]
+            )
+            []  else -> (
+                log_st ("");
+                log_p ("TEST FAILED (", num, "): inputs {");
+                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                log_p ("}, outputs {");
+                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], ") "));
+                log_p ("}");
+                log_nl ("")
+            )];
+            num := num + 1
+        ]
+
+    }
+}
+
+/*
+ * Deterministic output only scoreboard
+ *
+ * Use one instance of this for each end of a deterministic pipeline
+ *
+ * Features:
+ * - Output token comparison
+ * - Token counter
+ *
+ * Assumes:
+ * - Same number of tokens on all channels
+ * - Tokens on all channels in same order
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels coming from the model / design where #tokens is identical
+ * - VERBOSE_TESTING: If false, only failed tests are logged
+ *
+ */
+export template <pint D_WIDTH, OUT_CHANNELS; pbool VERBOSE_TESTING>
+defproc scoreboard_deterministic(chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
+{
+    int<D_WIDTH> output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
+    bool not_failed;
+    int num;
+
+    chp {
+
+        num := 0;
+
+        *[
+            // receive the data
+            (, i : OUT_CHANNELS : OUT_M[i]?output_m[i]),
+            (, j : OUT_CHANNELS : OUT_D[j]?output_d[j]);
+
+            // check the results
+            not_failed+;
+            (; i : OUT_CHANNELS : [not_failed -> not_failed := output_m[i] = output_d[i] [] else -> skip]);
+
+            // print the output
+            [ not_failed -> (
+                
+                // only print successful tests if verbose testing is enabled
+                [ VERBOSE_TESTING -> (
+                    log_st ("");
+                    log_p ("TEST SUCCESS (", num, "): outputs {");
+                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], ") "));
+                    log_p ("}");
+                    log_nl ("")
+                ) 
+                []  else -> (
+                    skip
+                )]
+            )
+            []  else -> (
+                log_st ("");
+                log_p ("TEST FAILED (", num, "): outputs {");
+                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], ") "));
+                log_p ("}");
+                log_nl ("")
+            )];
+            num := num + 1
+        ]
+
+    }
+
+}
+
+/*
+ * Input token logger
+ * 
+ * Use this if you are not using a scoreboard with input token logging
+ * 
+ * Features:
+ * 1. Input token logging
+ * 2. Token counter
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Number of input channels going to the model / design where #tokens is identical
+ * - VERBOSE_TESTING: If false, inputs are not logged
+ *
+ */
+export template <pint D_WIDTH, IN_CHANNELS; pbool VERBOSE_TESTING>
+defproc input_logger(chan?(int<D_WIDTH>) IN[IN_CHANNELS])
+{
+    int<D_WIDTH> input[IN_CHANNELS];
+    int num;
+    
+    chp {
+
+        num := 0;
+
+        *[
+            // receive the data
+            (, i : IN_CHANNELS : IN[i]?input[i]);
+
+            // only print logged input tokens if verbose testing is enabled
+            [ VERBOSE_TESTING -> (
+                log_st ("");
+                log_p ("INPUT TOKEN (", num, "): inputs {");
+                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                log_p ("}");
+                log_nl ("")
+            )
+            []  else -> (
+                skip
+            )];
+            num := num + 1
+        ]
+
+    }
+}
+
+}

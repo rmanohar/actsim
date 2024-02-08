@@ -27,15 +27,6 @@ defproc source (chan!(int<W>) O)
     *[ O!V ]
   }
 }
-
-export template<pint W; pbool REP; pint N; pint data[N]>
-defproc source_seq(chan!(int<W>) O)
-{
-  int i;
-  chp {
-    *[ i := 0; *[ i < N -> [([]k:N: i=k -> O!data[k])]; i := i + 1 ] <- REP ]
-  }
-}
   
 export template<pbool LOG; pint W>
 defproc sink(chan?(int<W>) I)
@@ -83,6 +74,26 @@ defproc check_sink(chan?(int<W>) I)
   }
 }
 
+export template<pint W; pbool REP; pint N; pint data[N]>
+defproc check_sink_seq(chan?(int<W>) I)
+{
+  int<W> x, y;
+  int i;
+  chp {
+    *[ 
+      i := 0; 
+      *[ i < N -> [(
+          []k:N: i=k -> y := data[k];
+          I?x;
+          [ x = y -> skip
+          [] else -> log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
+          ]        
+        )]; 
+        i := i + 1 
+      ] 
+    <- REP ]
+  }
+}
 
 export template<pint ID; pint W>
 defproc file_sink(chan?(int<W>) I)
@@ -92,6 +103,36 @@ defproc file_sink(chan?(int<W>) I)
   chp {
     dummy := file_create(ID);
     *[ I?x; dummy := file_write(ID, x) ]
+  }
+}
+
+export template<pint LOG_ID; pint W>
+defproc logger(chan?(int<W>) I; chan!(int<W>) O)
+{
+  int <W> b;
+  chp {
+    *[
+      I?b;
+      log ("Logger ", LOG_ID, ": Received value ", b, "%x (0x", b, ")");
+      O!b
+    ]
+  }
+}
+
+
+export template<pint FILE_ID, W>
+defproc logger_file(chan?(int<W>) I; chan!(int<W>) O)
+{
+  int<W> b;
+  bool dummy;
+  chp {
+    dummy := file_create(FILE_ID);
+    
+    *[ 
+      I?b; 
+      dummy := file_write(FILE_ID, b);
+      O!b
+    ]
   }
 }
   

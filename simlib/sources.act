@@ -1,0 +1,235 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2022 Rajit Manohar
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+// external C functions for file interaction
+export function file_read(int<32> idx) : int<64>;
+export function file_eof(int<32> idx) : bool;
+export function file_close(int<32> idx) : bool;
+
+/*
+ * Simple static source with one output channel
+ *
+ * Use this if you need the simplest of sources
+ *
+ * Features:
+ * - Static output token generation
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - VALUE: Static value to output
+ *
+ */
+export template<pint D_WIDTH, VALUE>
+defproc source_static (chan!(int<D_WIDTH>) O)
+{
+    chp {
+        *[ O!VALUE ]
+    }
+}
+
+/*
+ * Simple static source
+ *
+ * Use this if you need a multi-ended source with static output
+ *
+ * Features:
+ * - Static output token generation
+ * - Configurable number of outputs
+ * - All outputs complete send before next token is sent
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - VALUE: Static value to output
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, VALUE>
+defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+{
+    chp {
+        *[
+            (, i : OUT_CHANNELS : O[i]!VALUE)
+        ]
+    }
+}
+
+/*
+ * Simple sequential source with one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly)
+ *
+ * Features:
+ * - Outputs sequence of tokens
+ * - Can be set to repeat the sequence indefinitely
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - N: Number of values in the sequence
+ * - DATA: The sequence as a vector of pint
+ * - LOOP: Repeat the sequence indefinitely
+ *
+ */
+export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP>
+defproc source_seq (chan!(int<D_WIDTH>) O)
+{
+    int i;
+
+    chp {
+        *[
+            i := 0; 
+            *[ i < N -> 
+                // select the right element and send it
+                [([]k:N: i=k -> O!DATA[k])]; 
+                i := i + 1 
+            ] 
+        <- LOOP ]
+  }
+}
+
+/*
+ * Simple sequential source
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) to multiple outputs
+ *
+ * Features:
+ * - Outputs sequence of tokens
+ * - Can be set to repeat the sequence indefinitely
+ * - All outputs complete send before next token is sent
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - N: Number of values in the sequence
+ * - DATA: The sequence as a vector of pint
+ * - LOOP: Repeat the sequence indefinitely
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP>
+defproc source_seq_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+{
+    int i;
+
+    chp {
+        *[
+            i := 0; 
+            *[ i < N -> 
+                // select the right element and send it
+                [([]k:N: i=k -> (, j : OUT_CHANNELS : O[j]!DATA[k]))]; 
+                i := i + 1 
+            ] 
+        <- LOOP ]
+    }
+}
+  
+/*
+ * Simple file source with one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) from a file
+ *
+ * Features:
+ * - Outputs sequence of tokens from a file
+ * - Can be set to repeat the sequence indefinitely
+ *
+ * Assumptions:
+ * - File is only accessed by one instance
+ * - File has at least one value entry
+ * - Values in file are newline separated
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - F_ID: The ID of the file (see actsim documentation)
+ * - LOOP: Repeat the sequence indefinitely
+ *
+ */
+export template<pint D_WIDTH, F_ID; pbool LOOP>
+defproc source_file (chan!(int<D_WIDTH>) O)
+{
+    bool dummy;
+
+    chp {
+        // if we are set to loop, loop forever
+        *[
+            // read until the file reports EOF and send it to the output channel
+            *[ 
+                O!file_read(F_ID) 
+            <- ~file_eof (F_ID) ];
+
+            // close the file
+            dummy := file_close(F_ID) 
+        <- LOOP ];
+
+        log ("Source file #", F_ID, " ends.")
+    }
+}
+
+/*
+ * Simple file source
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) from a file to multiple outputs
+ *
+ * Features:
+ * - Outputs sequence of tokens from a file
+ * - Can be set to repeat the sequence indefinitely
+ * - All outputs complete send before next token is sent
+ *
+ * Assumptions:
+ * - File is only accessed by one instance
+ * - File has at least one value entry
+ * - Values in file are newline separated
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - F_ID: The ID of the file (see actsim documentation)
+ * - LOOP: Repeat the sequence indefinitely
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP>
+defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+{
+    bool dummy;
+    int<D_WIDTH> buf;
+
+    chp {
+
+        // if we are set to loop, loop forever
+        *[
+            // read until the file reports EOF and send it to the output channel
+            *[
+                buf := file_read(F_ID);
+                (, i : OUT_CHANNELS : O[i]!buf)
+            <- ~file_eof (F_ID) ];
+
+            // close the file
+            dummy := file_close(F_ID) 
+        <- LOOP ];
+
+        log ("Source file #", F_ID, " ends.")
+  }
+}
+
+}
