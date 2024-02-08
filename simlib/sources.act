@@ -91,7 +91,7 @@ defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
  *
  */
 export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP>
-defproc source_seq (chan!(int<D_WIDTH>) O)
+defproc source_sequence (chan!(int<D_WIDTH>) O)
 {
     int i;
 
@@ -127,7 +127,7 @@ defproc source_seq (chan!(int<D_WIDTH>) O)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP>
-defproc source_seq_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
 {
     int i;
 
