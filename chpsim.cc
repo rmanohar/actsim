@@ -2419,7 +2419,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
       actsim_log_flush ();
     }
     else {
-      warning ("Built-in function `%s' is not known; valid values: log, assert",
+      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert",
 	       string_char (c->u.func.name));
     }
     break;
@@ -5253,7 +5253,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       (*stop) = ret;
     }
     else {
-      warning ("Built-in function `%s' is not known; valid values: log, assert",
+      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert",
 	       string_char (c->u.func.name));
     }
     break;
