@@ -22,9 +22,9 @@
 namespace sim {
 
 // external C functions for file interaction
-export function file_read(int<32> idx) : int<64>;
-export function file_eof(int<32> idx) : bool;
-export function file_close(int<32> idx) : bool;
+export function file_read (int<32> idx) : int<64>;
+export function file_eof (int<32> idx) : bool;
+export function file_close (int<32> idx) : bool;
 
 /*
  * Simple static source with one output channel
@@ -178,7 +178,7 @@ defproc source_file (chan!(int<D_WIDTH>) O)
             <- ~file_eof (F_ID) ];
 
             // close the file
-            dummy := file_close(F_ID) 
+            dummy := file_close (F_ID) 
         <- LOOP ];
 
         log ("Source file #", F_ID, " ends.")
@@ -220,12 +220,12 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
         *[
             // read until the file reports EOF and send it to the output channel
             *[
-                buf := file_read(F_ID);
+                buf := file_read (F_ID);
                 (, i : OUT_CHANNELS : O[i]!buf)
             <- ~file_eof (F_ID) ];
 
             // close the file
-            dummy := file_close(F_ID) 
+            dummy := file_close (F_ID) 
         <- LOOP ];
 
         log ("Source file #", F_ID, " ends.")
