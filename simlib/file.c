@@ -39,31 +39,57 @@ L_A_DECL(FILE*, file_outfp);
  */
 void _builtin_update_config(void* v) { config_set_state((struct Hashtable*)v); }
 
+/**
+ * @brief Read a line form an input file
+ * 
+ * This method can be called from a CHP function block.
+ * It requires one arguments to be passed in args:
+ * - args[0]: The ID of the file to read
+ * 
+ * Multiple reads to the same file will result in collisions and
+ * undefined behavior.
+ * 
+ * @param argc number of arguments in args
+ * @param args argument vector
+ * @return expr_res 
+ */
 expr_res actsim_file_read(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 64;
     ret.v = 0;
+
+    // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        fprintf(stderr, "actim_file_read: should have 1 argument only\n");
+        fprintf(stderr,
+                "actim_file_read: Must be invoked with 2 arguments only (file "
+                "ID, reader ID)\n");
         return ret;
     }
 
+    // make sure we're under the number of possible files
     if (args[0].v > 4000) {
-        fprintf(stderr, "actsim_file_read: more than 4000 files?!\n");
+        fprintf(stderr,
+                "actsim_file_read: Are you using more than 4000 files?!\n");
         return ret;
     }
 
+    // check if we have the have the requested file already open
     while (args[0].v >= A_LEN(file_fp)) {
         A_NEW(file_fp, FILE*);
         A_NEXT(file_fp) = NULL;
         A_INC(file_fp);
     }
 
+    // seems like we don't; open the file
     if (!file_fp[args[0].v]) {
         char* buf;
         int release = 0;
+
+        // check if the config defines an alias for this file
         if (config_exists("sim.file.name_table")) {
             int len = config_get_table_size("sim.file.name_table");
+
+            // make sure the configured alias is still in bounds
             if (args[0].v >= len) {
                 fprintf(stderr,
                         "File name index %d is out of bounds given the name "
@@ -71,16 +97,22 @@ expr_res actsim_file_read(int argc, struct expr_res* args) {
                         (int)args[0].v, len);
                 return ret;
             }
+
+            // and get the alias
             buf = (config_get_table_string("sim.file.name_table"))[args[0].v];
+
         } else {
+            // seems like we don't, load the file normally using the file prefix
             char* prefix = config_get_string("sim.file.prefix");
             MALLOC(buf, char, strlen(prefix) + 10);
             snprintf(buf, strlen(prefix) + 10, "%s.%d", prefix, (int)args[0].v);
             release = 1;
         }
 
+        // now we finally open the file for reading
         file_fp[args[0].v] = fopen(buf, "r");
 
+        // looks like we couldn't open for reading
         if (!file_fp[args[0].v]) {
             fprintf(stderr, "Could not open file `%s' for reading.\n", buf);
             if (release) {
@@ -92,11 +124,13 @@ expr_res actsim_file_read(int argc, struct expr_res* args) {
         if (release) FREE(buf);
     }
 
+    // we have to re-check if the file exists, since the open could have failed
     if (file_fp[args[0].v]) {
         if (fscanf(file_fp[args[0].v], "%lx ", &ret.v) != 1) {
             ret.v = 0;
         }
     }
+
     return ret;
 }
 
