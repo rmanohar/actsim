@@ -41,7 +41,7 @@ export function file_closew (int<32> idx) : bool;
  *
  */
 export template<pint D_WIDTH, SINK_ID; pbool LOG>
-defproc sink(chan?(int<D_WIDTH>) I)
+defproc sink (chan?(int<D_WIDTH>) I)
 {
     int<D_WIDTH> buf;
 
@@ -76,7 +76,7 @@ defproc sink(chan?(int<D_WIDTH>) I)
  *
  */
 export template<pint D_WIDTH, F_ID; pbool LOG>
-defproc sink_file(chan?(int<D_WIDTH>) I)
+defproc sink_file (chan?(int<D_WIDTH>) I)
 {
     int<D_WIDTH> buf;
     bool dummy;
