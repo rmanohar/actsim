@@ -37,13 +37,24 @@ export function file_close (int<32> idx) : bool;
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - VALUE: Static value to output
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, VALUE>
+export template<pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
 defproc source_static (chan!(int<D_WIDTH>) O)
 {
     chp {
-        *[ O!VALUE ]
+        *[
+            O!VALUE;
+
+            // log the value if requested
+            [ LOG ->
+                log ("Source ", SOURCE_ID, ": Sent value ", VALUE, "%x (0x", VALUE, ")")
+            [] else ->
+                skip
+            ]
+        ]
     }
 }
 
@@ -61,15 +72,25 @@ defproc source_static (chan!(int<D_WIDTH>) O)
  * - D_WIDTH: Data output bus width
  * - OUT_CHANNELS: Number of output channels
  * - VALUE: Static value to output
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, VALUE>
+export template<pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_ID; pbool LOG>
 defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
 {
     chp {
-        *[
-            (, i : OUT_CHANNELS : O[i]!VALUE)
-        ]
+        (, i : OUT_CHANNELS : 
+            *[
+                O[i]!VALUE;
+
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, " (Channel ", i, "): Sent value ", VALUE, "%x (0x", VALUE, ")")
+                [] else ->
+                    skip
+                ]
+            ]
+        )
     }
 }
 
@@ -88,19 +109,34 @@ defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
  * - N: Number of values in the sequence
  * - DATA: The sequence as a vector of pint
  * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP>
+export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
 defproc source_sequence (chan!(int<D_WIDTH>) O)
 {
     int i;
+    int<D_WIDTH> buf;
 
     chp {
         *[
             i := 0; 
             *[ i < N -> 
-                // select the right element and send it
-                [([]k:N: i=k -> O!DATA[k])]; 
+                // select the right element
+                [([]k:N: i=k -> buf := DATA[k])]; 
+
+                // and send it
+                O!buf;
+
+                // if logging is enabled, log the send
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ];
+
+                // step
                 i := i + 1 
             ] 
         <- LOOP ]
@@ -124,19 +160,38 @@ defproc source_sequence (chan!(int<D_WIDTH>) O)
  * - N: Number of values in the sequence
  * - DATA: The sequence as a vector of pint
  * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP>
+export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
 defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
 {
     int i;
+    int<D_WIDTH> buf;
 
     chp {
         *[
-            i := 0; 
+            i := 0;
+
             *[ i < N -> 
-                // select the right element and send it
-                [([]k:N: i=k -> (, j : OUT_CHANNELS : O[j]!DATA[k]))]; 
+
+                // select the right data element
+                [([]k:N: i=k -> buf := DATA[k])]; 
+                
+                // and send it to every channel
+                (, j : OUT_CHANNELS :
+
+                    O[j]!buf;
+
+                    // if logging was enabled, log the send
+                    [ LOG ->
+                        log ("Source ", SOURCE_ID, " (Channel ", j, "): Sent value ", buf, "%x (0x", buf, ")")
+                    [] else ->
+                        skip
+                    ]
+                );
+
                 i := i + 1 
             ] 
         <- LOOP ]
@@ -162,19 +217,32 @@ defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
  * - D_WIDTH: Data output bus width
  * - F_ID: The ID of the file (see actsim documentation)
  * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, F_ID; pbool LOOP>
+export template<pint D_WIDTH, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
 defproc source_file (chan!(int<D_WIDTH>) O)
 {
+    int<D_WIDTH> buf;
     bool dummy;
 
     chp {
         // if we are set to loop, loop forever
         *[
             // read until the file reports EOF and send it to the output channel
-            *[ 
-                O!file_read(F_ID) 
+            *[
+                // read, then send the value
+                buf := file_read(F_ID);
+                O!buf;
+
+                // if logging was enabled, log the send
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ]
+
             <- ~file_eof (F_ID) ];
 
             // close the file
@@ -206,9 +274,11 @@ defproc source_file (chan!(int<D_WIDTH>) O)
  * - OUT_CHANNELS: Number of output channels
  * - F_ID: The ID of the file (see actsim documentation)
  * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP>
+export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
 defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
 {
     bool dummy;
@@ -221,7 +291,17 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
             // read until the file reports EOF and send it to the output channel
             *[
                 buf := file_read (F_ID);
-                (, i : OUT_CHANNELS : O[i]!buf)
+                
+                (, i : OUT_CHANNELS : 
+                    O[i]!buf;
+
+                    // if logging was enabled, log the send
+                    [ LOG ->
+                        log ("Source ", SOURCE_ID, " (Channel ", i, "): Sent value ", buf, "%x (0x", buf, ")")
+                    [] else ->
+                        skip
+                    ]
+                )
             <- ~file_eof (F_ID) ];
 
             // close the file
