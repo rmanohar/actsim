@@ -21,6 +21,8 @@
 
 namespace sim {
 
+namespace scoreboard {
+
 /*
  * Lockstep scoreboard
  *
@@ -45,7 +47,7 @@ namespace sim {
  *
  */
 export template <pint D_WIDTH, IN_CHANNELS, OUT_CHANNELS; pbool VERBOSE_TESTING>
-defproc scoreboard_lockstep(chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
+defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
 {
     int<D_WIDTH> input[IN_CHANNELS], output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
     bool not_failed;
@@ -116,7 +118,7 @@ defproc scoreboard_lockstep(chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANN
  *
  */
 export template <pint D_WIDTH, OUT_CHANNELS; pbool VERBOSE_TESTING>
-defproc scoreboard_deterministic(chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
+defproc deterministic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
 {
     int<D_WIDTH> output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
     bool not_failed;
@@ -180,7 +182,7 @@ defproc scoreboard_deterministic(chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[
  *
  */
 export template <pint D_WIDTH, IN_CHANNELS; pbool VERBOSE_TESTING>
-defproc input_logger(chan?(int<D_WIDTH>) IN[IN_CHANNELS])
+defproc input_logger (chan?(int<D_WIDTH>) IN[IN_CHANNELS])
 {
     int<D_WIDTH> input[IN_CHANNELS];
     int num;
@@ -210,4 +212,5 @@ defproc input_logger(chan?(int<D_WIDTH>) IN[IN_CHANNELS])
     }
 }
 
+}
 }
