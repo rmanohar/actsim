@@ -1,0 +1,106 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2022 Rajit Manohar
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+// external C functions for file interaction
+export function file_create (int<32> idx) : bool;
+export function file_write (int<32> idx; int<64> val) : bool;
+export function file_closew (int<32> idx) : bool;
+
+/*
+ * Simple sink with logging functionality
+ *
+ * Use this if you need the simplest of sinks
+ *
+ * Features:
+ * - Token logging
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - SINK_ID: ID of the sink (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, SINK_ID; pbool LOG>
+defproc sink(chan?(int<D_WIDTH>) I)
+{
+    int<D_WIDTH> buf;
+
+    chp {
+        *[
+            // receive the data
+            I?buf;
+
+            // check if we are should log it
+            [ LOG ->
+                log ("Sink ", SINK_ID, ": Received value ", buf, "%x (0x", buf, ")")
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+/*
+ * Simple sink with file logging functionality
+ *
+ * Use this if you need a simple sink that can dump
+ * received tokens into a log file
+ *
+ * Features:
+ * - Token logging into file
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - F_ID: ID of the file to save into
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, F_ID; pbool LOG>
+defproc sink_file(chan?(int<D_WIDTH>) I)
+{
+    int<D_WIDTH> buf;
+    bool dummy;
+
+    chp {
+
+        // if logging is enabled, create the log file
+        [ LOG ->
+            dummy := file_create (F_ID);
+        [] else ->
+            skip
+        ]
+
+        // receive the data and dump it into the file
+        *[
+            I?buf;
+
+            [ LOG ->
+                dummy := file_write(F_ID, buf) 
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+}

@@ -18,7 +18,9 @@
  *
  **************************************************************************
  */
-import "sim/sim.act";
+ 
+import "sim/util.act";
 import "sim/scoreboards.act";
 import "sim/sources.act";
+import "sim/sinks.act";
 import "sim/rand.act";

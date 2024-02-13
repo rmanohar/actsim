@@ -1,0 +1,128 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2022 Rajit Manohar
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+// external C functions for file interaction
+export function file_create (int<32> idx) : bool;
+export function file_write (int<32> idx; int<64> val) : bool;
+export function file_closew (int<32> idx) : bool;
+
+/*
+ * Simple multi-channel logger
+ *
+ * Use this if you need a token logger on any channel
+ *
+ * Features:
+ * - Generate log line on passing token
+ * - Enable through parameter
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Number of channels
+ * - LOG_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, IN_CHANNELS, LOG_ID; pbool LOG>
+defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
+{
+    int <D_WIDTH> buf[IN_CHANNELS];
+
+    chp {
+        // listen to all channels
+        (, i : IN_CHANNELS :
+            *[
+                // get the data
+                I[i]?buf[i];
+
+                // check if we need to save
+                [ LOG ->
+                    log ("Logger ", LOG_ID, "(Channel ", i, "): Received value ", buf[i], "%x (0x", buf[i], ")")
+                [] else ->
+                    skip
+                ],
+
+                // forward the data back out
+                O[i]!buf[i]
+            ]
+        );
+    }
+}
+
+/*
+ * Simple single-channel file logger
+ *
+ * Use this if you need a token logger on any channel
+ * which saves tokens into a file.
+ *
+ * Eventually, this logger will have fancy output and multi-
+ * channel capability; this is currently not possible due
+ * to missing support for strings in the core language.
+ *
+ * Features:
+ * - Generate log line on passing token
+ * - Save to file
+ * - Enable through parameter
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Currently unused parameter
+ * - LOG_ID: ID of the logger (currently unused)
+ * - F_ID: ID of the file to save into
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, IN_CHANNELS, LOG_ID, F_ID; pbool LOG>
+defproc logger_file (chan?(int<D_WIDTH>) I[1]; chan!(int<D_WIDTH>) O[1])
+{
+    int<D_WIDTH> buf[1];
+    bool dummy;
+
+    chp {
+        // create the logger file
+        [ LOG -> 
+            dummy := file_create (F_ID)
+        [] else ->
+            skip
+        ];
+        
+        // listen to all channels
+        (, i : 1 :
+            *[
+                // get the data
+                I[i]?buf[i];
+
+                // check if we need to save
+                [ LOG ->
+                    dummy := file_write (FILE_ID, buf[i])
+                [] else ->
+                    skip
+                ],
+
+                // forward the data back out
+                O[i]!buf[i]
+            ]
+        );
+    }
+}
+
+}
