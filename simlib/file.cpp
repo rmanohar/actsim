@@ -30,11 +30,15 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <map>
+#include <set>
 
 #include "../actsim_ext.h"
 
-std::unordered_map<size_t, std::ifstream> input_files;
-std::unordered_map<size_t, std::ofstream> output_files;
+std::unordered_map<size_t, std::pair<std::ifstream, size_t>> input_streams;
+std::unordered_map<size_t, std::pair<std::ofstream, size_t>> output_streams;
+std::map<size_t, size_t> input_files;
+std::set<size_t> output_files;
 size_t reader_cnt = 0;
 
 L_A_DECL(FILE*, file_outfp);
@@ -82,7 +86,7 @@ extern expr_res actsim_file_read(int argc, struct expr_res* args) {
     size_t reader_id = args[0].v;
 
     // check if we have the have the requested file already open
-    if (input_files.find(reader_id) == input_files.end()) {
+    if (input_streams.find(reader_id) == input_streams.end()) {
         std::cerr << "actim_file_read: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
@@ -91,7 +95,7 @@ extern expr_res actsim_file_read(int argc, struct expr_res* args) {
     // read the value from the file
     unsigned long value;
 
-    if (!(input_files[reader_id] >> value)) {
+    if (!(input_streams[reader_id].first >> value)) {
         std::cerr << "actim_file_read: Failed to read from file!" << std::endl;
         return ret;
     }
@@ -131,13 +135,6 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
 
     size_t file_id = args[0].v;
 
-    // get a new reader ID
-    // the first ID generated this way is 1, so we can use 0 as an error value
-    ++reader_cnt;
-
-    // make sure the reader doesn't already exist
-    while (input_files.find(reader_cnt) != input_files.end()) ++reader_cnt;
-
     // get the file name to open
     std::string filename;
 
@@ -163,6 +160,22 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
         filename = builder.str();
     }
 
+    // make sure the file isn't already open for writing
+    if (output_files.find(file_id) != output_files.end()) {
+        std::cerr << "actim_file_openr: Cannot open file '" << filename << "' for reading and writing" << std::endl;
+        return ret;
+    }
+
+    // register the file as open in reading mode
+    input_files.emplace(file_id, 1);
+
+    // get a new reader ID
+    // the first ID generated this way is 1, so we can use 0 as an error value
+    ++reader_cnt;
+
+    // make sure the reader doesn't already exist
+    while (input_streams.find(reader_cnt) != input_streams.end()) ++reader_cnt;
+
     // now we finally open the file for reading
     std::ifstream input_file(filename);
 
@@ -175,7 +188,7 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
 
     // place the file stream in the input file list
     ret.v = reader_cnt;
-    input_files.emplace(reader_cnt, std::move(input_file));
+    input_streams.emplace(reader_cnt, std::make_pair(std::move(input_file), file_id));
 
     return ret;
 }
@@ -208,7 +221,7 @@ extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
     size_t reader_id = args[0].v;
 
     // check if we have the have the requested file already open
-    if (input_files.find(reader_id) == input_files.end()) {
+    if (input_streams.find(reader_id) == input_streams.end()) {
         std::cerr << "actim_file_eof: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
@@ -217,7 +230,7 @@ extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
     // read the value from the file
     unsigned long value;
 
-    if (input_files[reader_id].eof()) {
+    if (input_streams[reader_id].first.eof()) {
         return ret;
     }
 
@@ -237,7 +250,7 @@ extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
  * @param args argument vector
  * @return expr_res 0 on success, 1 otherwise
  */
-extern expr_res actsim_file_close(int argc, struct expr_res* args) {
+extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 1;  // if there is any error, we return 1
@@ -253,23 +266,31 @@ extern expr_res actsim_file_close(int argc, struct expr_res* args) {
     size_t reader_id = args[0].v;
 
     // check if we have the have the requested file already open
-    if (input_files.find(reader_id) == input_files.end()) {
+    if (input_streams.find(reader_id) == input_streams.end()) {
         std::cerr << "actim_file_close: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
     }
 
     // make sure the file isn't already closed
-    if (!input_files[reader_id].is_open()) {
+    if (!input_streams[reader_id].first.is_open()) {
         std::cerr << "actim_file_close: File was already closed!" << std::endl;
-        input_files.erase(reader_id);
+        input_streams.erase(reader_id);
         return ret;
     }
 
+    auto file_id = input_streams[reader_id].second;
+
     // close file and erase the reader ID
-    input_files[reader_id].close();
-    input_files.erase(reader_id);
+    input_streams[reader_id].first.close();
+    input_streams.erase(reader_id);
     ret.v = 0;
+
+    // reduce the reference counter
+    --input_files[file_id];
+
+    // if the reference counter hit zero, remove it
+    if (input_files[file_id] == 0) input_files.erase(file_id);
 
     return ret;
 }
