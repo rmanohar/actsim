@@ -133,4 +133,96 @@ defproc logger_file (chan?(int<D_WIDTH>) I[1]; chan!(int<D_WIDTH>) O[1])
     }
 }
 
+// external C functions for infinite buffer
+function actsim_buffer_push (int<32> buf_id; int<64> val) : bool;
+function actsim_buffer_empty (int<32> buf_id) : bool;
+function actsim_buffer_pop (int<32> buf_id) : int<64>;
+function actsim_buffer_create () : int<32>;
+
+/*
+ * Infinite capacity buffer
+ *
+ * Use this if you need a buffer with (theoretically) infinite
+ * capacity. This is (obviously) not synthesizable. The main 
+ * use case is to decouple test harness timing from DUT timing.
+ *
+ * Example: A multi ended source feeds into a lockstep scoreboard
+ * and a DUT. The scoreboard will only complete the handshake on the
+ * input logger side once the DUT has produced output. We want to
+ * send in new tokens as fast as possible however. Putting this
+ * buffer between your token source and the scoreboard, the buffer
+ * can feed the scoreboard with whatever speed the DUT creates output,
+ * while the source can produce tokens with whatever speed the DUT
+ * can consume them.
+ *
+ * Do not write to the empty flag.
+ *
+ * Features:
+ * - Infinite capacity (theoretically)
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH; pbool LOG>
+defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty)
+{
+    // the bit width must be smaller than 64 bit (limitation of C function import)
+    {D_WIDTH < 64};
+
+    int<D_WIDTH> read_buf, write_buf;
+    int<32> id;
+    bool dummy;
+
+    chp {
+        // create a new buffer
+        id := actsim_buffer_create ();
+
+        // feeder loop
+        *[
+            // read a new input value
+            I?write_buf;
+
+            // write the new value to the buffer
+            dummy := actsim_buffer_push (id, write_buf);
+
+            // this has to always succeed
+            assert (dummy, "Write to buffer failed!");
+
+            [ LOG ->
+                log ("Written ", write_buf, "%x (0x", write_buf, ") to buffer")
+            [] else ->
+                skip
+            ];
+
+            // update the empty flag
+            empty := actsim_buffer_empty (id)
+        ],
+
+        // consumer loop
+        *[
+            // wait for the buffer to become not empty
+            [~empty];
+
+            // grab the next value from the buffer
+            read_buf := actsim_buffer_pop (id);
+            // and send it
+            O!read_buf;
+
+            [ LOG ->
+                log ("Read ", read_buf, "%x (0x", read_buf, ") from buffer")
+            [] else ->
+                skip
+            ];
+
+            // update the status of the empty flag
+            empty := actsim_buffer_empty (id)
+        ]
+    }
+}
+
+
+// add token counter -> generate finished signal when tokens = a certain number
+
 }
