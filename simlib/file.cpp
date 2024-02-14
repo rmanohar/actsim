@@ -1,3 +1,4 @@
+
 /*************************************************************************
  *
  *  Copyright (c) 2024 Fabian Posch
@@ -20,18 +21,18 @@
  **************************************************************************
  */
 
-#include <common/array.h>
-#include <common/config.h>
-#include <common/misc.h>
-#include <stdio.h>
+#include "file.hpp"
 
+#include <common/config.h>
+
+#include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <map>
-#include <set>
 
 #include "../actsim_ext.h"
 
@@ -40,8 +41,7 @@ std::unordered_map<size_t, std::pair<std::ofstream, size_t>> output_streams;
 std::map<size_t, size_t> input_files;
 std::set<size_t> output_files;
 size_t reader_cnt = 0;
-
-L_A_DECL(FILE*, file_outfp);
+size_t writer_cnt = 0;
 
 /*
  * On some systems, even though we are
@@ -52,56 +52,6 @@ L_A_DECL(FILE*, file_outfp);
  */
 extern void _builtin_update_config(void* v) {
     config_set_state((struct Hashtable*)v);
-}
-
-/**
- * @brief Read a line form an input file
- *
- * This method can be called from a CHP function block.
- * It requires one argument to be passed in args:
- * - args[0]: The ID of the reader calling
- *
- * This is not the file ID! This is am important difference,
- * since using file ID instead of reader ID make it ambiguous
- * who is calling - which means only one process can read from
- * a given file
- *
- * @param argc number of arguments in args
- * @param args argument vector
- * @return expr_res Value read from the input file
- */
-extern expr_res actsim_file_read(int argc, struct expr_res* args) {
-    expr_res ret;
-    ret.width = 64;
-    ret.v = 0;
-
-    // make sure we have the appropriate amount of arguments
-    if (argc != 1) {
-        std::cerr << "actim_file_read: Must be invoked with 1 argument only "
-                     "(reader ID)"
-                  << std::endl;
-        return ret;
-    }
-
-    size_t reader_id = args[0].v;
-
-    // check if we have the have the requested file already open
-    if (input_streams.find(reader_id) == input_streams.end()) {
-        std::cerr << "actim_file_read: Unknown reader ID, open a file first!"
-                  << std::endl;
-        return ret;
-    }
-
-    // read the value from the file
-    unsigned long value;
-
-    if (!(input_streams[reader_id].first >> value)) {
-        std::cerr << "actim_file_read: Failed to read from file!" << std::endl;
-        return ret;
-    }
-
-    ret.v = value;
-    return ret;
 }
 
 /**
@@ -143,7 +93,7 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
         int len = config_get_table_size("sim.file.name_table");
 
         // make sure the configured alias is still in bounds
-        if (args[0].v >= len) {
+        if (file_id >= len) {
             std::cerr << "actim_file_openr: File name index " << file_id
                       << " is out of bounds given the name table length of "
                       << len << std::endl;
@@ -162,7 +112,8 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
 
     // make sure the file isn't already open for writing
     if (output_files.find(file_id) != output_files.end()) {
-        std::cerr << "actim_file_openr: Cannot open file '" << filename << "' for reading and writing" << std::endl;
+        std::cerr << "actsim_file_openr: File '" << filename
+                  << "' is already opened for writing!" << std::endl;
         return ret;
     }
 
@@ -188,8 +139,67 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
 
     // place the file stream in the input file list
     ret.v = reader_cnt;
-    input_streams.emplace(reader_cnt, std::make_pair(std::move(input_file), file_id));
+    input_streams.emplace(reader_cnt,
+                          std::make_pair(std::move(input_file), file_id));
 
+    return ret;
+}
+
+/**
+ * @brief Read a line form an input file
+ *
+ * This method can be called from a CHP function block.
+ * It requires one argument to be passed in args:
+ * - args[0]: The ID of the reader calling
+ *
+ * This is not the file ID! This is am important difference,
+ * since using file ID instead of reader ID make it ambiguous
+ * who is calling - which means only one process can read from
+ * a given file
+ *
+ * @param argc number of arguments in args
+ * @param args argument vector
+ * @return expr_res Value read from the input file
+ */
+extern expr_res actsim_file_read(int argc, struct expr_res* args) {
+    expr_res ret;
+    ret.width = 64;
+    ret.v = 0;
+
+    // make sure we have the appropriate amount of arguments
+    if (argc != 1) {
+        std::cerr << "actim_file_read: Must be invoked with 1 argument only "
+                     "(reader ID)"
+                  << std::endl;
+        return ret;
+    }
+
+    size_t reader_id = args[0].v;
+
+    // check if we have the have the requested file has already been opened
+    if (input_streams.find(reader_id) != input_streams.end()) {
+        std::cerr << "actim_file_read: Unknown reader ID, open a file first!"
+                  << std::endl;
+        return ret;
+    }
+
+    // make sure the file is still open
+    if (!input_streams[reader_id].first.is_open()) {
+        std::cerr << "actim_file_read: File index "
+                  << input_streams[reader_id].second << " is closed."
+                  << std::endl;
+        return ret;
+    }
+
+    // read the value from the file
+    unsigned long value;
+
+    if (!(input_streams[reader_id].first >> value)) {
+        std::cerr << "actim_file_read: Failed to read from file!" << std::endl;
+        return ret;
+    }
+
+    ret.v = value;
     return ret;
 }
 
@@ -228,7 +238,7 @@ extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
     }
 
     // read the value from the file
-    unsigned long value;
+    uint64_t value;
 
     if (input_streams[reader_id].first.eof()) {
         return ret;
@@ -257,7 +267,7 @@ extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        std::cerr << "actsim_file_close: Must be invoked with 1 argument only "
+        std::cerr << "actsim_file_closer: Must be invoked with 1 argument only"
                      "(reader ID)"
                   << std::endl;
         return ret;
@@ -267,14 +277,14 @@ extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
 
     // check if we have the have the requested file already open
     if (input_streams.find(reader_id) == input_streams.end()) {
-        std::cerr << "actim_file_close: Unknown reader ID, open a file first!"
+        std::cerr << "actim_file_closer: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
     }
 
     // make sure the file isn't already closed
     if (!input_streams[reader_id].first.is_open()) {
-        std::cerr << "actim_file_close: File was already closed!" << std::endl;
+        std::cerr << "actim_file_closer: File was already closed!" << std::endl;
         input_streams.erase(reader_id);
         return ret;
     }
@@ -295,113 +305,209 @@ extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
     return ret;
 }
 
-extern expr_res actsim_file_create(int argc, struct expr_res* args) {
+/**
+ * @brief Open a file for writing
+ *
+ * This method can be called from a CHP function block.
+ * It requires one argument to be passed in args:
+ * - args[0]: The ID of the file to write to
+ *
+ * @param argc number of arguments in args
+ * @param args argument vector
+ * @return expr_res writer ID if file open successful; 0 otherwise
+ */
+extern expr_res actsim_file_openw(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 1;
+    ret.width = 32;
     ret.v = 0;
 
+    // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        fprintf(stderr, "actim_file_create: should have 1 argument only\n");
+        std::cerr << "actim_file_openw: Must be invoked with 1 argument only"
+                  << std::endl;
         return ret;
     }
 
-    if (args[0].v > 4000) {
-        fprintf(stderr, "actsim_file_create: more than 4000 files?!\n");
-        return ret;
-    }
+    size_t file_id = args[0].v;
+    std::string filename;
 
-    while (args[0].v >= A_LEN(file_outfp)) {
-        A_NEW(file_outfp, FILE*);
-        A_NEXT(file_outfp) = NULL;
-        A_INC(file_outfp);
-    }
+    // construct the file name
+    if (config_exists("sim.file.outname_table")) {
+        int len = config_get_table_size("sim.file.outname_table");
 
-    if (!file_outfp[args[0].v]) {
-        char* buf;
-        int release = 0;
-        if (config_exists("sim.file.outname_table")) {
-            int len = config_get_table_size("sim.file.outname_table");
-
-            if (args[0].v >= len) {
-                fprintf(stderr,
-                        "File name index %d is out of bounds given the outname "
-                        "table length of %d\n",
-                        (int)args[0].v, len);
-                return ret;
-            }
-
-            buf =
-                (config_get_table_string("sim.file.outname_table"))[args[0].v];
-
-        } else {
-            char* prefix = config_get_string("sim.file.outprefix");
-            MALLOC(buf, char, strlen(prefix) + 10);
-            snprintf(buf, strlen(prefix) + 10, "%s.%d", prefix, (int)args[0].v);
-            release = 1;
-        }
-
-        file_outfp[args[0].v] = fopen(buf, "w");
-
-        if (!file_outfp[args[0].v]) {
-            fprintf(stderr, "Could not open file `%s' for writing.\n", buf);
-            if (release) {
-                FREE(buf);
-            }
+        if (file_id >= len) {
+            std::cerr << "actim_file_openw: File name index " << file_id
+                      << " is out of bounds given the outname table length of "
+                      << len << std::endl;
             return ret;
         }
 
-        if (release) FREE(buf);
+        filename = (config_get_table_string("sim.file.outname_table"))[file_id];
 
     } else {
-        fprintf(stderr, "actsim_file_create: already created file!\n");
+        std::ostringstream builder;
+        builder << config_get_string("sim.file.outprefix") << "." << file_id;
+        filename = builder.str();
+    }
+
+    // make sure the file isn't already open for reading
+    if (input_files.find(file_id) != input_files.end()) {
+        std::cerr << "actsim_file_openw: File '" << filename
+                  << "' is already opened for reading!" << std::endl;
         return ret;
     }
 
-    ret.v = 1;
+    // make sure the file isn't already open for writing
+    if (output_files.find(file_id) != output_files.end()) {
+        std::cerr << "actsim_file_openw: File '" << filename
+                  << "' is already opened for writing!" << std::endl;
+        return ret;
+    }
+
+    // register the file as open for writing
+    output_files.emplace(file_id);
+
+    // increase the writer id counter
+    ++writer_cnt;
+
+    // finally, open the file
+    std::ofstream output_file(filename);
+
+    // make sure the file is actually open
+    if (!output_file.is_open()) {
+        std::cerr << "actim_file_openw: Could not open file '" << filename
+                  << "' for writing." << std::endl;
+        return ret;
+    }
+
+    // store the output stream
+    output_streams.emplace(writer_cnt,
+                           std::make_pair(std::move(output_file), file_id));
+
+    ret.v = writer_cnt;
     return ret;
 }
 
+/**
+ * @brief Write a value to a file
+ *
+ * This method can be called from a CHP function block.
+ * It requires one argument to be passed in args:
+ * - args[0]: The ID of the writer calling
+ *
+ * @param argc number of arguments in args
+ * @param args argument vector
+ * @return expr_res 0 on success, 1 otherwise
+ */
 extern expr_res actsim_file_write(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
-    ret.v = 0;
+    ret.v = 1;  // on error we return 1
 
+    // make sure we have the appropriate amount of arguments
     if (argc != 2) {
-        fprintf(stderr, "actim_file_write: should have 2 arguments\n");
+        std::cerr << "actim_file_openw: Must be invoked with 2 arguments only"
+                  << std::endl;
         return ret;
     }
 
-    if (args[0].v >= A_LEN(file_outfp)) {
-        fprintf(stderr, "Illegal file index %d\n", (int)args[0].v);
-        return ret;
-    }
+    size_t writer_id = args[0].v;
 
-    if (!file_outfp[args[0].v]) {
-        fprintf(stderr, "File index %d is closed.\n", (int)args[0].v);
-        return ret;
-    }
-    fprintf(file_outfp[args[0].v], "%lx\n", args[1].v);
-    fflush(file_outfp[args[0].v]);
-    ret.v = 1;
+    // build the log line
+    std::ostringstream builder;
+    builder << args[1].v << std::endl;
+
+    ret.v = actsim_file_write_core(writer_id, builder.str());
     return ret;
 }
 
+/**
+ * @brief Write a string to a file
+ *
+ * This function cannot be called from CHP directly. It is meant
+ * as a library function, so other components can implement functions
+ * which construct more intricate output than just a value + new line.
+ *
+ * This is necessary for now since the ACT does not feature string handling
+ * at the moment. This is planned for the future, but not implemented at
+ * the moment.
+ *
+ * @param writer_id ID of the writer accessing the file
+ * @param str String to write into the file
+ * @return true The write succeeded
+ * @return false The write failed
+ */
+bool actsim_file_write_core(size_t writer_id, std::string str) {
+    // make sure the file has been opened for writing
+    if (output_streams.find(writer_id) != output_streams.end()) {
+        std::cerr << "actim_file_write: Unknown writer ID, open a file first!"
+                  << std::endl;
+        return false;
+    }
+
+    // make sure the file is still open
+    if (!output_streams[writer_id].first.is_open()) {
+        std::cerr << "actim_file_write: File index "
+                  << output_streams[writer_id].second << " is closed."
+                  << std::endl;
+        return false;
+    }
+
+    // write to the file
+    output_streams[writer_id].first << str;
+    output_streams[writer_id].first.flush();
+
+    return true;
+}
+
+/**
+ * @brief Close a file that was open for writing
+ *
+ * This method can be called from a CHP function block.
+ * It requires one argument to be passed in args:
+ * - args[0]: The ID of writer calling
+ *
+ * @param argc number of arguments in args
+ * @param args argument vector
+ * @return expr_res 0 on success, 1 otherwise
+ */
 extern expr_res actsim_file_closew(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
-    ret.v = 0;
+    ret.v = 1;  // on error we return 1
+
+    // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        fprintf(stderr, "actsim_file_closew: should have 1 argument only\n");
+        std::cerr << "actim_file_closew: Must be invoked with 1 argument only"
+                  << std::endl;
         return ret;
     }
-    if (args[0].v >= A_LEN(file_outfp)) {
-        fprintf(stderr, "actsim_file_closew: invalid ID %d!\n", (int)args[0].v);
+
+    size_t writer_id = args[0].v;
+
+    // check if we have the have the requested file already open
+    if (output_streams.find(writer_id) == output_streams.end()) {
+        std::cerr << "actim_file_closew: Unknown writer ID, open a file first!"
+                  << std::endl;
         return ret;
     }
-    if (file_outfp[args[0].v]) {
-        fclose(file_outfp[args[0].v]);
-        // file_fp[args[0].v] = NULL;
-        ret.v = 1;
+
+    // make sure the file isn't already closed
+    if (!output_streams[writer_id].first.is_open()) {
+        std::cerr << "actim_file_closew: File was already closed!" << std::endl;
+        output_streams.erase(writer_id);
+        return ret;
     }
+
+    auto file_id = output_streams[writer_id].second;
+
+    // close file and erase the writer ID
+    output_streams[writer_id].first.close();
+    output_streams.erase(writer_id);
+    ret.v = 0;
+
+    // remove the file from the list of open files
+    output_files.erase(file_id);
+
     return ret;
 }
