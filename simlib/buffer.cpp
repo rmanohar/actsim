@@ -21,9 +21,9 @@
  **************************************************************************
  */
 
+#include <memory>
 #include <queue>
 #include <vector>
-#include <memory>
 
 #include "../actsim_ext.h"
 
@@ -31,7 +31,7 @@ std::vector<std::unique_ptr<std::queue<expr_res>>> buffers;
 
 /**
  * @brief Create a new buffer
- * 
+ *
  * @param argc Number of arguments given (must be 0)
  * @param args Argument vector
  * @return expr_res Buffer ID
@@ -43,8 +43,9 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 0) {
-        fprintf(stderr,
-                "actsim_buffer_exists: Must be invoked with 0 arguments only\n");
+        fprintf(
+            stderr,
+            "actsim_buffer_exists: Must be invoked with 0 arguments only\n");
         return ret;
     }
 
@@ -59,7 +60,7 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
 
 /**
  * @brief Push to infinite sized buffer
- * 
+ *
  * @param argc Number of arguments given (must be 2; buffer ID, value)
  * @param args Argument vector
  * @return expr_res 1 on success, 0 otherwise
@@ -71,9 +72,10 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 2) {
-        fprintf(stderr,
-                "actsim_buffer_push: Must be invoked with 2 arguments only (buffer "
-                "ID, value)\n");
+        fprintf(
+            stderr,
+            "actsim_buffer_push: Must be invoked with 2 arguments only (buffer "
+            "ID, value)\n");
         return ret;
     }
 
@@ -96,7 +98,7 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
 
 /**
  * @brief Probe the infinite sized buffer
- * 
+ *
  * @param argc Number of arguments given (must be 1; buffer ID)
  * @param args Argument vector
  * @return expr_res Is buffer empty?
@@ -132,7 +134,7 @@ extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
 
 /**
  * @brief Pop from infinite sized buffer
- * 
+ *
  * @param argc Number of arguments given (must be 1)
  * @param args Argument vector
  * @return expr_res Value removed from buffer
@@ -172,4 +174,3 @@ extern expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
 
     return ret;
 }
-
