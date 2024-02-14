@@ -21,6 +21,7 @@
  **************************************************************************
  */
 
+#include <iostream>
 #include <memory>
 #include <queue>
 #include <vector>
@@ -38,14 +39,14 @@ std::vector<std::unique_ptr<std::queue<expr_res>>> buffers;
  */
 extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 64;
+    ret.width = 32;
     ret.v = 0;
 
     // make sure we have the appropriate amount of arguments
     if (argc != 0) {
-        fprintf(
-            stderr,
-            "actsim_buffer_exists: Must be invoked with 0 arguments only\n");
+        std::cerr
+            << "actsim_buffer_exists: Must be invoked with 0 arguments only"
+            << std::endl;
         return ret;
     }
 
@@ -67,15 +68,14 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
  */
 extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 64;
+    ret.width = 32;
     ret.v = 0;
 
     // make sure we have the appropriate amount of arguments
     if (argc != 2) {
-        fprintf(
-            stderr,
-            "actsim_buffer_push: Must be invoked with 2 arguments only (buffer "
-            "ID, value)\n");
+        std::cerr << "actsim_buffer_push: Must be invoked with 2 arguments "
+                     "only (buffer ID, value)"
+                  << std::endl;
         return ret;
     }
 
@@ -84,8 +84,8 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
 
     // make sure the buffer exists
     if (index >= buffers.size()) {
-        fprintf(stderr,
-                "actsim_buffer_push: Invalid buffer ID (out of range)\n");
+        std::cerr << "actsim_buffer_push: Invalid buffer ID (out of range)"
+                  << std::endl;
         return ret;
     }
 
@@ -105,14 +105,14 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
  */
 extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 64;
+    ret.width = 32;
     ret.v = 1;  // on fault buffer is shown as empty
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        fprintf(stderr,
-                "actsim_buffer_empty: Must be invoked with 1 argument only "
-                "(buffer ID)\n");
+        std::cerr << "actsim_buffer_empty: Must be invoked with 1 argument "
+                     "only (buffer ID)"
+                  << std::endl;
         ret.v = 1;
         return ret;
     }
@@ -121,8 +121,8 @@ extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
 
     // make sure the buffer exists
     if (index >= buffers.size()) {
-        fprintf(stderr,
-                "actsim_buffer_empty: Invalid buffer ID (out of range)\n");
+        std::cerr << "actsim_buffer_empty: Invalid buffer ID (out of range)"
+                  << std::endl;
         return ret;
     }
 
@@ -146,9 +146,9 @@ extern expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        fprintf(stderr,
-                "actsim_buffer_pop: Must be invoked with 1 argument only "
-                "(buffer ID)\n");
+        std::cerr << "actsim_buffer_pop: Must be invoked with 1 argument only "
+                     "(buffer ID)"
+                  << std::endl;
         return ret;
     }
 
@@ -156,15 +156,15 @@ extern expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
 
     // make sure the buffer exists
     if (index >= buffers.size()) {
-        fprintf(stderr,
-                "actsim_buffer_pop: Invalid buffer ID (out of range)\n");
+        std::cerr << "actsim_buffer_pop: Invalid buffer ID (out of range)"
+                  << std::endl;
         return ret;
     }
 
     // make sure the buffer isn't empty
     if (!buffers[index]->empty()) {
-        fprintf(stderr,
-                "actsim_buffer_pop: Buffer pop called but buffer is empty!\n");
+        std::cerr << "actsim_buffer_pop: Buffer pop called but buffer is empty!"
+                  << std::endl;
         return ret;
     }
 
