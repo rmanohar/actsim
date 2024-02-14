@@ -53,7 +53,7 @@ void _builtin_update_config(void* v) { config_set_state((struct Hashtable*)v); }
  * @param args argument vector
  * @return expr_res 
  */
-expr_res actsim_file_read(int argc, struct expr_res* args) {
+extern expr_res actsim_file_read(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 64;
     ret.v = 0;
@@ -134,7 +134,7 @@ expr_res actsim_file_read(int argc, struct expr_res* args) {
     return ret;
 }
 
-expr_res actsim_file_create(int argc, struct expr_res* args) {
+extern expr_res actsim_file_create(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
@@ -200,7 +200,7 @@ expr_res actsim_file_create(int argc, struct expr_res* args) {
     return ret;
 }
 
-expr_res actsim_file_write(int argc, struct expr_res* args) {
+extern expr_res actsim_file_write(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
@@ -225,7 +225,7 @@ expr_res actsim_file_write(int argc, struct expr_res* args) {
     return ret;
 }
 
-expr_res actsim_file_closew(int argc, struct expr_res* args) {
+extern expr_res actsim_file_closew(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
@@ -245,7 +245,7 @@ expr_res actsim_file_closew(int argc, struct expr_res* args) {
     return ret;
 }
 
-expr_res actsim_file_close(int argc, struct expr_res* args) {
+extern expr_res actsim_file_close(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
@@ -265,7 +265,7 @@ expr_res actsim_file_close(int argc, struct expr_res* args) {
     return ret;
 }
 
-expr_res actsim_file_eof(int argc, struct expr_res* args) {
+extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
