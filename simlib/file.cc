@@ -392,8 +392,9 @@ extern expr_res actsim_file_openw(int argc, struct expr_res* args) {
  * @brief Write a value to a file
  *
  * This method can be called from a CHP function block.
- * It requires one argument to be passed in args:
+ * It requires two arguments to be passed in args:
  * - args[0]: The ID of the writer calling
+ * - args[1]: The value to write
  *
  * @param argc number of arguments in args
  * @param args argument vector
