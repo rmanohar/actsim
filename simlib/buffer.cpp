@@ -68,7 +68,7 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
  */
 extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 32;
+    ret.width = 1;
     ret.v = 0;
 
     // make sure we have the appropriate amount of arguments
@@ -105,7 +105,7 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
  */
 extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
     expr_res ret;
-    ret.width = 32;
+    ret.width = 1;
     ret.v = 1;  // on fault buffer is shown as empty
 
     // make sure we have the appropriate amount of arguments
