@@ -25,9 +25,11 @@ TARGETCONF=actsim.conf
 TARGETACT=util.act rand.act scoreboards.act sources.act sinks.act _all_.act
 TARGETACTSUBDIR=sim
 
-OBJS=random.os rom.os file.os rand_r.os
+CPPSTD=c++17
 
-SRCS=$(OBJS:.os=.c)
+OBJS=random.os rom.os file.os rand_r.os buffer.os
+
+SRCS=$(OBJS:.os=.cc)
 
 include $(ACT_HOME)/scripts/Makefile.std
 

@@ -18,7 +18,7 @@
    for 32 bits.  */
 
 /* changed the name to local_rand_r to avoid conflict */
-int
+extern int
 local_rand_r (unsigned int *seed)
 {
   unsigned int next = *seed;

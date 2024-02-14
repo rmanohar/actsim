@@ -54,7 +54,7 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
     ret.v = buffers.size();
 
     // create the new buffer
-    buffers.emplace_back(std::make_unique<std::deque<expr_res>>());
+    buffers.emplace_back(std::make_unique<std::queue<expr_res>>());
 
     return ret;
 }

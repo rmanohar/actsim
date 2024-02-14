@@ -21,7 +21,7 @@
  **************************************************************************
  */
 
-#include "file.hpp"
+#include "file.h"
 
 #include <common/config.h>
 
