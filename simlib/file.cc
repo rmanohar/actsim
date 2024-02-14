@@ -407,7 +407,7 @@ extern expr_res actsim_file_write(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 2) {
-        std::cerr << "actim_file_openw: Must be invoked with 2 arguments only"
+        std::cerr << "actim_file_write: Must be invoked with 2 arguments only"
                   << std::endl;
         return ret;
     }
@@ -441,14 +441,14 @@ extern expr_res actsim_file_write(int argc, struct expr_res* args) {
 bool actsim_file_write_core(size_t writer_id, std::string str) {
     // make sure the file has been opened for writing
     if (output_streams.find(writer_id) != output_streams.end()) {
-        std::cerr << "actim_file_write: Unknown writer ID, open a file first!"
+        std::cerr << "actim_file_write_core: Unknown writer ID, open a file first!"
                   << std::endl;
         return false;
     }
 
     // make sure the file is still open
     if (!output_streams[writer_id].first.is_open()) {
-        std::cerr << "actim_file_write: File index "
+        std::cerr << "actim_file_write_core: File index "
                   << output_streams[writer_id].second << " is closed."
                   << std::endl;
         return false;
