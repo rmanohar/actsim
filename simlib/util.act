@@ -34,6 +34,7 @@ export function file_closew (int<32> idx) : bool;
  * Features:
  * - Generate log line on passing token
  * - Enable through parameter
+ * - Zero slack behavior
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
@@ -51,7 +52,13 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
         // listen to all channels
         (, i : IN_CHANNELS :
             *[
-                // get the data
+                // wait for data on the input
+                [#I[i]];
+
+                // forward the data back out (zero slack)
+                O[i]!I[i]
+
+                // actually load the data from the input
                 I[i]?buf[i];
 
                 // check if we need to save
@@ -59,10 +66,7 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
                     log ("Logger ", LOG_ID, "(Channel ", i, "): Received value ", buf[i], "%x (0x", buf[i], ")")
                 [] else ->
                     skip
-                ],
-
-                // forward the data back out
-                O[i]!buf[i]
+                ]
             ]
         );
     }
@@ -82,6 +86,7 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
  * - Generate log line on passing token
  * - Save to file
  * - Enable through parameter
+ * - Zero slack behavior
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
@@ -108,6 +113,12 @@ defproc logger_file (chan?(int<D_WIDTH>) I[1]; chan!(int<D_WIDTH>) O[1])
         // listen to all channels
         (, i : 1 :
             *[
+                // wait for data on the input
+                [#I[i]];
+
+                // forward the data back out (zero slack)
+                O[i]!I[i];
+
                 // get the data
                 I[i]?buf[i];
 
@@ -116,10 +127,7 @@ defproc logger_file (chan?(int<D_WIDTH>) I[1]; chan!(int<D_WIDTH>) O[1])
                     dummy := file_write (FILE_ID, buf[i])
                 [] else ->
                     skip
-                ],
-
-                // forward the data back out
-                O[i]!buf[i]
+                ]
             ]
         );
     }
