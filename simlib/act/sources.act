@@ -133,8 +133,10 @@ defproc source_sequence (chan!(int<D_WIDTH>) O)
 
                 // step
                 i := i + 1 
-            ] 
-        <- LOOP ]
+            ]
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Sequence ended.")
   }
 }
 
@@ -188,8 +190,10 @@ defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
                 );
 
                 i := i + 1 
-            ] 
-        <- LOOP ]
+            ]
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Sequence ended.")
     }
 }
 
@@ -259,7 +263,7 @@ defproc source_file (chan!(int<D_WIDTH>) O)
             assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
         <- LOOP ];
 
-        log ("Source file #", F_ID, " ends.")
+        log ("Source ", SOURCE_ID, ": Input file #", F_ID, " ended.")
     }
 }
 
@@ -324,8 +328,8 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
             assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
         <- LOOP ];
 
-        log ("Source file #", F_ID, " ends.")
-  }
+        log ("Source ", SOURCE_ID, ": Input file #", F_ID, " ended.")
+    }
 }
 
 }
