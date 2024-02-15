@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <common/array.h>
 #include <common/misc.h>
-#include "../actsim_ext.h"
+#include "../../actsim_ext.h"
 
 L_A_DECL (FILE *, rom_fp);
 

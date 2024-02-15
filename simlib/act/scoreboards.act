@@ -166,6 +166,11 @@ defproc deterministic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNE
 
 }
 
+// external C functions for reordering scoreboard tokens
+function add_dut_token (int<64> token) : bool;
+function add_model_token (int<64> token) : bool;
+function token_fence (int<64> token) : bool;
+
 /*
  * Input token logger
  * 

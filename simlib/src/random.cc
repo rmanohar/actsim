@@ -20,7 +20,7 @@
  **************************************************************************
  */
 #include <stdio.h>
-#include "../actsim_ext.h"
+#include "../../actsim_ext.h"
 #include <common/array.h>
 
 /* use local copy from glibc for platform-independent generation */

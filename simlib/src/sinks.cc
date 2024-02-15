@@ -24,65 +24,61 @@
 #include <iostream>
 #include <sstream>
 
-#include "../actsim_ext.h"
-#include "simlib_file.h"
+#include "../../actsim_ext.h"
+#include "../simlib_file.h"
 
 /**
- * @brief Write a logger line to a file
+ * @brief Write a sink line to a file
  *
  * The log writer supports verbosity level, these are:
- * 0: 'channel':'value'
- * 1: 'ID' ('channel'): 'value'
- * 2: Logger 'ID' (Channel 'channel'): Received value 'value'%x (0x'value')
+ * 0: 'value'
+ * 1: 'ID': 'value'
+ * 2: Sink 'ID': Received value 'value'%x (0x'value')
  *
  * This method can be called from a CHP function block.
  * It requires one argument to be passed in args:
  * - args[0]: The ID of the writer calling
  * - args[1]: The verbosity level
  * - args[2]: The logger ID
- * - args[3]: The logger channel
- * - args[4]: The value to write
+ * - args[3]: The value to write
  *
  * @param argc number of arguments in args
  * @param args argument vector
  * @return expr_res 0 on success, 1 otherwise
  */
-extern expr_res actsim_file_write_log(int argc, struct expr_res* args) {
+extern expr_res actsim_file_write_sink(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 1;  // on error we return 1
 
     // make sure we have the appropriate amount of arguments
-    if (argc != 5) {
+    if (argc != 4) {
         std::cerr
-            << "actim_file_write_log: Must be invoked with 5 arguments only"
+            << "actim_file_write_log: Must be invoked with 4 arguments only"
             << std::endl;
         return ret;
     }
 
     uint32_t writer_id = args[0].v;
     uint8_t verbosity = args[1].v;
-    uint32_t logger_id = args[2].v;
-    uint32_t channel = args[3].v;
-    uint64_t value = args[4].v;
+    uint32_t sink_id = args[2].v;
+    uint64_t value = args[3].v;
 
     // build the log line
     std::ostringstream builder;
 
     switch (verbosity) {
         case 0:
-            builder << channel << ":" << std::hex << value << std::endl;
+            builder << std::hex << value << std::endl;
             break;
 
         case 1:
-            builder << logger_id << " (" << channel << "): " << std::hex
-                    << value << std::endl;
+            builder << sink_id << ": " << std::hex << value << std::endl;
             break;
 
         case 2:
-            builder << "Logger " << logger_id << " (Channel " << channel
-                    << "): Received value " << value << "%x (0x" << std::hex
-                    << value << ")" << std::endl;
+            builder << "Sink " << sink_id << ": Received value " << value
+                    << "%x (0x" << std::hex << value << ")" << std::endl;
 
         default:
             break;

@@ -20,22 +20,9 @@
 #-------------------------------------------------------------------------
 SHLIB=libactsimext_sh_$(EXT).so
 
-SUBDIRS=act
-
-TARGETLIBS=$(SHLIB)
-TARGETCONF=actsim.conf
-TARGETINCS=simlib_file.h
+TARGETACT=util.act rand.act scoreboards.act sources.act sinks.act file.act _all_.act
 TARGETACTSUBDIR=sim
 
-CPPSTD=c++17
-
-OBJS=src/random.os src/rom.os src/file.os src/rand_r.os src/buffer.os src/logger.os src/sinks.os
-
-SRCS=$(OBJS:.os=.cc)
-
 include $(ACT_HOME)/scripts/Makefile.std
-
-$(SHLIB): $(OBJS)
-	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS) $(SHLIBCOMMON)
 
 -include Makefile.deps
