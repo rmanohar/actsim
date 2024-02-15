@@ -51,7 +51,7 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
                 [#I[i]];
 
                 // forward the data back out (zero slack)
-                O[i]!I[i]
+                O[i]!I[i];
 
                 // actually load the data from the input
                 I[i]?buf[i];
@@ -63,13 +63,15 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
                     skip
                 ]
             ]
-        );
+        )
     }
 }
 
 // external C functions for file interaction
-function file::openw (int<32> file_id) : int<32>;
-function file::write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, channel; int<64> val) : bool;
+namespace file {
+export function openw (int<32> file_id) : int<32>;
+export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, channel; int<64> val) : bool;
+}
 
 /*
  * Simple single-channel file logger
@@ -106,7 +108,7 @@ defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[I
     chp {
         // create the logger file
         [ LOG -> 
-            write_id := file_openw (F_ID);
+            write_id := file::openw (F_ID);
             assert (write_id != 0, "Logger ", LOG_ID, " failed to open output file with ID ", F_ID, "!")
         [] else ->
             skip
@@ -126,13 +128,13 @@ defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[I
 
                 // check if we need to save
                 [ LOG ->
-                    success := file_write_log (write_id, VERBOSITY, LOG_ID, i, buf[i]);
+                    success := file::write_log (write_id, VERBOSITY, LOG_ID, i, buf[i]);
                     assert (success, "Logger ", LOG_ID, " failed to write to output file!")
                 [] else ->
                     skip
                 ]
             ]
-        );
+        )
     }
 }
 

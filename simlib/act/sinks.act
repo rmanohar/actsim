@@ -56,8 +56,10 @@ defproc sink (chan?(int<D_WIDTH>) I)
 }
 
 // external C functions for file interaction
-function file::openw (int<32> file_id) : int<32>;
-function file::write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id; int<64> val) : bool;
+namespace file {
+export function openw (int<32> file_id) : int<32>;
+export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id; int<64> val) : bool;
+}
 
 /*
  * Simple sink with file logging functionality
@@ -87,18 +89,18 @@ defproc sink_file (chan?(int<D_WIDTH>) I)
 
         // if logging is enabled, create the log file
         [ LOG ->
-            write_id := file_openw (F_ID);
+            write_id := file::openw (F_ID);
             assert (write_id != 0, "Sink ", SINK_ID, " failed to open output file with ID ", F_ID, "!")
         [] else ->
             skip
-        ]
+        ];
 
         // receive the data and dump it into the file
         *[
             I?buf;
 
             [ LOG ->
-                success := file_write_sink (write_id, VERBOSITY, SINK_ID, buf);
+                success := file::write_sink (write_id, VERBOSITY, SINK_ID, buf);
                 assert (success, "Sink ", SINK_ID, " failed to write to output file!")
             [] else ->
                 skip
