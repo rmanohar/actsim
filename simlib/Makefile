@@ -27,7 +27,7 @@ TARGETACTSUBDIR=sim
 
 CPPSTD=c++17
 
-OBJS=random.os rom.os file.os rand_r.os buffer.os
+OBJS=random.os rom.os file.os rand_r.os buffer.os logger.os
 
 SRCS=$(OBJS:.os=.cc)
 
