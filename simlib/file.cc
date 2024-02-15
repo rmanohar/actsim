@@ -21,7 +21,7 @@
  **************************************************************************
  */
 
-#include "file.h"
+#include "simlib_file.h"
 
 #include <common/config.h>
 

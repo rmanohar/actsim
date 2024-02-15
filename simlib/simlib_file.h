@@ -21,8 +21,8 @@
  **************************************************************************
  */
 
-#ifndef __ACTSIM_FILE_HPP__
-#define __ACTSIM_FILE_HPP__
+#ifndef __SIMLIB_FILE_HPP__
+#define __SIMLIB_FILE_HPP__
 
 #include <cstdint>
 #include <string>

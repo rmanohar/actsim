@@ -22,12 +22,13 @@ SHLIB=libactsimext_sh_$(EXT).so
 
 TARGETLIBS=$(SHLIB)
 TARGETCONF=actsim.conf
+TARGETINCS=simlib_file.h
 TARGETACT=util.act rand.act scoreboards.act sources.act sinks.act _all_.act
 TARGETACTSUBDIR=sim
 
 CPPSTD=c++17
 
-OBJS=random.os rom.os file.os rand_r.os buffer.os logger.os
+OBJS=random.os rom.os file.os rand_r.os buffer.os logger.os sinks.os
 
 SRCS=$(OBJS:.os=.cc)
 
