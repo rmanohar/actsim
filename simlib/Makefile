@@ -23,7 +23,7 @@ SHLIB=libactsimext_sh_$(EXT).so
 TARGETLIBS=$(SHLIB)
 TARGETCONF=actsim.conf
 TARGETINCS=simlib_file.h
-TARGETACT=util.act rand.act scoreboards.act sources.act sinks.act _all_.act
+TARGETACT=util.act rand.act scoreboards.act sources.act sinks.act file.act _all_.act
 TARGETACTSUBDIR=sim
 
 CPPSTD=c++17

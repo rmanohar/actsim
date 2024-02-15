@@ -21,11 +21,6 @@
 
 namespace sim {
 
-// external C functions for file interaction
-export function file_create (int<32> idx) : bool;
-export function file_write (int<32> idx; int<64> val) : bool;
-export function file_closew (int<32> idx) : bool;
-
 /*
  * Simple sink with logging functionality
  *
@@ -60,6 +55,10 @@ defproc sink (chan?(int<D_WIDTH>) I)
     }
 }
 
+// external C functions for file interaction
+function file::openw (int<32> file_id) : int<32>;
+function file::write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id; int<64> val) : bool;
+
 /*
  * Simple sink with file logging functionality
  *
@@ -71,21 +70,25 @@ defproc sink (chan?(int<D_WIDTH>) I)
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
+ * - SINK_ID: ID of the sink (used in log output)
  * - F_ID: ID of the file to save into
+ * - VERBOSITY: Verbosity with which to print to the file
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, F_ID; pbool LOG>
+export template<pint D_WIDTH, SINK_ID, VERBOSITY, F_ID; pbool LOG>
 defproc sink_file (chan?(int<D_WIDTH>) I)
 {
     int<D_WIDTH> buf;
-    bool dummy;
+    bool success;
+    int write_id;
 
     chp {
 
         // if logging is enabled, create the log file
         [ LOG ->
-            dummy := file_create (F_ID);
+            write_id := file_openw (F_ID);
+            assert (write_id != 0, "Sink ", SINK_ID, " failed to open output file with ID ", F_ID, "!")
         [] else ->
             skip
         ]
@@ -95,7 +98,8 @@ defproc sink_file (chan?(int<D_WIDTH>) I)
             I?buf;
 
             [ LOG ->
-                dummy := file_write(F_ID, buf) 
+                success := file_write_sink (write_id, VERBOSITY, SINK_ID, buf);
+                assert (success, "Sink ", SINK_ID, " failed to write to output file!")
             [] else ->
                 skip
             ]

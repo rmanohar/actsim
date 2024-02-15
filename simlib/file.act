@@ -2,7 +2,7 @@
  *
  *  This file is part of ACT standard library
  *
- *  Copyright (c) 2022 Rajit Manohar
+ *  Copyright (c) 2024 Fabian Posch
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -18,10 +18,22 @@
  *
  **************************************************************************
  */
- 
-import "sim/util.act";
-import "sim/scoreboards.act";
-import "sim/sources.act";
-import "sim/sinks.act";
-import "sim/rand.act";
-import "sim/file.act"
+
+namespace sim {
+
+namespace file {
+
+// read files
+function openr (int<32> file_id) : int<32>;
+function read (int<32> reader_id) : int<64>;
+function eof (int<32> reader_id) : bool;
+function closer (int<32> reader_id) : bool;
+
+// write files
+function openw (int<32> file_id) : int<32>;
+function write (int<32> writer_id; int<64> val) : bool;
+function closew (int<32> writer_id) : bool;
+
+}
+
+}
