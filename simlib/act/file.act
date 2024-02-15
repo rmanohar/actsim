@@ -24,15 +24,15 @@ namespace sim {
 namespace file {
 
 // read files
-function openr (int<32> file_id) : int<32>;
-function read (int<32> reader_id) : int<64>;
-function eof (int<32> reader_id) : bool;
-function closer (int<32> reader_id) : bool;
+export function openr (int<32> file_id) : int<32>;
+export function read (int<32> reader_id) : int<64>;
+export function eof (int<32> reader_id) : bool;
+export function closer (int<32> reader_id) : bool;
 
 // write files
-function openw (int<32> file_id) : int<32>;
-function write (int<32> writer_id; int<64> val) : bool;
-function closew (int<32> writer_id) : bool;
+export function openw (int<32> file_id) : int<32>;
+export function write (int<32> writer_id; int<64> val) : bool;
+export function closew (int<32> writer_id) : bool;
 
 }
 
