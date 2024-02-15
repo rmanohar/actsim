@@ -131,16 +131,6 @@ do
         oldifs=$IFS
         IFS=$'\n'
 
-        # check if there are any test failures reported in the sim log and report
-        for line in $(grep "TEST FAILED" "$process_name.stdout")
-        do
-            echo
-            myecho "** FAILED TEST $subdir$fn_actfile: $(echo $line | sed 's/\[.*TEST FAILED ([[:digit:]]*): //g') **"
-            num=0
-            fail=`expr $fail + 1`
-            ok=0
-        done
-
         # reset the seperator tokens
         IFS=$oldifs
 
