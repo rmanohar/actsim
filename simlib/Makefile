@@ -37,10 +37,10 @@ include $(ACT_HOME)/scripts/Makefile.std
 
 .PHONY: regression cleantest
 
-regression_lib:
+regression:
 	cd test && ./generate_regression_truth.sh
 
-cleantest_lib:
+cleantest:
 	cd test && ./cleantest.sh
 
 
