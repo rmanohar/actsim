@@ -35,6 +35,15 @@ SRCS=$(OBJS:.os=.cc)
 
 include $(ACT_HOME)/scripts/Makefile.std
 
+.PHONY: regression cleantest
+
+regression_lib:
+	cd test && ./generate_regression_truth.sh
+
+cleantest_lib:
+	cd test && ./cleantest.sh
+
+
 $(SHLIB): $(OBJS)
 	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS) $(SHLIBCOMMON)
 
