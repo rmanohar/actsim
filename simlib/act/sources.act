@@ -26,6 +26,10 @@ namespace sim {
  *
  * Use this if you need the simplest of sources
  *
+ * Ports:
+ * - O: Token output
+ * - enable: sink only consumes if flag set to true
+ *
  * Features:
  * - Static output token generation
  *
@@ -37,10 +41,13 @@ namespace sim {
  *
  */
 export template<pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
-defproc source_static (chan!(int<D_WIDTH>) O)
+defproc source_static (chan!(int<D_WIDTH>) O; bool enable)
 {
     chp {
         *[
+            // wait on enable flag
+            [enable];
+
             O!VALUE;
 
             // log the value if requested
@@ -72,11 +79,14 @@ defproc source_static (chan!(int<D_WIDTH>) O)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_ID; pbool LOG>
-defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     chp {
         (, i : OUT_CHANNELS : 
             *[
+                // wait on enable flag
+                [enable];
+
                 O[i]!VALUE;
 
                 [ LOG ->
@@ -95,6 +105,10 @@ defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
  * Use this if you need a source which outputs a sequence
  * of values (repeatedly)
  *
+ * Ports:
+ * - O: Token output
+ * - enable: sink only consumes if flag set to true
+ *
  * Features:
  * - Outputs sequence of tokens
  * - Can be set to repeat the sequence indefinitely
@@ -109,7 +123,7 @@ defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
  *
  */
 export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_sequence (chan!(int<D_WIDTH>) O)
+defproc source_sequence (chan!(int<D_WIDTH>) O; bool enable)
 {
     int i;
     int<D_WIDTH> buf;
@@ -119,7 +133,10 @@ defproc source_sequence (chan!(int<D_WIDTH>) O)
             i := 0; 
             *[ i < N -> 
                 // select the right element
-                [([]k:N: i=k -> buf := DATA[k])]; 
+                [([]k:N: i=k -> buf := DATA[k])];
+
+                // wait on enable flag
+                [enable]; 
 
                 // and send it
                 O!buf;
@@ -146,6 +163,10 @@ defproc source_sequence (chan!(int<D_WIDTH>) O)
  * Use this if you need a source which outputs a sequence
  * of values (repeatedly) to multiple outputs
  *
+ * Ports:
+ * - O: Token output
+ * - enable: sink only consumes if flag set to true
+ *
  * Features:
  * - Outputs sequence of tokens
  * - Can be set to repeat the sequence indefinitely
@@ -162,7 +183,7 @@ defproc source_sequence (chan!(int<D_WIDTH>) O)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int i;
     int<D_WIDTH> buf;
@@ -174,7 +195,10 @@ defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
             *[ i < N -> 
 
                 // select the right data element
-                [([]k:N: i=k -> buf := DATA[k])]; 
+                [([]k:N: i=k -> buf := DATA[k])];
+
+                // wait on enable flag
+                [enable];
                 
                 // and send it to every channel
                 (, j : OUT_CHANNELS :
@@ -216,9 +240,12 @@ export function closer (int<32> reader_id) : bool;
  * - Can be set to repeat the sequence indefinitely
  *
  * Assumptions:
- * - File is only accessed by one instance
  * - File has at least one value entry
  * - Values in file are newline separated
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: sink only consumes if flag set to true
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
@@ -229,7 +256,7 @@ export function closer (int<32> reader_id) : bool;
  *
  */
 export template<pint D_WIDTH, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_file (chan!(int<D_WIDTH>) O)
+defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
 {
     int<D_WIDTH> buf;
     int reader_id;
@@ -245,6 +272,9 @@ defproc source_file (chan!(int<D_WIDTH>) O)
 
             // read until the file reports EOF and send it to the output channel
             *[
+                // wait on enable flag
+                [enable];
+
                 // read, then send the value
                 buf := file::read(reader_id);
                 O!buf;
@@ -279,9 +309,12 @@ defproc source_file (chan!(int<D_WIDTH>) O)
  * - All outputs complete send before next token is sent
  *
  * Assumptions:
- * - File is only accessed by one instance
  * - File has at least one value entry
  * - Values in file are newline separated
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: sink only consumes if flag set to true
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
@@ -293,7 +326,7 @@ defproc source_file (chan!(int<D_WIDTH>) O)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
+defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     bool success;
     int<D_WIDTH> buf;
@@ -309,6 +342,9 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
 
             // read until the file reports EOF and send it to the output channel
             *[
+                // wait on enable flag
+                [enable];
+
                 buf := file::read(reader_id);
                 
                 (, i : OUT_CHANNELS : 
