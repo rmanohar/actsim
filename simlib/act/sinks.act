@@ -26,6 +26,10 @@ namespace sim {
  *
  * Use this if you need the simplest of sinks
  *
+ * Ports:
+ * - I: Token input
+ * - enable: sink only consumes if flag set to true
+ *
  * Features:
  * - Token logging
  *
@@ -69,6 +73,10 @@ export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id
  *
  * Use this if you need a simple sink that can dump
  * received tokens into a log file
+ *
+ * Ports:
+ * - I: Token input
+ * - enable: sink only consumes if flag set to true
  *
  * Features:
  * - Token logging into file
