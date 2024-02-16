@@ -1,0 +1,3 @@
+watch src.O[0]
+watch src.O[1]
+step 50

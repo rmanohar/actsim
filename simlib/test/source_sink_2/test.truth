@@ -1,0 +1,23 @@
+ : send-blocked value: 5 (0x5)
+ : send-blocked value: 5 (0x5)
+: recv value: 5 (0x5)
+: recv value: 5 (0x5)
+ <snk0>  Sink 0: Received value 5 (0x5)
+ <snk1>  Sink 1: Received value 5 (0x5)
+ : send complete
+ : send complete
+ <src>  Source 0 (Channel 0): Sent value 5 (0x5)
+ <src>  Source 0 (Channel 1): Sent value 5 (0x5)
+: recv-blocked
+: recv-blocked
+ : send value: 5 (0x5)
+ : send value: 5 (0x5)
+ <src>  Source 0 (Channel 0): Sent value 5 (0x5)
+ <src>  Source 0 (Channel 1): Sent value 5 (0x5)
+: recv-wakeup value: 5 (0x5)
+: recv-wakeup value: 5 (0x5)
+ <snk0>  Sink 0: Received value 5 (0x5)
+ <snk1>  Sink 1: Received value 5 (0x5)
+ : send-blocked value: 5 (0x5)
+ : send-blocked value: 5 (0x5)
+: recv value: 5 (0x5)

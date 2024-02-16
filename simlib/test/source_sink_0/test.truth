@@ -1,0 +1,10 @@
+ <src>  snk.I : send-blocked value: 5 (0x5)
+ <snk>  snk.I: recv value: 5 (0x5)
+ <src>  snk.I : send complete
+ <snk>  Sink 0: Received value 5 (0x5)
+ <src>  Source 0: Sent value 5 (0x5)
+ <snk>  snk.I: recv-blocked
+ <src>  snk.I : send value: 5 (0x5)
+ <snk>  snk.I: recv-wakeup value: 5 (0x5)
+ <src>  Source 0: Sent value 5 (0x5)
+ <snk>  Sink 0: Received value 5 (0x5)
