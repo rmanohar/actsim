@@ -236,13 +236,13 @@ defproc source_file (chan!(int<D_WIDTH>) O)
     bool success;
 
     chp {
-
-        // open the file and get a reader ID
-        reader_id := file::openr (F_ID);
-        assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
-
         // if we are set to loop, loop forever
         *[
+
+            // open the file and get a reader ID
+            reader_id := file::openr (F_ID);
+            assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
+
             // read until the file reports EOF and send it to the output channel
             *[
                 // read, then send the value
@@ -300,13 +300,13 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS])
     int reader_id;
 
     chp {
-
-        // open the file and get a reader ID
-        reader_id := file::openr (F_ID);
-        assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
-
         // if we are set to loop, loop forever
         *[
+
+            // open the file and get a reader ID
+            reader_id := file::openr (F_ID);
+            assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
+
             // read until the file reports EOF and send it to the output channel
             *[
                 buf := file::read(reader_id);
