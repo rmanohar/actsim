@@ -24,7 +24,7 @@
 #include <common/array.h>
 
 /* use local copy from glibc for platform-independent generation */
-extern int local_rand_r (unsigned int *seed);
+extern "C" int local_rand_r (unsigned int *seed);
 
 struct random_state {
   unsigned seed;
@@ -53,7 +53,7 @@ L_A_DECL (struct random_state, _rstate);
   } while (0)
 
 
-extern expr_res actsim_rand_init (int argc, struct expr_res *args)
+extern "C" expr_res actsim_rand_init (int argc, struct expr_res *args)
 {
   struct random_state *r;
   expr_res ret;
@@ -83,7 +83,7 @@ extern expr_res actsim_rand_init (int argc, struct expr_res *args)
 }
 
 
-extern expr_res actsim_rand_get (int argc, struct expr_res *args)
+extern "C" expr_res actsim_rand_get (int argc, struct expr_res *args)
 {
   struct random_state *r;
   expr_res ret;
@@ -112,7 +112,7 @@ extern expr_res actsim_rand_get (int argc, struct expr_res *args)
   return ret;
 }
 
-extern expr_res actsim_rand_seed (int argc, struct expr_res *args)
+extern "C" expr_res actsim_rand_seed (int argc, struct expr_res *args)
 {
   expr_res ret;
   ret.width = 1;
@@ -127,7 +127,7 @@ extern expr_res actsim_rand_seed (int argc, struct expr_res *args)
   return ret;
 }
 
-extern expr_res actsim_rand_init_range (int argc, struct expr_res *args)
+extern "C" expr_res actsim_rand_init_range (int argc, struct expr_res *args)
 {
   struct random_state *r;
   expr_res ret;

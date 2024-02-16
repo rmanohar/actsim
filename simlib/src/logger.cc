@@ -47,7 +47,7 @@
  * @param args argument vector
  * @return expr_res 0 on success, 1 otherwise
  */
-extern expr_res actsim_file_write_log(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_write_log(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 1;  // on error we return 1

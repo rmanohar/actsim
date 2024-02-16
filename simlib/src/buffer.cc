@@ -37,7 +37,7 @@ std::vector<std::unique_ptr<std::queue<expr_res>>> buffers;
  * @param args Argument vector
  * @return expr_res Buffer ID
  */
-extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_buffer_create(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 32;
     ret.v = 0;
@@ -66,7 +66,7 @@ extern expr_res actsim_buffer_create(int argc, struct expr_res* args) {
  * @param args Argument vector
  * @return expr_res 1 on success, 0 otherwise
  */
-extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_buffer_push(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 0;
@@ -103,7 +103,7 @@ extern expr_res actsim_buffer_push(int argc, struct expr_res* args) {
  * @param args Argument vector
  * @return expr_res Is buffer empty?
  */
-extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 1;  // on fault buffer is shown as empty
@@ -139,7 +139,7 @@ extern expr_res actsim_buffer_empty(int argc, struct expr_res* args) {
  * @param args Argument vector
  * @return expr_res Value removed from buffer
  */
-extern expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 64;
     ret.v = 0;

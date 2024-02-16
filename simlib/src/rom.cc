@@ -26,7 +26,7 @@
 
 L_A_DECL (FILE *, rom_fp);
 
-extern expr_res actsim_read_rom (int argc, struct expr_res *args)
+extern "C" expr_res actsim_read_rom (int argc, struct expr_res *args)
 {
   expr_res ret;
   ret.width = 64; 
@@ -66,7 +66,7 @@ extern expr_res actsim_read_rom (int argc, struct expr_res *args)
   return ret; 
 }
 
-extern expr_res actsim_close_rom (int argc, struct expr_res *args)
+extern "C" expr_res actsim_close_rom (int argc, struct expr_res *args)
 {
   expr_res ret;
   ret.width = 64; 

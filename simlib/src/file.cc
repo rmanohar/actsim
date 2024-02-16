@@ -50,7 +50,7 @@ size_t writer_cnt = 0;
  * If this function is defined, ACT will automatically
  * call this function to synchronize the state.
  */
-extern void _builtin_update_config(void* v) {
+extern "C" void _builtin_update_config(void* v) {
     config_set_state((struct Hashtable*)v);
 }
 
@@ -70,7 +70,7 @@ extern void _builtin_update_config(void* v) {
  * @param args argument vector
  * @return expr_res reader ID if file open successful; 0 otherwise
  */
-extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_openr(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 32;
     ret.v = 0;
@@ -161,7 +161,7 @@ extern expr_res actsim_file_openr(int argc, struct expr_res* args) {
  * @param args argument vector
  * @return expr_res Value read from the input file
  */
-extern expr_res actsim_file_read(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 64;
     ret.v = 0;
@@ -177,7 +177,7 @@ extern expr_res actsim_file_read(int argc, struct expr_res* args) {
     size_t reader_id = args[0].v;
 
     // check if we have the have the requested file has already been opened
-    if (input_streams.find(reader_id) != input_streams.end()) {
+    if (input_streams.find(reader_id) == input_streams.end()) {
         std::cerr << "actim_file_read: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
@@ -194,9 +194,83 @@ extern expr_res actsim_file_read(int argc, struct expr_res* args) {
     // read the value from the file
     unsigned long value;
 
-    if (!(input_streams[reader_id].first >> value)) {
-        std::cerr << "actim_file_read: Failed to read from file!" << std::endl;
-        return ret;
+    // read new line and skip if empty
+    bool empty = false;
+    bool end = false;
+    std::string line;
+
+    do {
+        if (!std::getline(input_streams[reader_id].first, line)) {
+            end = true;
+            continue;
+        }
+
+        // remove comments from line
+        line = line.substr(0, line.find("#"));
+
+        // remove leading whitespaces
+        line = line.substr(line.find_first_not_of("\t\n "), std::string::npos);
+
+        // check if line empty
+        if (line.empty()) {
+            empty = true;
+            continue;
+        }
+
+        size_t base = 10;
+
+        // check if base 16
+        if (line.rfind("0x", 0) == 0) {
+            // remove the characters and set the base
+            line = line.substr(2, std::string::npos);
+            base = 16;
+        }
+
+        // check if base 2
+        if (line.rfind("0b", 0) == 0) {
+            // remove the characters and set the base
+            line = line.substr(2, std::string::npos);
+            base = 2;
+        }
+
+        // check if base 8
+        if (line.rfind("0o", 0) == 0) {
+            // remove the characters and set the base
+            line = line.substr(2, std::string::npos);
+            base = 8;
+        }
+
+        size_t end;
+
+        // read into value
+        try {
+            value = std::stoul(line, &end, base);
+        } catch (std::invalid_argument& e) {
+            std::cerr << "actim_file_read: Could not convert line '" << line
+                      << "' into unsigned long value of base " << base
+                      << std::endl;
+            value = 0;
+        } catch (std::out_of_range& e) {
+            std::cerr << "actim_file_read: Conversion of line '" << line
+                      << "' into unsigned long value of base " << base
+                      << " is out of range!" << std::endl;
+            value = 0;
+        }
+
+        // make sure there wasn't some trailing garbage in the line
+        auto remainder = line.substr(end, std::string::npos);
+        if (!remainder.empty()) {
+            std::cerr << "actim_file_read: There was more content left in the "
+                         "line that was ignored. Remaining content: '"
+                      << remainder << "'" << std::endl;
+        }
+
+    } while (empty && !end);
+
+    if (end) {
+        std::cerr << "actim_file_read: Reached end of input file while trying "
+                     "to read line. Trailing non-value or newline?"
+                  << std::endl;
     }
 
     ret.v = value;
@@ -214,7 +288,7 @@ extern expr_res actsim_file_read(int argc, struct expr_res* args) {
  * @param args argument vector
  * @return expr_res 0 if not at EOF of file, 1 otherwise (includes error)
  */
-extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_eof(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
     ret.v = 1;  // if anything goes wrong, it's better the caller thinks we're
@@ -258,12 +332,12 @@ extern expr_res actsim_file_eof(int argc, struct expr_res* args) {
  *
  * @param argc number of arguments in args
  * @param args argument vector
- * @return expr_res 0 on success, 1 otherwise
+ * @return expr_res 1 on success, 0 otherwise
  */
-extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_closer(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
-    ret.v = 1;  // if there is any error, we return 1
+    ret.v = 0;  // if there is any error, we return 0 (boolean like)
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
@@ -294,7 +368,7 @@ extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
     // close file and erase the reader ID
     input_streams[reader_id].first.close();
     input_streams.erase(reader_id);
-    ret.v = 0;
+    ret.v = 1;
 
     // reduce the reference counter
     --input_files[file_id];
@@ -316,7 +390,7 @@ extern expr_res actsim_file_closer(int argc, struct expr_res* args) {
  * @param args argument vector
  * @return expr_res writer ID if file open successful; 0 otherwise
  */
-extern expr_res actsim_file_openw(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_openw(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 32;
     ret.v = 0;
@@ -398,12 +472,12 @@ extern expr_res actsim_file_openw(int argc, struct expr_res* args) {
  *
  * @param argc number of arguments in args
  * @param args argument vector
- * @return expr_res 0 on success, 1 otherwise
+ * @return expr_res 1 on success, 0 otherwise
  */
-extern expr_res actsim_file_write(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_write(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
-    ret.v = 1;  // on error we return 1
+    ret.v = 9;  // on error we return 0 (boolean like)
 
     // make sure we have the appropriate amount of arguments
     if (argc != 2) {
@@ -440,9 +514,10 @@ extern expr_res actsim_file_write(int argc, struct expr_res* args) {
  */
 bool actsim_file_write_core(size_t writer_id, std::string str) {
     // make sure the file has been opened for writing
-    if (output_streams.find(writer_id) != output_streams.end()) {
-        std::cerr << "actim_file_write_core: Unknown writer ID, open a file first!"
-                  << std::endl;
+    if (output_streams.find(writer_id) == output_streams.end()) {
+        std::cerr
+            << "actim_file_write_core: Unknown writer ID, open a file first!"
+            << std::endl;
         return false;
     }
 
@@ -470,12 +545,12 @@ bool actsim_file_write_core(size_t writer_id, std::string str) {
  *
  * @param argc number of arguments in args
  * @param args argument vector
- * @return expr_res 0 on success, 1 otherwise
+ * @return expr_res 1 on success, 0 otherwise
  */
-extern expr_res actsim_file_closew(int argc, struct expr_res* args) {
+extern "C" expr_res actsim_file_closew(int argc, struct expr_res* args) {
     expr_res ret;
     ret.width = 1;
-    ret.v = 1;  // on error we return 1
+    ret.v = 0;  // on error we return 0 (boolean like)
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
@@ -505,7 +580,7 @@ extern expr_res actsim_file_closew(int argc, struct expr_res* args) {
     // close file and erase the writer ID
     output_streams[writer_id].first.close();
     output_streams.erase(writer_id);
-    ret.v = 0;
+    ret.v = 1;
 
     // remove the file from the list of open files
     output_files.erase(file_id);
