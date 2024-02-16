@@ -36,12 +36,15 @@ namespace sim {
  *
  */
 export template<pint D_WIDTH, SINK_ID; pbool LOG>
-defproc sink (chan?(int<D_WIDTH>) I)
+defproc sink (chan?(int<D_WIDTH>) I; bool enable)
 {
     int<D_WIDTH> buf;
 
     chp {
         *[
+            // wait for sink to get enabled
+            [enable];
+
             // receive the data
             I?buf;
 
@@ -79,7 +82,7 @@ export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id
  *
  */
 export template<pint D_WIDTH, SINK_ID, VERBOSITY, F_ID; pbool LOG>
-defproc sink_file (chan?(int<D_WIDTH>) I)
+defproc sink_file (chan?(int<D_WIDTH>) I; bool enable)
 {
     int<D_WIDTH> buf;
     bool success;
@@ -97,6 +100,9 @@ defproc sink_file (chan?(int<D_WIDTH>) I)
 
         // receive the data and dump it into the file
         *[
+            // wait for sink to be enabled
+            [enable];
+
             I?buf;
 
             [ LOG ->
