@@ -165,13 +165,20 @@ function actsim_buffer_create () : int<32>;
  * Features:
  * - Infinite capacity (theoretically)
  *
+ * Ports:
+ * - I: Buffer input
+ * - O: Buffer output
+ * - enable_in: buffer only consumes if flag set to true
+ * - enable_out: buffer only emits if flag set to true
+ * - empty: flag signalling that the buffer is empty. Do not write to this!
+ *
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - LOG: Logger enable parameter
  *
  */
 export template<pint D_WIDTH; pbool LOG>
-defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty)
+defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
 {
     // the bit width must be smaller than 64 bit (limitation of C function import)
     {D_WIDTH < 64};
@@ -186,6 +193,9 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty)
 
         // feeder loop
         *[
+            // wait on input enable flag
+            [enable_in];
+            
             // read a new input value
             I?write_buf;
 
@@ -209,6 +219,9 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty)
         *[
             // wait for the buffer to become not empty
             [~empty];
+
+            // wait on output enable flag
+            [enable_out];
 
             // grab the next value from the buffer
             read_buf := actsim_buffer_pop (id);
