@@ -1,1 +1,5 @@
-*.so
+**/*.so
+
+# Test artifacts
+**/*.stderr
+**/*.stdout
