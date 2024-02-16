@@ -200,6 +200,9 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
     std::string line;
 
     do {
+        end = false;
+        empty = false;
+
         if (!std::getline(input_streams[reader_id].first, line)) {
             end = true;
             continue;
@@ -207,6 +210,12 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
 
         // remove comments from line
         line = line.substr(0, line.find("#"));
+
+        // check if line empty
+        if (line.empty()) {
+            empty = true;
+            continue;
+        }
 
         // remove leading whitespaces
         line = line.substr(line.find_first_not_of("\t\n "), std::string::npos);
@@ -240,11 +249,11 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
             base = 8;
         }
 
-        size_t end;
+        size_t end_pos;
 
         // read into value
         try {
-            value = std::stoul(line, &end, base);
+            value = std::stoul(line, &end_pos, base);
         } catch (std::invalid_argument& e) {
             std::cerr << "actim_file_read: Could not convert line '" << line
                       << "' into unsigned long value of base " << base
@@ -258,7 +267,7 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
         }
 
         // make sure there wasn't some trailing garbage in the line
-        auto remainder = line.substr(end, std::string::npos);
+        auto remainder = line.substr(end_pos, std::string::npos);
         if (!remainder.empty()) {
             std::cerr << "actim_file_read: There was more content left in the "
                          "line that was ignored. Remaining content: '"
