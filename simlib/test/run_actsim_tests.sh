@@ -217,9 +217,9 @@ then
 
     if [ $fail -eq 1 ]
     then
-        echo "--- Summary: 1 test failed ---"
+        echo "--- Summary: 1/$count test failed ---"
     else
-        echo "--- Summary: $fail tests failed ---"
+        echo "--- Summary: $fail/$count tests failed ---"
     fi
     exit 1
 else
