@@ -1,3 +1,4 @@
 watch src.O
 watch snk.I
-step 20
+set Vdd 1
+step 25

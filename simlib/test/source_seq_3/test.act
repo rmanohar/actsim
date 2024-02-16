@@ -1,10 +1,11 @@
 /*
 
-Test basic functionality of sequence source with logging off and looping on
+    Test basic functionality of sequence source with logging off and looping on
 
 */
 
 import sim;
+import globals;
 
 defproc test ()
 {
@@ -16,4 +17,6 @@ defproc test ()
     sim::sink<8, 0, true> snk;
 
     snk.I = src.O;
+    src.enable = Vdd;
+    snk.enable = Vdd;
 }

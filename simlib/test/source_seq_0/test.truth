@@ -1,12 +1,12 @@
- <snk>  snk.I: recv-blocked
- <src>  snk.I : send value: 3 (0x3)
- <snk>  snk.I: recv-wakeup value: 3 (0x3)
- <src>  Source 0: Sent value 3 (0x3)
- <snk>  Sink 0: Received value 3 (0x3)
- <snk>  snk.I: recv-blocked
- <src>  snk.I : send value: 9 (0x9)
- <snk>  snk.I: recv-wakeup value: 9 (0x9)
- <src>  Source 0: Sent value 9 (0x9)
- <snk>  Sink 0: Received value 9 (0x9)
- <snk>  snk.I: recv-blocked
- <src>  Source 0: Sequence ended.
+<snk>  snk.I: recv-blocked
+<src>  snk.I : send value: 3 (0x3)
+<snk>  snk.I: recv-wakeup value: 3 (0x3)
+<src>  Source 0: Sent value 3 (0x3)
+<snk>  Sink 0: Received value 3 (0x3)
+<snk>  snk.I: recv-blocked
+<src>  snk.I : send value: 9 (0x9)
+<snk>  snk.I: recv-wakeup value: 9 (0x9)
+<src>  Source 0: Sent value 9 (0x9)
+<snk>  Sink 0: Received value 9 (0x9)
+<snk>  snk.I: recv-blocked
+<src>  Source 0: Sequence ended.

@@ -1,10 +1,11 @@
 /*
 
-Test basic functionality of sequence multi source with logging on and looping off
+    Test basic functionality of sequence multi source with logging on and looping off
 
 */
 
 import sim;
+import globals;
 
 defproc test ()
 {
@@ -18,4 +19,8 @@ defproc test ()
 
     snk0.I = src.O[0];
     snk1.I = src.O[1];
+
+    src.enable = Vdd;
+    snk0.enable = Vdd;
+    snk1.enable = Vdd;
 }
