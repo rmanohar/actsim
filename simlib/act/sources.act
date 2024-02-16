@@ -28,7 +28,7 @@ namespace sim {
  *
  * Ports:
  * - O: Token output
- * - enable: sink only consumes if flag set to true
+ * - enable: source only emits if flag set to true
  *
  * Features:
  * - Static output token generation
@@ -107,7 +107,7 @@ defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
  *
  * Ports:
  * - O: Token output
- * - enable: sink only consumes if flag set to true
+ * - enable: source only emits if flag set to true
  *
  * Features:
  * - Outputs sequence of tokens
@@ -165,7 +165,7 @@ defproc source_sequence (chan!(int<D_WIDTH>) O; bool enable)
  *
  * Ports:
  * - O: Token output
- * - enable: sink only consumes if flag set to true
+ * - enable: source only emits if flag set to true
  *
  * Features:
  * - Outputs sequence of tokens
@@ -245,7 +245,7 @@ export function closer (int<32> reader_id) : bool;
  *
  * Ports:
  * - O: Token output
- * - enable: sink only consumes if flag set to true
+ * - enable: source only emits if flag set to true
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
@@ -314,7 +314,7 @@ defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
  *
  * Ports:
  * - O: Token output
- * - enable: sink only consumes if flag set to true
+ * - enable: source only emits if flag set to true
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
