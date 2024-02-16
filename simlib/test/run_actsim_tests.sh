@@ -111,6 +111,34 @@ do
             ok=0
         fi
 
+        # make sure regression test output exists
+        if [ ! -f "$process_name.truth" ]
+        then
+            echo
+            myecho "** FAILED TEST $subdir$fn_actfile: no regression truth file found **"
+            fail=`expr $fail + 1`
+            ok=0
+            cd ..
+            echo
+            echo
+            myecho " "
+            continue 1
+        fi
+
+        # make sure regression test stderr output exists
+        if [ ! -f "$process_name.truth.err" ]
+        then
+            echo
+            myecho "** FAILED TEST $subdir$fn_actfile: no regression truth stderr file found **"
+            fail=`expr $fail + 1`
+            ok=0
+            cd ..
+            echo
+            echo
+            myecho " "
+            continue 1
+        fi
+
         # check regression tests
         if [ $ok -eq 1 ] && [ -f "$process_name.truth" ]
         then
@@ -122,6 +150,22 @@ do
             then
                 echo 
                 myecho "** FAILED REGRESSION TEST $subdir$fn_actfile: stdout mismatch **"
+                fail=`expr $fail + 1`
+                ok=0
+            fi
+
+            # remove the processed output
+            rm -f $process_name.processed
+        fi
+
+        # check regression tests error
+        if [ $ok -eq 1 ] && [ -f "$process_name.truth.err" ]
+        then
+
+            if ! cmp $process_name.stderr $process_name.truth.err >/dev/null 2>/dev/null
+            then
+                echo 
+                myecho "** FAILED REGRESSION TEST $subdir$fn_actfile: stderr mismatch **"
                 fail=`expr $fail + 1`
                 ok=0
             fi
