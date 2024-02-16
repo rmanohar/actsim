@@ -1,0 +1,25 @@
+/*
+
+    Test basic functionality of multi-ended file source with logging on and looping off
+    Source is disabled
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint F_ID = 0;
+
+    sim::source_file_multi<8, 2, F_ID, false, 0, true> src;
+    sim::sink<8, 0, true> snk0;
+    sim::sink<8, 1, true> snk1;
+
+    snk0.I = src.O[0];
+    snk1.I = src.O[1];
+
+    snk0.enable = Vdd;
+    snk1.enable = Vdd;
+    src.enable = GND;
+}
