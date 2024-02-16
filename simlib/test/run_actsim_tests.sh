@@ -144,7 +144,7 @@ do
         then
 
             # strip timing from test output
-            sed 's/\[.*\]//g' $process_name.stdout > $process_name.processed
+            sed -E 's/(\[.*\]\s*)(<.*>.*)/\2/g' $process_name.stdout > $process_name.processed
 
             if ! cmp $process_name.processed $process_name.truth >/dev/null 2>/dev/null
             then
