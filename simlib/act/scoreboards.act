@@ -21,7 +21,7 @@
 
 namespace sim {
 
-namespace scoreboard {
+export namespace scoreboard {
 
 /*
  * Lockstep scoreboard
@@ -59,7 +59,7 @@ defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_
 
         *[
             // receive the data
-            (, i : IN_CHANNELS : IN[i]?input[i]);
+            (, i : IN_CHANNELS : IN[i]?input[i]),
             (, i : OUT_CHANNELS : OUT_M[i]?output_m[i]),
             (, j : OUT_CHANNELS : OUT_D[j]?output_d[j]);
 
