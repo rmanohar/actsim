@@ -162,7 +162,7 @@ extern "C" expr_res actsim_buffer_pop(int argc, struct expr_res* args) {
     }
 
     // make sure the buffer isn't empty
-    if (!buffers[index]->empty()) {
+    if (buffers[index]->empty()) {
         std::cerr << "actsim_buffer_pop: Buffer pop called but buffer is empty!"
                   << std::endl;
         return ret;
