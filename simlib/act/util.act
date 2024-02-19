@@ -170,7 +170,7 @@ function buffer_create () : int<32>;
  * - O: Buffer output
  * - enable_in: buffer only consumes if flag set to true
  * - enable_out: buffer only emits if flag set to true
- * - empty: flag signalling that the buffer is empty. Do not write to this!
+ * - empty: DNC! Used for correct simulation (known issue in simulator)
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
