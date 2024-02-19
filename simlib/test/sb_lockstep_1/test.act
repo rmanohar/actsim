@@ -11,7 +11,7 @@ defproc test ()
 {
     pint D_WIDTH = 8;
 
-    sim::scoreboard::lockstep<D_WIDTH, 1, 1, true> sb;
+    sim::scoreboard::lockstep<D_WIDTH, 1, 1, 0, true> sb;
 
     chp {
         // send some input data

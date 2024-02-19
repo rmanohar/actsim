@@ -1,1 +1,1 @@
-<sb>  TEST FAILED (0): inputs {0: 6 (0x6) }, outputs {0: expected 12 (0xc), got 11 (0xb) }
+<sb>  Scoreboard 0: TEST FAILED (0); inputs {0: 6 (0x6); }, outputs {0: expected 12 (0xc), got 11 (0xb); }

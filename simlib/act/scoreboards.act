@@ -43,10 +43,11 @@ export namespace scoreboard {
  * - D_WIDTH: Data output bus width
  * - IN_CHANNELS: Number of input channels going to the model / design
  * - OUT_CHANNELS: Number of output channels coming from the model / design
+ * - SB_ID: ID of the scoreboard (used in log output)
  * - VERBOSE_TESTING: If false, only failed tests are logged
  *
  */
-export template <pint D_WIDTH, IN_CHANNELS, OUT_CHANNELS; pbool VERBOSE_TESTING>
+export template <pint D_WIDTH, IN_CHANNELS, OUT_CHANNELS, SB_ID; pbool VERBOSE_TESTING>
 defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
 {
     int<D_WIDTH> input[IN_CHANNELS], output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
@@ -72,10 +73,10 @@ defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_
                 // only print successful tests if verbose testing is enabled
                 [ VERBOSE_TESTING -> (
                     log_st ("");
-                    log_p ("TEST SUCCESS (", num, "): inputs {");
-                    (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                    log_p ("Scoreboard ", SB_ID, ": TEST SUCCESS (", num, "); inputs {");
+                    (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], "); "));
                     log_p ("}, outputs {");
-                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], ") "));
+                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], "); "));
                     log_p ("}");
                     log_nl ("")
                 )
@@ -85,10 +86,10 @@ defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_
             )
             []  else -> (
                 log_st ("");
-                log_p ("TEST FAILED (", num, "): inputs {");
-                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                log_p ("Scoreboard ", SB_ID, ": TEST FAILED (", num, "); inputs {");
+                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], "); "));
                 log_p ("}, outputs {");
-                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], ") "));
+                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], "); "));
                 log_p ("}");
                 log_nl ("")
             )];
@@ -114,10 +115,11 @@ defproc lockstep (chan?(int<D_WIDTH>) IN[IN_CHANNELS], OUT_M[OUT_CHANNELS], OUT_
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - OUT_CHANNELS: Number of output channels coming from the model / design where #tokens is identical
+ * - SB_ID: ID of the scoreboard (used in log output)
  * - VERBOSE_TESTING: If false, only failed tests are logged
  *
  */
-export template <pint D_WIDTH, OUT_CHANNELS; pbool VERBOSE_TESTING>
+export template <pint D_WIDTH, OUT_CHANNELS, SB_ID; pbool VERBOSE_TESTING>
 defproc deterministic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS])
 {
     int<D_WIDTH> output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
@@ -143,8 +145,8 @@ defproc deterministic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNE
                 // only print successful tests if verbose testing is enabled
                 [ VERBOSE_TESTING -> (
                     log_st ("");
-                    log_p ("TEST SUCCESS (", num, "): outputs {");
-                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], ") "));
+                    log_p ("Scoreboard ", SB_ID, ": TEST SUCCESS (", num, "); outputs {");
+                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], "); "));
                     log_p ("}");
                     log_nl ("")
                 ) 
@@ -154,8 +156,8 @@ defproc deterministic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNE
             )
             []  else -> (
                 log_st ("");
-                log_p ("TEST FAILED (", num, "): outputs {");
-                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], ") "));
+                log_p ("Scoreboard ", SB_ID, ": TEST FAILED (", num, "); outputs {");
+                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], "); "));
                 log_p ("}");
                 log_nl ("")
             )];
@@ -183,10 +185,11 @@ function token_fence (int<64> token) : bool;
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - IN_CHANNELS: Number of input channels going to the model / design where #tokens is identical
+ * - SB_ID: ID of the scoreboard (used in log output)
  * - VERBOSE_TESTING: If false, inputs are not logged
  *
  */
-export template <pint D_WIDTH, IN_CHANNELS; pbool VERBOSE_TESTING>
+export template <pint D_WIDTH, IN_CHANNELS, SB_ID; pbool VERBOSE_TESTING>
 defproc input_logger (chan?(int<D_WIDTH>) IN[IN_CHANNELS])
 {
     int<D_WIDTH> input[IN_CHANNELS];
@@ -203,8 +206,8 @@ defproc input_logger (chan?(int<D_WIDTH>) IN[IN_CHANNELS])
             // only print logged input tokens if verbose testing is enabled
             [ VERBOSE_TESTING -> (
                 log_st ("");
-                log_p ("INPUT TOKEN (", num, "): inputs {");
-                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], ") "));
+                log_p ("Scoreboard ", SB_ID, ": INPUT TOKEN (", num, "); inputs {");
+                (; i : IN_CHANNELS : log_p (i, ": ", input[i], "%x (0x", input[i], "); "));
                 log_p ("}");
                 log_nl ("")
             )

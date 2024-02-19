@@ -1,2 +1,2 @@
 WARNING: test<>: substituting chp model (requested prs, not found)
-WARNING: lockstep<8,2,2,t>: substituting chp model (requested prs, not found)
+WARNING: lockstep<8,2,2,0,t>: substituting chp model (requested prs, not found)
