@@ -139,10 +139,10 @@ defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[I
 }
 
 // external C functions for infinite buffer
-function actsim_buffer_push (int<32> buf_id; int<64> val) : bool;
-function actsim_buffer_empty (int<32> buf_id) : bool;
-function actsim_buffer_pop (int<32> buf_id) : int<64>;
-function actsim_buffer_create () : int<32>;
+function buffer_push (int<32> buf_id; int<64> val) : bool;
+function buffer_empty (int<32> buf_id) : bool;
+function buffer_pop (int<32> buf_id) : int<64>;
+function buffer_create () : int<32>;
 
 /*
  * Infinite capacity buffer
@@ -189,7 +189,8 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
 
     chp {
         // create a new buffer
-        id := actsim_buffer_create ();
+        id := buffer_create (),
+        empty := true;
 
         // feeder loop
         *[
@@ -200,7 +201,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             I?write_buf;
 
             // write the new value to the buffer
-            success := actsim_buffer_push (id, write_buf);
+            success := buffer_push (id, write_buf);
 
             // this has to always succeed
             assert (success, "Write to buffer failed!");
@@ -212,7 +213,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             ];
 
             // update the empty flag
-            empty := actsim_buffer_empty (id)
+            empty := buffer_empty (id)
         ],
 
         // consumer loop
@@ -224,7 +225,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             [enable_out];
 
             // grab the next value from the buffer
-            read_buf := actsim_buffer_pop (id);
+            read_buf := buffer_pop (id);
             // and send it
             O!read_buf;
 
@@ -235,7 +236,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             ];
 
             // update the status of the empty flag
-            empty := actsim_buffer_empty (id)
+            empty := buffer_empty (id)
         ]
     }
 }
