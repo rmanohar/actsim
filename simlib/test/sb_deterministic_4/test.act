@@ -1,0 +1,22 @@
+/*
+
+    Test basic functionality of deterministic scoreboard
+    Model output never sent
+
+*/
+
+import sim;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::scoreboard::deterministic<D_WIDTH, 1, true> sb;
+
+    chp {
+        // send the DUT data
+        sb.OUT_D[0]!12;
+
+        log ("Never sent model output")
+    }
+}
