@@ -58,7 +58,7 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
 
                 // check if we need to save
                 [ LOG ->
-                    log ("Logger ", LOG_ID, "(Channel ", i, "): Received value ", buf[i], "%x (0x", buf[i], ")")
+                    log ("Logger ", LOG_ID, " (Channel ", i, "): Received value ", buf[i], "%x (0x", buf[i], ")")
                 [] else ->
                     skip
                 ]
