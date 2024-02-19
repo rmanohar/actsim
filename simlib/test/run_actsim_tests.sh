@@ -118,6 +118,7 @@ do
             myecho "** FAILED TEST $subdir$fn_actfile: no regression truth file found **"
             fail=`expr $fail + 1`
             ok=0
+            num=0
             cd ..
             echo
             echo
@@ -132,6 +133,7 @@ do
             myecho "** FAILED TEST $subdir$fn_actfile: no regression truth stderr file found **"
             fail=`expr $fail + 1`
             ok=0
+            num=0
             cd ..
             echo
             echo
