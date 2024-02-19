@@ -21,7 +21,7 @@
 
 namespace sim {
 
-namespace file {
+export namespace file {
 
 // read files
 export function openr (int<32> file_id) : int<32>;
