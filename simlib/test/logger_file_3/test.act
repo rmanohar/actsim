@@ -1,0 +1,36 @@
+/*
+
+    Test basic functionality of file logger
+    Multiple channels, higher verbosity
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+    int out;
+
+    sim::logger_file<D_WIDTH, 2, 0, 0, 1, true> log;
+    sim::sink<D_WIDTH, 0, true> snk_0;
+    sim::sink<D_WIDTH, 1, true> snk_1;
+
+    snk_0.I = log.O[0];
+    snk_1.I = log.O[1];
+    snk_0.enable = Vdd;
+    snk_1.enable = Vdd;
+
+    chp {
+        log ("Sending data");
+
+        // send some input data
+        log.I[0]!5;
+        log.I[1]!10;
+        log.I[0]!6;
+        log.I[1]!15;
+
+        log ("Data sent")
+    }
+}

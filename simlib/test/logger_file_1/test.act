@@ -1,0 +1,31 @@
+/*
+
+    Test basic functionality of file logger
+    Logging is off
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+    int out;
+
+    sim::logger_file<D_WIDTH, 1, 0, 0, 0, false> log;
+    sim::sink<D_WIDTH, 0, true> snk;
+
+    snk.I = log.O[0];
+    snk.enable = Vdd;
+
+    chp {
+        log ("Sending data");
+
+        // send some input data
+        log.I[0]!5;
+        log.I[0]!10;
+
+        log ("Data sent")
+    }
+}

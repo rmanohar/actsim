@@ -1,0 +1,6 @@
+<>  Sending data
+<snk_0>  Sink 0: Received value 5 (0x5)
+<snk_1>  Sink 1: Received value 10 (0xa)
+<snk_0>  Sink 0: Received value 6 (0x6)
+<snk_1>  Sink 1: Received value 15 (0xf)
+<>  Data sent
