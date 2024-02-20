@@ -173,6 +173,19 @@ do
             fi
         fi
 
+        # some tests generate output files. if so, check that as well
+        if [ $ok -eq 1 ] && [ -f "_outfile_.0" ]
+        then
+
+            if ! cmp "_outfile_.0" "_outfile_.0.truth" >/dev/null 2>/dev/null
+            then
+                echo 
+                myecho "** FAILED REGRESSION TEST $subdir$fn_actfile: outfile mismatch **"
+                fail=`expr $fail + 1`
+                ok=0
+            fi
+        fi
+
         # set the seperator tokens to only newline, so we an iterate over grep output
         oldifs=$IFS
         IFS=$'\n'
