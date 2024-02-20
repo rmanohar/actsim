@@ -85,7 +85,7 @@ export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id
  * - D_WIDTH: Data output bus width
  * - SINK_ID: ID of the sink (used in log output)
  * - F_ID: ID of the file to save into
- * - VERBOSITY: Verbosity with which to print to the file
+ * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
  * - LOG: Logger enable parameter
  *
  */
