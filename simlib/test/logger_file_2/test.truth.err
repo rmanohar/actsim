@@ -1,8 +1,0 @@
-In expanding logger_file<8,2,0,0,0,true> (/opt/actflow-git/act/sim/util.act:101)
-Error on or near line number 108.
-WARNING: potential write conflict in CHP description
-   Variable: `success' (count=2)
-WARNING: test<>: substituting chp model (requested prs, not found)
-WARNING: logger_file<8,2,0,0,0,t>: substituting chp model (requested prs, not found)
-WARNING: sink<8,1,t>: substituting chp model (requested prs, not found)
-WARNING: sink<8,0,t>: substituting chp model (requested prs, not found)

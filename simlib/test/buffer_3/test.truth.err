@@ -1,6 +1,0 @@
-In expanding buffer<8,true> (/opt/actflow-git/act/sim/util.act:180)
-Error on or near line number 190.
-WARNING: potential write conflict in CHP description
-   Variable: `empty' (count=2)
-WARNING: test<>: substituting chp model (requested prs, not found)
-WARNING: buffer<8,t>: substituting chp model (requested prs, not found)

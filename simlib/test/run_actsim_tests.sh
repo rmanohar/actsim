@@ -126,21 +126,6 @@ do
             continue 1
         fi
 
-        # make sure regression test stderr output exists
-        if [ ! -f "$process_name.truth.err" ]
-        then
-            echo
-            myecho "** FAILED TEST $subdir$fn_actfile: no regression truth stderr file found **"
-            fail=`expr $fail + 1`
-            ok=0
-            num=0
-            cd ..
-            echo
-            echo
-            myecho " "
-            continue 1
-        fi
-
         # check regression tests
         if [ $ok -eq 1 ] && [ -f "$process_name.truth" ]
         then

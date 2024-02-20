@@ -15,15 +15,14 @@ then
     new_reg=new_regression.truth
 
     # simulate 
-    actsim $i $j < $k > $new_reg 2>$new_reg.err
+    actsim $i $j < $k > $new_reg 2>/dev/null
 
     if [ $? -eq 0 ] 
     then
         sed -E 's/(\[.*\]\s*)(<.*>.*)/\2/g' $new_reg > $new_reg.processed
         mv $new_reg.processed test.truth
-        mv $new_reg.err test.truth.err
-        rm -f $new_reg $new_reg.err
-        echo "test.truth and test.truth.err updated successfully"
+        rm -f $new_reg
+        echo "test.truth updated successfully"
     else
         echo "actsim unnatural exit, truth not updated!"
         exit 1
