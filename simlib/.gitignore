@@ -3,3 +3,4 @@
 # Test artifacts
 **/*.stderr
 **/*.stdout
+**/_outfile_.*
