@@ -4,3 +4,4 @@
 **/*.stderr
 **/*.stdout
 **/_outfile_.*
+!**/_outfile_.*.truth
