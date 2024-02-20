@@ -222,7 +222,7 @@ defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 }
 
 // external C functions for file interaction
-namespace file {
+namespace file_private {
 export function openr (int<32> file_id) : int<32>;
 export function read (int<32> reader_id) : int<64>;
 export function eof (int<32> reader_id) : bool;
@@ -267,7 +267,7 @@ defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
         *[
 
             // open the file and get a reader ID
-            reader_id := file::openr (F_ID);
+            reader_id := file_private::openr (F_ID);
             assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
 
             // read until the file reports EOF and send it to the output channel
@@ -276,7 +276,7 @@ defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
                 [enable];
 
                 // read, then send the value
-                buf := file::read(reader_id);
+                buf := file_private::read(reader_id);
                 O!buf;
 
                 // if logging was enabled, log the send
@@ -286,10 +286,10 @@ defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
                     skip
                 ]
 
-            <- ~file::eof (reader_id) ];
+            <- ~file_private::eof (reader_id) ];
 
             // close the file
-            success := file::closer (reader_id);
+            success := file_private::closer (reader_id);
             assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
         <- LOOP ];
 
@@ -337,7 +337,7 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
         *[
 
             // open the file and get a reader ID
-            reader_id := file::openr (F_ID);
+            reader_id := file_private::openr (F_ID);
             assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
 
             // read until the file reports EOF and send it to the output channel
@@ -345,7 +345,7 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
                 // wait on enable flag
                 [enable];
 
-                buf := file::read(reader_id);
+                buf := file_private::read(reader_id);
                 
                 (, i : OUT_CHANNELS : 
                     O[i]!buf;
@@ -357,10 +357,10 @@ defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
                         skip
                     ]
                 )
-            <- ~file::eof (reader_id) ];
+            <- ~file_private::eof (reader_id) ];
 
             // close the file
-            success := file::closer (reader_id);
+            success := file_private::closer (reader_id);
             assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
         <- LOOP ];
 

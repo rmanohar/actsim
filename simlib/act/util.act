@@ -68,7 +68,7 @@ defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHA
 }
 
 // external C functions for file interaction
-namespace file {
+namespace file_private {
 export function openw (int<32> file_id) : int<32>;
 export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, channel; int<64> val) : bool;
 }
@@ -108,7 +108,7 @@ defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[I
     chp {
         // create the logger file
         [ LOG -> 
-            write_id := file::openw (F_ID);
+            write_id := file_private::openw (F_ID);
             assert (write_id != 0, "Logger ", LOG_ID, " failed to open output file with ID ", F_ID, "!")
         [] else ->
             skip
@@ -128,7 +128,7 @@ defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[I
 
                 // check if we need to save
                 [ LOG ->
-                    success := file::write_log (write_id, VERBOSITY, LOG_ID, i, buf[i]);
+                    success := file_private::write_log (write_id, VERBOSITY, LOG_ID, i, buf[i]);
                     assert (success, "Logger ", LOG_ID, " failed to write to output file!")
                 [] else ->
                     skip
