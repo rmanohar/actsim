@@ -101,7 +101,7 @@ export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, 
 export template<pint D_WIDTH, IN_CHANNELS, LOG_ID, F_ID, VERBOSITY; pbool LOG>
 defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
 {
-    int<D_WIDTH> buf[1];
+    int<D_WIDTH> buf[IN_CHANNELS];
     bool success;
     int write_id;
 
