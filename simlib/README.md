@@ -1,5 +1,5 @@
 
-# actsim Simulation library
+# actsim Simulation Library
 
 This folder contains the simulation library shipped with actsim. It contains multiple components which are helpful when simulating and/or verifying asynchronous logic designs.
 Components in this folder are not synthesizable and should not be used in a final design. They are high level and partially C++ descriptions for verification.
