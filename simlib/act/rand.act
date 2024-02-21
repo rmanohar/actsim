@@ -2,7 +2,7 @@
  *
  *  This file is part of ACT standard library
  *
- *  Copyright (c) 2022 Rajit Manohar
+ *  Copyright (c) 2024 Fabian Posch
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,19 +21,218 @@
 namespace sim {
 export namespace rand {
 
-export function init(int<8> width) : int<32>;
-export function init_range(int<8> width; int<32> minval, maxval) : int<32>;
-export function get(int<32> idx) : int<64>;
-export function seed(int<32> idx; int<32> val) : bool;
+// external C functions
+export function init(int<8> data_width) : int<32>;
+export function init_range(int<8> data_width; int<32> minval, maxval) : int<32>;
+export function get(int<32> prg_id) : int<64>;
+export function seed(int<32> prg_id; int<32> seed) : bool;
 
-export template<pint W>
-defproc source(chan!(int<W>) O)
+/*
+ * Simple random source with one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of random values
+ *
+ * Features:
+ * - Outputs sequence of random tokens
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, SOURCE_ID; pbool LOG>
+defproc source_simple(chan!(int<D_WIDTH>) O; bool enable)
 {
-  int idx;
-  chp {
-    idx := init(W);
-    *[ O!get(idx) ]
-  }
+    int prg_id;
+    int<D_WIDTH> buf;
+
+    chp {
+        // initialize the PRG
+        prg_id := init(D_WIDTH);
+
+        *[
+            // wait for the enable flag
+            [enable];
+
+            // get a new pseudo random value
+            buf := get(prg_id);
+            O!buf;
+
+            // if logging was enabled, log the send
+            [ LOG ->
+                log ("Random source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+/*
+ * Simple random source
+ *
+ * Use this if you need a source which outputs a sequence
+ * of random values to multiple outputs (tokens identical
+ * for all outputs)
+ *
+ * Features:
+ * - Outputs sequence of random tokens
+ * - All outputs complete send before next token is sent
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, SOURCE_ID; pbool LOG>
+defproc source_simple_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+{
+    int prg_id;
+    int<D_WIDTH> buf;
+
+    chp {
+        // initialize the PRG
+        prg_id := init(D_WIDTH);
+
+        *[
+            // wait for the enable flag
+            [enable];
+
+            // get a new pseudo random value
+            buf := get(prg_id);
+
+            (, i : OUT_CHANNELS : 
+                O[i]!buf;
+
+                // if logging was enabled, log the send
+                [ LOG ->
+                    log ("Random source ", SOURCE_ID, " (Channel ", i, "): Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ]
+            )
+        ]
+    }
+}
+
+/*
+ * Simple random source with upper and lower maximum
+ * value and one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of random values within a certain range
+ *
+ * Features:
+ * - Outputs sequence of random tokens
+ * - Minimum and maximum value settings
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - MIN_VAL: Minimum value to generate
+ * - MAX_VAL: Maximum value to generate
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
+defproc source_range(chan!(int<D_WIDTH>) O; bool enable)
+{
+    int prg_id;
+    int<D_WIDTH> buf;
+
+    chp {
+        // initialize the PRG
+        prg_id := init_range(D_WIDTH, MIN_VAL, MAX_VAL);
+
+        *[
+            // wait for the enable flag
+            [enable];
+
+            // get a new pseudo random value
+            buf := get(prg_id);
+            O!buf;
+
+            // if logging was enabled, log the send
+            [ LOG ->
+                log ("Random source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+/*
+ * Simple random source with upper and lower maximum
+ * value
+ *
+ * Use this if you need a source which outputs a sequence
+ * of random values within a certain range to multiple 
+ * outputs (tokens identical for all outputs)
+ *
+ * Features:
+ * - Outputs sequence of random tokens
+ * - Minimum and maximum value settings
+ * - All outputs complete send before next token is sent
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - MIN_VAL: Minimum value to generate
+ * - MAX_VAL: Maximum value to generate
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
+defproc source_range_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+{
+    int prg_id;
+    int<D_WIDTH> buf;
+
+    chp {
+        // initialize the PRG
+        prg_id := init_range(D_WIDTH, MIN_VAL, MAX_VAL);
+
+        *[
+            // wait for the enable flag
+            [enable];
+
+            // get a new pseudo random value
+            buf := get(prg_id);
+
+            (, i : OUT_CHANNELS : 
+                O[i]!buf;
+
+                // if logging was enabled, log the send
+                [ LOG ->
+                    log ("Random source ", SOURCE_ID, " (Channel ", i, "): Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ]
+            )
+        ]
+    }
 }
 
 }
