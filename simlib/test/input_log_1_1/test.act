@@ -1,0 +1,27 @@
+/*
+
+    Test basic functionality of input logger
+    Multiple channels, verbose off
+
+*/
+
+import sim;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::scoreboard::input_logger<D_WIDTH, 2, 0, false> in_log;
+
+    chp {
+        log ("Sending input");
+
+        in_log.IN[0]!6;
+        in_log.IN[1]!4;
+
+        in_log.IN[0]!8;
+        in_log.IN[1]!1;
+
+        log ("Input sent")
+    }
+}

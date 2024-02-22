@@ -1,0 +1,25 @@
+/*
+
+    Test basic functionality of lockstep scoreboard
+    Model output never sent
+
+*/
+
+import sim;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::scoreboard::lockstep<D_WIDTH, 1, 1, 0, true> sb;
+
+    chp {
+        // send some input data
+        sb.IN[0]!6; 
+
+        // send the DUT data
+        sb.OUT_D[0]!12;
+
+        log ("Never sent model output")
+    }
+}

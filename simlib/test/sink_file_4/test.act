@@ -1,0 +1,27 @@
+/*
+
+    Test basic functionality of file sink
+    Sink disabled
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::sink_file<D_WIDTH, 0, 0, 0, true> f_snk;
+
+    f_snk.enable = GND;
+
+    chp {
+        log ("Sending data");
+
+        // send some data
+        f_snk.I!5;
+        
+        assert (false, "We should never get here")
+    }
+}

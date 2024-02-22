@@ -1,0 +1,17 @@
+/*
+    Test of basic source sink with logging off
+    Sink is disabled
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    sim::source_static<8, 5, 0, false> src;
+    sim::sink<8, 0, false> snk;
+
+    snk.I = src.O;
+    snk.enable = GND;
+    src.enable = Vdd;
+}

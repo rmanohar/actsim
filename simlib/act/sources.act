@@ -1,0 +1,371 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2024 Fabian Posch
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+/*
+ * Simple static source with one output channel
+ *
+ * Use this if you need the simplest of sources
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Features:
+ * - Static output token generation
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - VALUE: Static value to output
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
+defproc source_static (chan!(int<D_WIDTH>) O; bool enable)
+{
+    chp {
+        *[
+            // wait on enable flag
+            [enable];
+
+            O!VALUE;
+
+            // log the value if requested
+            [ LOG ->
+                log ("Source ", SOURCE_ID, ": Sent value ", VALUE, "%x (0x", VALUE, ")")
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+/*
+ * Simple static source
+ *
+ * Use this if you need a multi-ended source with static output
+ *
+ * Features:
+ * - Static output token generation
+ * - Configurable number of outputs
+ * - All outputs complete send before next token is sent
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - VALUE: Static value to output
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_ID; pbool LOG>
+defproc source_static_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+{
+    chp {
+        (, i : OUT_CHANNELS : 
+            *[
+                // wait on enable flag
+                [enable];
+
+                O[i]!VALUE;
+
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, " (Channel ", i, "): Sent value ", VALUE, "%x (0x", VALUE, ")")
+                [] else ->
+                    skip
+                ]
+            ]
+        )
+    }
+}
+
+/*
+ * Simple sequential source with one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly)
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Features:
+ * - Outputs sequence of tokens
+ * - Can be set to repeat the sequence indefinitely
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - N: Number of values in the sequence
+ * - DATA: The sequence as a vector of pint
+ * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc source_sequence (chan!(int<D_WIDTH>) O; bool enable)
+{
+    int i;
+    int<D_WIDTH> buf;
+
+    chp {
+        *[
+            i := 0; 
+            *[ i < N -> 
+                // select the right element
+                [([]k:N: i=k -> buf := DATA[k])];
+
+                // wait on enable flag
+                [enable]; 
+
+                // and send it
+                O!buf;
+
+                // if logging is enabled, log the send
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ];
+
+                // step
+                i := i + 1 
+            ]
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Sequence ended.")
+  }
+}
+
+/*
+ * Simple sequential source
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) to multiple outputs
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Features:
+ * - Outputs sequence of tokens
+ * - Can be set to repeat the sequence indefinitely
+ * - All outputs complete send before next token is sent
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - N: Number of values in the sequence
+ * - DATA: The sequence as a vector of pint
+ * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc source_sequence_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+{
+    int i;
+    int<D_WIDTH> buf;
+
+    chp {
+        *[
+            i := 0;
+
+            *[ i < N -> 
+
+                // select the right data element
+                [([]k:N: i=k -> buf := DATA[k])];
+
+                // wait on enable flag
+                [enable];
+                
+                // and send it to every channel
+                (, j : OUT_CHANNELS :
+
+                    O[j]!buf;
+
+                    // if logging was enabled, log the send
+                    [ LOG ->
+                        log ("Source ", SOURCE_ID, " (Channel ", j, "): Sent value ", buf, "%x (0x", buf, ")")
+                    [] else ->
+                        skip
+                    ]
+                );
+
+                i := i + 1 
+            ]
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Sequence ended.")
+    }
+}
+
+// external C functions for file interaction
+namespace file_private {
+export function openr (int<32> file_id) : int<32>;
+export function read (int<32> reader_id) : int<64>;
+export function eof (int<32> reader_id) : bool;
+export function closer (int<32> reader_id) : bool;
+}
+  
+/*
+ * Simple file source with one output channel
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) from a file
+ *
+ * Features:
+ * - Outputs sequence of tokens from a file
+ * - Can be set to repeat the sequence indefinitely
+ *
+ * Assumptions:
+ * - File has at least one value entry
+ * - Values in file are newline separated
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - F_ID: The ID of the file (see actsim documentation)
+ * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc source_file (chan!(int<D_WIDTH>) O; bool enable)
+{
+    int<D_WIDTH> buf;
+    int reader_id;
+    bool success;
+
+    chp {
+        // if we are set to loop, loop forever
+        *[
+
+            // open the file and get a reader ID
+            reader_id := file_private::openr (F_ID);
+            assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
+
+            // read until the file reports EOF and send it to the output channel
+            *[
+                // wait on enable flag
+                [enable];
+
+                // read, then send the value
+                buf := file_private::read(reader_id);
+                O!buf;
+
+                // if logging was enabled, log the send
+                [ LOG ->
+                    log ("Source ", SOURCE_ID, ": Sent value ", buf, "%x (0x", buf, ")")
+                [] else ->
+                    skip
+                ]
+
+            <- ~file_private::eof (reader_id) ];
+
+            // close the file
+            success := file_private::closer (reader_id);
+            assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Input file #", F_ID, " ended.")
+    }
+}
+
+/*
+ * Simple file source
+ *
+ * Use this if you need a source which outputs a sequence
+ * of values (repeatedly) from a file to multiple outputs
+ *
+ * Features:
+ * - Outputs sequence of tokens from a file
+ * - Can be set to repeat the sequence indefinitely
+ * - All outputs complete send before next token is sent
+ *
+ * Assumptions:
+ * - File has at least one value entry
+ * - Values in file are newline separated
+ *
+ * Ports:
+ * - O: Token output
+ * - enable: source only emits if flag set to true
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - F_ID: The ID of the file (see actsim documentation)
+ * - LOOP: Repeat the sequence indefinitely
+ * - SOURCE_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc source_file_multi (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+{
+    bool success;
+    int<D_WIDTH> buf;
+    int reader_id;
+
+    chp {
+        // if we are set to loop, loop forever
+        *[
+
+            // open the file and get a reader ID
+            reader_id := file_private::openr (F_ID);
+            assert (reader_id != 0, "Source ", SOURCE_ID, " failed to open input file with ID ", F_ID, "!");
+
+            // read until the file reports EOF and send it to the output channel
+            *[
+                // wait on enable flag
+                [enable];
+
+                buf := file_private::read(reader_id);
+                
+                (, i : OUT_CHANNELS : 
+                    O[i]!buf;
+
+                    // if logging was enabled, log the send
+                    [ LOG ->
+                        log ("Source ", SOURCE_ID, " (Channel ", i, "): Sent value ", buf, "%x (0x", buf, ")")
+                    [] else ->
+                        skip
+                    ]
+                )
+            <- ~file_private::eof (reader_id) ];
+
+            // close the file
+            success := file_private::closer (reader_id);
+            assert (success, "Source ", SOURCE_ID, " failed to close input file with ID ", F_ID, "!") 
+        <- LOOP ];
+
+        log ("Source ", SOURCE_ID, ": Input file #", F_ID, " ended.")
+    }
+}
+
+}

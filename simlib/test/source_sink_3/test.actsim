@@ -1,0 +1,5 @@
+watch src.O
+watch snk.I
+set Vdd 1
+set GND 0
+step 25

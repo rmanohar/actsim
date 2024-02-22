@@ -1,0 +1,22 @@
+/*
+
+    Test basic functionality of deterministic scoreboard
+    Output mismatch
+
+*/
+
+import sim;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::scoreboard::deterministic<D_WIDTH, 1, 0, true> sb;
+
+    chp {
+        // send the model generated data
+        sb.OUT_M[0]!12;
+        // send the DUT data
+        sb.OUT_D[0]!11
+    }
+}

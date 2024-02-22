@@ -1,0 +1,4 @@
+watch src.O[0]
+watch src.O[1]
+set Vdd 1
+step 55

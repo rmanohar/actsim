@@ -1,0 +1,24 @@
+/*
+
+    Test basic functionality of file sink
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::sink_file<D_WIDTH, 0, 0, 0, true> f_snk;
+
+    f_snk.enable = Vdd;
+
+    chp {
+        // send some data
+        f_snk.I!5;
+        f_snk.I!8;
+        log ("Data sent")
+    }
+}

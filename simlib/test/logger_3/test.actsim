@@ -1,0 +1,7 @@
+set Vdd 1
+set GND 0
+watch log.I[0]
+watch log.O[0]
+watch snk_0.I
+watch snk_1.I
+cycle

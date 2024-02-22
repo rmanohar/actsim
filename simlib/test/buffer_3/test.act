@@ -1,0 +1,31 @@
+/*
+
+    Test basic functionality of inf capacity buffer
+    Output is disabled
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    int res;
+
+    sim::buffer<D_WIDTH, true> buf;
+
+    buf.enable_in = GND;
+    buf.enable_out = Vdd;
+
+    chp {
+        log ("Trying to send data into the buffer");
+
+        // send data into the buffer
+        buf.I!4;
+
+        // we cannot get here
+        assert (false, "Output was not disabled")
+    }
+}

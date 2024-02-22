@@ -1,0 +1,33 @@
+/*
+
+    Test basic functionality of logger with multiple channels but only one sending
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+    pint tokens = 5;
+    pint data[tokens];
+    data = {3, 9, 1, 8, 4};
+
+    sim::source_sequence<D_WIDTH, tokens, data, false, 0, false> src_0;
+    sim::source_sequence<D_WIDTH, tokens, data, false, 1, false> src_1;
+    sim::logger<D_WIDTH, 2, 0, true> log;
+    sim::sink<D_WIDTH, 0, false> snk_0;
+    sim::sink<D_WIDTH, 1, false> snk_1;
+
+    // we have two source channels with only one going through the logger
+    log.I[0] = src_0.O;
+    log.I[1] = src_1.O;
+    snk_0.I = log.O[0];
+    snk_1.I = log.O[1];
+
+    snk_0.enable = Vdd;
+    snk_1.enable = Vdd;
+    src_0.enable = Vdd;
+    src_1.enable = GND;
+}

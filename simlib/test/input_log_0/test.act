@@ -1,0 +1,23 @@
+/*
+
+    Test basic functionality of input logger
+
+*/
+
+import sim;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    sim::scoreboard::input_logger<D_WIDTH, 1, 0, true> in_log;
+
+    chp {
+        log ("Sending input");
+
+        in_log.IN[0]!6;
+        in_log.IN[0]!4;
+
+        log ("Input sent")
+    }
+}

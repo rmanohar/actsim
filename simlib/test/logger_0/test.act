@@ -1,0 +1,30 @@
+/*
+
+    Test basic functionality of logger
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+    pint tokens = 5;
+    pint data[tokens];
+    data = {3, 9, 1, 8, 4};
+
+    sim::source_sequence_multi<D_WIDTH, 2, tokens, data, false, 0, false> src;
+    sim::logger<D_WIDTH, 1, 0, true> log;
+    sim::sink<D_WIDTH, 0, false> snk_l;
+    sim::sink<D_WIDTH, 1, false> snk_ref;
+
+    // we have two source channels with only one going through the logger
+    log.I[0] = src.O[0];
+    snk_l.I = log.O[0];
+    snk_ref.I = src.O[1];
+
+    snk_ref.enable = Vdd;
+    snk_l.enable = Vdd;
+    src.enable = Vdd;
+}

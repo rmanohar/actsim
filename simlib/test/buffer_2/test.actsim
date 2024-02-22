@@ -1,0 +1,3 @@
+set Vdd 1
+set GND 0
+cycle
