@@ -2,7 +2,7 @@
 
 echo
 echo "***********************************************************"
-echo "*                 Testing with actsim                     *"
+echo "*                 Testing simlib with actsim              *"
 echo "***********************************************************"
 echo
 
