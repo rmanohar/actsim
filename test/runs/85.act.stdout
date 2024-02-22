@@ -1,3 +1,5 @@
-[                  20] <sink>  sink: 65024 (0xfe00)
-[                  40] <src>  Source file #0 ends.
-[                  40] <sink>  sink: 288 (0x120)
+[                  30] <src>  Source 0: Sent value 65024 (0xfe00)
+[                  40] <sink>  Sink 0: Received value 65024 (0xfe00)
+[                  50] <src>  Source 0: Sent value 288 (0x120)
+[                  60] <src>  Source 0: Input file #0 ended.
+[                  60] <sink>  Sink 0: Received value 288 (0x120)

@@ -13,8 +13,8 @@ defproc test ()
     pint data[tokens];
     data = {3, 9};
 
-    sim::source_sequence<8, tokens, data, false, 0, true> src;
-    sim::sink<8, 0, true> snk;
+    sim::source_sequence_en<8, tokens, data, false, 0, true> src;
+    sim::sink_en<8, 0, true> snk;
 
     snk.I = src.O;
     snk.enable = Vdd;

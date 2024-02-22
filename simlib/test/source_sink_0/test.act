@@ -9,8 +9,8 @@ import globals;
 
 defproc test ()
 {
-    sim::source_static<8, 5, 0, true> src;
-    sim::sink<8, 0, true> snk;
+    sim::source_static_en<8, 5, 0, true> src;
+    sim::sink_en<8, 0, true> snk;
 
     snk.I = src.O;
     snk.enable = Vdd;

@@ -12,7 +12,7 @@ defproc test ()
 {
     pint D_WIDTH = 8;
 
-    sim::sink_file<D_WIDTH, 0, 0, 0, true> f_snk;
+    sim::sink_file_en<D_WIDTH, 0, 0, 0, true> f_snk;
 
     f_snk.enable = GND;
 

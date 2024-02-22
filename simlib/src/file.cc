@@ -205,6 +205,7 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
 
         if (!std::getline(input_streams[reader_id].first, line)) {
             end = true;
+	    empty = true;
             continue;
         }
 
@@ -269,15 +270,15 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
         // make sure there wasn't some trailing garbage in the line
         auto remainder = line.substr(end_pos, std::string::npos);
         if (!remainder.empty()) {
-            std::cerr << "actim_file_read: There was more content left in the "
+            std::cerr << "actsim_file_read: There was more content left in the "
                          "line that was ignored. Remaining content: '"
                       << remainder << "'" << std::endl;
         }
 
     } while (empty && !end);
 
-    if (end) {
-        std::cerr << "actim_file_read: Reached end of input file while trying "
+    if (end && !empty) {
+        std::cerr << "actsim_file_read: Reached end of input file while trying "
                      "to read line. Trailing non-value or newline?"
                   << std::endl;
     }
@@ -305,7 +306,7 @@ extern "C" expr_res actsim_file_eof(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        std::cerr << "actim_file_eof: Must be invoked with 1 argument only "
+        std::cerr << "actsim_file_eof: Must be invoked with 1 argument only "
                      "(reader ID)"
                   << std::endl;
         return ret;
@@ -315,7 +316,7 @@ extern "C" expr_res actsim_file_eof(int argc, struct expr_res* args) {
 
     // check if we have the have the requested file already open
     if (input_streams.find(reader_id) == input_streams.end()) {
-        std::cerr << "actim_file_eof: Unknown reader ID, open a file first!"
+        std::cerr << "actsim_file_eof: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
     }
@@ -323,7 +324,8 @@ extern "C" expr_res actsim_file_eof(int argc, struct expr_res* args) {
     // read the value from the file
     uint64_t value;
 
-    if (input_streams[reader_id].first.eof()) {
+    if (input_streams[reader_id].first.eof() ||
+	input_streams[reader_id].first.peek() == EOF) {
         return ret;
     }
 
@@ -360,14 +362,14 @@ extern "C" expr_res actsim_file_closer(int argc, struct expr_res* args) {
 
     // check if we have the have the requested file already open
     if (input_streams.find(reader_id) == input_streams.end()) {
-        std::cerr << "actim_file_closer: Unknown reader ID, open a file first!"
+        std::cerr << "actsim_file_closer: Unknown reader ID, open a file first!"
                   << std::endl;
         return ret;
     }
 
     // make sure the file isn't already closed
     if (!input_streams[reader_id].first.is_open()) {
-        std::cerr << "actim_file_closer: File was already closed!" << std::endl;
+        std::cerr << "actsim_file_closer: File was already closed!" << std::endl;
         input_streams.erase(reader_id);
         return ret;
     }
@@ -406,7 +408,7 @@ extern "C" expr_res actsim_file_openw(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        std::cerr << "actim_file_openw: Must be invoked with 1 argument only"
+        std::cerr << "actsim_file_openw: Must be invoked with 1 argument only"
                   << std::endl;
         return ret;
     }
@@ -419,7 +421,7 @@ extern "C" expr_res actsim_file_openw(int argc, struct expr_res* args) {
         int len = config_get_table_size("sim.file.outname_table");
 
         if (file_id >= len) {
-            std::cerr << "actim_file_openw: File name index " << file_id
+            std::cerr << "actsim_file_openw: File name index " << file_id
                       << " is out of bounds given the outname table length of "
                       << len << std::endl;
             return ret;
@@ -458,7 +460,7 @@ extern "C" expr_res actsim_file_openw(int argc, struct expr_res* args) {
 
     // make sure the file is actually open
     if (!output_file.is_open()) {
-        std::cerr << "actim_file_openw: Could not open file '" << filename
+        std::cerr << "actsim_file_openw: Could not open file '" << filename
                   << "' for writing." << std::endl;
         return ret;
     }
@@ -490,7 +492,7 @@ extern "C" expr_res actsim_file_write(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 2) {
-        std::cerr << "actim_file_write: Must be invoked with 2 arguments only"
+        std::cerr << "actsim_file_write: Must be invoked with 2 arguments only"
                   << std::endl;
         return ret;
     }
@@ -525,14 +527,14 @@ bool actsim_file_write_core(size_t writer_id, std::string str) {
     // make sure the file has been opened for writing
     if (output_streams.find(writer_id) == output_streams.end()) {
         std::cerr
-            << "actim_file_write_core: Unknown writer ID, open a file first!"
+            << "actsim_file_write_core: Unknown writer ID, open a file first!"
             << std::endl;
         return false;
     }
 
     // make sure the file is still open
     if (!output_streams[writer_id].first.is_open()) {
-        std::cerr << "actim_file_write_core: File index "
+        std::cerr << "actsim_file_write_core: File index "
                   << output_streams[writer_id].second << " is closed."
                   << std::endl;
         return false;
@@ -563,7 +565,7 @@ extern "C" expr_res actsim_file_closew(int argc, struct expr_res* args) {
 
     // make sure we have the appropriate amount of arguments
     if (argc != 1) {
-        std::cerr << "actim_file_closew: Must be invoked with 1 argument only"
+        std::cerr << "actsim_file_closew: Must be invoked with 1 argument only"
                   << std::endl;
         return ret;
     }
@@ -572,14 +574,14 @@ extern "C" expr_res actsim_file_closew(int argc, struct expr_res* args) {
 
     // check if we have the have the requested file already open
     if (output_streams.find(writer_id) == output_streams.end()) {
-        std::cerr << "actim_file_closew: Unknown writer ID, open a file first!"
+        std::cerr << "actsim_file_closew: Unknown writer ID, open a file first!"
                   << std::endl;
         return ret;
     }
 
     // make sure the file isn't already closed
     if (!output_streams[writer_id].first.is_open()) {
-        std::cerr << "actim_file_closew: File was already closed!" << std::endl;
+        std::cerr << "actsim_file_closew: File was already closed!" << std::endl;
         output_streams.erase(writer_id);
         return ret;
     }

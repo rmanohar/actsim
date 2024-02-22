@@ -21,6 +21,37 @@
 
 namespace sim {
 
+// external C functions for file interaction
+namespace file_private {
+export function openr (int<32> file_id) : int<32>;
+export function read (int<32> reader_id) : int<64>;
+export function eof (int<32> reader_id) : bool;
+export function closer (int<32> reader_id) : bool;
+}
+
+export
+template<pint D_WIDTH; pint F_ID; pbool LOOP>
+defproc check_sink (chan?(int<D_WIDTH>) I)
+{
+  int<D_WIDTH> x, y;
+  int reader_id;
+  bool dummy;
+  chp {
+    *[  reader_id := file_private::openr (F_ID);
+      *[ I?x;
+           y := file_private::read(reader_id);
+         [ x = y -> skip
+         [] else -> log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
+         ]
+	  <- ~file_private::eof(reader_id)
+       ];
+        dummy := file_private::closer(reader_id)
+       <- LOOP
+    ];
+    log ("Sink file #", F_ID, " ends.")
+  }
+}
+
 export namespace scoreboard {
 
 /*

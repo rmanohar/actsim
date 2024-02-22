@@ -14,9 +14,9 @@ defproc test ()
     pint data[tokens];
     data = {3, 9};
 
-    sim::source_sequence_multi<8, 2, tokens, data, true, 0, true> src;
-    sim::sink<8, 0, true> snk0;
-    sim::sink<8, 1, true> snk1;
+    sim::source_sequence_multi_en<8, 2, tokens, data, true, 0, true> src;
+    sim::sink_en<8, 0, true> snk0;
+    sim::sink_en<8, 1, true> snk1;
 
     snk0.I = src.O[0];
     snk1.I = src.O[1];

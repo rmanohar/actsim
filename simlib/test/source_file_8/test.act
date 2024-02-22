@@ -12,11 +12,11 @@ defproc test ()
 {
     pint F_ID = 0;
 
-    sim::source_file<8, F_ID, false, 0, true> src0;
-    sim::source_file<8, F_ID, false, 1, true> src1;
+    sim::source_file_en<8, F_ID, false, 0, true> src0;
+    sim::source_file_en<8, F_ID, false, 1, true> src1;
 
-    sim::sink<8, 0, true> snk0;
-    sim::sink<8, 1, true> snk1;
+    sim::sink_en<8, 0, true> snk0;
+    sim::sink_en<8, 1, true> snk1;
 
     snk0.I = src0.O;
     snk1.I = src1.O;

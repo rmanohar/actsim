@@ -63,7 +63,7 @@ do
             echo
             myecho "** SKIPPED TEST $subdir: No act file found **"
             skipped=`expr $skipped + 1`
-            num=0
+            num=`expr $num - 1`
             cd ..
             echo
             echo
@@ -77,7 +77,7 @@ do
             echo
             myecho "** SKIPPED TEST $subdir: No actsim file found **"
             skipped=`expr $skipped + 1`
-            num=0
+            num=`expr $num - 1`
             cd ..
             echo
             echo
@@ -91,7 +91,7 @@ do
             echo
             myecho "** SKIPPED TEST $subdir: Test was markted to be skipped **"
             skipped=`expr $skipped + 1`
-            num=0
+            num=`expr $num - 1`
             cd ..
             echo
             echo
@@ -118,7 +118,6 @@ do
             myecho "** FAILED TEST $subdir$fn_actfile: no regression truth file found **"
             fail=`expr $fail + 1`
             ok=0
-            num=0
             cd ..
             echo
             echo
@@ -131,12 +130,13 @@ do
         then
 
             # strip timing from test output
-            sed -E 's/(\[.*\]\s*)(<.*>.*)/\2/g' $process_name.stdout > $process_name.processed
+            sed -E 's/\[[ 0-9]*\] (.*)$/\1/g' $process_name.stdout > $process_name.processed
 
             if ! cmp $process_name.processed $process_name.truth >/dev/null 2>/dev/null
             then
                 echo 
                 myecho "** FAILED REGRESSION TEST $subdir$fn_actfile: stdout mismatch **"
+		diff $process_name.processed $process_name.truth
                 fail=`expr $fail + 1`
                 ok=0
             fi
@@ -184,13 +184,12 @@ do
             then
                 echo 
                 myecho " "
-                num=0
+		lim=`expr $lim + 10`
             fi
         else
             echo
             echo
             myecho " "
-            num=0
         fi
         cd ..
     fi
