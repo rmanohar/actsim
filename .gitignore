@@ -1,13 +1,27 @@
+
+# History files
 *~
+.actsim_history
+
+# Build artifacts
 actsim.i386_*
 actsim.x86_64_*
 actsim.arm*
-Makefile.deps
 i386_*
 x86_64_*
 arm*
-.actsim_history
+**/*.os
+
+# Makefile
+Makefile.deps
+
+# Configuration
 config.mk
 config_pkg.h
+
+# xyce
 xyce.in
 _xyce.*
+
+# Formatting files
+.clang-format

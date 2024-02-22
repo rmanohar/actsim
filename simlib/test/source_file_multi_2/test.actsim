@@ -1,0 +1,6 @@
+watch src.O[0]
+watch src.O[1]
+watch snk0.I
+watch snk1.I
+set Vdd 1
+step 200

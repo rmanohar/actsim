@@ -1,0 +1,57 @@
+/*
+
+    Test basic functionality of inf capacity buffer
+    Logging off
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint D_WIDTH = 8;
+
+    int res;
+
+    sim::buffer<D_WIDTH, false> buf;
+
+    buf.enable_in = Vdd;
+    buf.enable_out = Vdd;
+
+    chp {
+        log ("Sending data");
+
+        // send data into the buffer
+        buf.I!4;
+
+        // send some more data
+        buf.I!7;
+        buf.I!1;
+        buf.I!9;
+
+        log ("Receiving data");
+
+        // now take the data out again
+        buf.O?res;
+        assert (res = 4, "Wrong value on output, expected 4, got ", res);
+        
+        //assert (#buf.O, "Missing token on output!");
+        buf.O?res;
+        assert (res = 7, "Wrong value on output, expected 4, got ", res);
+        
+        //assert (#buf.O, "Missing token on output!");
+        buf.O?res;
+        assert (res = 1, "Wrong value on output, expected 4, got ", res);
+        
+        //assert (#buf.O, "Missing token on output!");
+        buf.O?res;
+        assert (res = 9, "Wrong value on output, expected 4, got ", res);
+        
+        // make sure there is nothing left to get
+        // this will block
+        buf.O?res;
+        assert (false, "Additional value on output, expected nothing, got ", res)
+
+    }
+}

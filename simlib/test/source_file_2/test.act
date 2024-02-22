@@ -1,0 +1,22 @@
+/*
+
+    Test basic functionality of file source with logging on and looping off
+    Input file has a comment and empty line
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint F_ID = 0;
+
+    sim::source_file<8, F_ID, false, 0, true> src;
+    sim::sink<8, 0, true> snk;
+
+    snk.I = src.O;
+
+    snk.enable = Vdd;
+    src.enable = Vdd;
+}

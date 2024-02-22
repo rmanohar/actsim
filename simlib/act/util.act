@@ -1,0 +1,247 @@
+/*************************************************************************
+ *
+ *  This file is part of ACT standard library
+ *
+ *  Copyright (c) 2024 Fabian Posch
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ **************************************************************************
+ */
+
+namespace sim {
+
+/*
+ * Simple multi-channel logger
+ *
+ * Use this if you need a token logger on any channel
+ *
+ * Features:
+ * - Generate log line on passing token
+ * - Enable through parameter
+ * - Zero slack behavior
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Number of channels
+ * - LOG_ID: ID of the logger (used in log output)
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, IN_CHANNELS, LOG_ID; pbool LOG>
+defproc logger (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
+{
+    int <D_WIDTH> buf[IN_CHANNELS];
+
+    chp {
+        // listen to all channels
+        (, i : IN_CHANNELS :
+            *[
+                // wait for data on the input
+                [#I[i]];
+
+                // forward the data back out (zero slack)
+                O[i]!I[i];
+
+                // actually load the data from the input
+                I[i]?buf[i];
+
+                // check if we need to save
+                [ LOG ->
+                    log ("Logger ", LOG_ID, " (Channel ", i, "): Received value ", buf[i], "%x (0x", buf[i], ")")
+                [] else ->
+                    skip
+                ]
+            ]
+        )
+    }
+}
+
+// external C functions for file interaction
+namespace file_private {
+export function openw (int<32> file_id) : int<32>;
+export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, channel; int<64> val) : bool;
+}
+
+/*
+ * Simple single-channel file logger
+ *
+ * Use this if you need a token logger on any channel
+ * which saves tokens into a file.
+ *
+ * Eventually, this logger will have fancy output and multi-
+ * channel capability; this is currently not possible due
+ * to missing support for strings in the core language.
+ *
+ * Features:
+ * - Generate log line on passing token
+ * - Save to file
+ * - Enable through parameter
+ * - Zero slack behavior
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - IN_CHANNELS: Number of channels
+ * - LOG_ID: ID of the logger (currently unused)
+ * - F_ID: ID of the file to save into
+ * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH, IN_CHANNELS, LOG_ID, F_ID, VERBOSITY; pbool LOG>
+defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
+{
+    int<D_WIDTH> buf[IN_CHANNELS];
+    bool success;
+    int write_id;
+
+    chp {
+        // create the logger file
+        [ LOG -> 
+            write_id := file_private::openw (F_ID);
+            assert (write_id != 0, "Logger ", LOG_ID, " failed to open output file with ID ", F_ID, "!")
+        [] else ->
+            skip
+        ];
+        
+        // listen to all channels
+        (, i : IN_CHANNELS :
+            *[
+                // wait for data on the input
+                [#I[i]];
+
+                // forward the data back out (zero slack)
+                O[i]!I[i];
+
+                // get the data
+                I[i]?buf[i];
+
+                // check if we need to save
+                [ LOG ->
+                    success := file_private::write_log (write_id, VERBOSITY, LOG_ID, i, buf[i]);
+                    assert (success, "Logger ", LOG_ID, " failed to write to output file!")
+                [] else ->
+                    skip
+                ]
+            ]
+        )
+    }
+}
+
+// external C functions for infinite buffer
+function buffer_push (int<32> buf_id; int<64> val) : bool;
+function buffer_empty (int<32> buf_id) : bool;
+function buffer_pop (int<32> buf_id) : int<64>;
+function buffer_create () : int<32>;
+
+/*
+ * Infinite capacity buffer
+ *
+ * Use this if you need a buffer with (theoretically) infinite
+ * capacity. This is (obviously) not synthesizable. The main 
+ * use case is to decouple test harness timing from DUT timing.
+ *
+ * Example: A multi ended source feeds into a lockstep scoreboard
+ * and a DUT. The scoreboard will only complete the handshake on the
+ * input logger side once the DUT has produced output. We want to
+ * send in new tokens as fast as possible however. Putting this
+ * buffer between your token source and the scoreboard, the buffer
+ * can feed the scoreboard with whatever speed the DUT creates output,
+ * while the source can produce tokens with whatever speed the DUT
+ * can consume them.
+ *
+ * Do not write to the empty flag.
+ *
+ * Features:
+ * - Infinite capacity (theoretically)
+ *
+ * Ports:
+ * - I: Buffer input
+ * - O: Buffer output
+ * - enable_in: buffer only consumes if flag set to true
+ * - enable_out: buffer only emits if flag set to true
+ * - empty: DNC! Used for correct simulation (known issue in simulator)
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - LOG: Logger enable parameter
+ *
+ */
+export template<pint D_WIDTH; pbool LOG>
+defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
+{
+    // the bit width must be smaller than 64 bit (limitation of C function import)
+    {D_WIDTH < 64};
+
+    int<D_WIDTH> read_buf, write_buf;
+    int<32> id;
+    bool success;
+
+    chp {
+        // create a new buffer
+        id := buffer_create (),
+        empty := true;
+
+        // feeder loop
+        *[
+            // wait on input enable flag
+            [enable_in];
+            
+            // read a new input value
+            I?write_buf;
+
+            // write the new value to the buffer
+            success := buffer_push (id, write_buf);
+
+            // this has to always succeed
+            assert (success, "Write to buffer failed!");
+
+            [ LOG ->
+                log ("Written ", write_buf, "%x (0x", write_buf, ") to buffer")
+            [] else ->
+                skip
+            ];
+
+            // update the empty flag
+            empty := buffer_empty (id)
+        ],
+
+        // consumer loop
+        *[
+            // wait for the buffer to become not empty
+            [~empty];
+
+            // wait on output enable flag
+            [enable_out];
+
+            // grab the next value from the buffer
+            read_buf := buffer_pop (id);
+            // and send it
+            O!read_buf;
+
+            [ LOG ->
+                log ("Read ", read_buf, "%x (0x", read_buf, ") from buffer")
+            [] else ->
+                skip
+            ];
+
+            // update the status of the empty flag
+            empty := buffer_empty (id)
+        ]
+    }
+}
+
+
+// add token counter -> generate finished signal when tokens = a certain number
+
+}

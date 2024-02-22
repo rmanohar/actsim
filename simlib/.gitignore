@@ -1,1 +1,8 @@
-*.so
+**/*.so
+**/*.o
+
+# Test artifacts
+**/*.stderr
+**/*.stdout
+**/_outfile_.*
+!**/_outfile_.*.truth

@@ -1,0 +1,18 @@
+/*
+
+Test basic functionality of simple sources and sinks with logging on
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    sim::source_static<8, 5, 0, true> src;
+    sim::sink<8, 0, true> snk;
+
+    snk.I = src.O;
+    snk.enable = Vdd;
+    src.enable = Vdd;
+}

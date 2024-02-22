@@ -20,16 +20,29 @@
 #-------------------------------------------------------------------------
 SHLIB=libactsimext_sh_$(EXT).so
 
+SUBDIRS=act
+
 TARGETLIBS=$(SHLIB)
 TARGETCONF=actsim.conf
-TARGETACT=sim.act rand.act _all_.act
+TARGETINCS=simlib_file.h
 TARGETACTSUBDIR=sim
 
-OBJS=random.os rom.os file.os rand_r.os
+CPPSTD=c++17
 
-SRCS=$(OBJS:.os=.c)
+OBJS=src/random.os src/rom.os src/file.os src/rand_r.os src/buffer.os src/logger.os src/sinks.os
+
+SRCS=$(OBJS:.os=.cc)
 
 include $(ACT_HOME)/scripts/Makefile.std
+
+.PHONY: regression cleantest
+
+regression:
+	cd test && ./generate_regression_truth.sh
+
+cleantest:
+	cd test && ./cleantest.sh
+
 
 $(SHLIB): $(OBJS)
 	$(ACT_HOME)/scripts/linkso $(SHLIB) $(OBJS) $(SHLIBCOMMON)

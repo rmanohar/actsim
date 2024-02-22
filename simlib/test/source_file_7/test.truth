@@ -1,0 +1,2 @@
+<snk>  snk.I: recv-blocked
+<src>  ASSERTION failed: Source 0 failed to open input file with ID 0!
