@@ -65,6 +65,7 @@ do
 	$ACTTOOL -cnf=sim.conf $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 cycle
 EOF
+        grep -v "WARNING: Boolean variable \`enable" runs/$i.t.stdout > runs/$i.tmp; mv runs/$i.tmp runs/$i.t.stdout
 	ok=1
 	if ! cmp runs/$i.t.stdout runs/$i.stdout >/dev/null 2>/dev/null
 	then

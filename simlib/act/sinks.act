@@ -123,93 +123,17 @@ defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
     }
 }
 
-/*
- * Simple sink with logging functionality
- *
- * Use this if you need the simplest of sinks
- *
- * Ports:
- * - I: Token input
- *
- * Features:
- * - Token logging
- *
- * Parameters:
- * - D_WIDTH: Data output bus width
- * - SINK_ID: ID of the sink (used in log output)
- * - LOG: Logger enable parameter
- *
- */
-export template<pint D_WIDTH, SINK_ID; pbool LOG>
-defproc sink (chan?(int<D_WIDTH>) I)
+
+/* sink_en, with enable set to 1 */
+export defproc sink <: sink_en ()
 {
-    int<D_WIDTH> buf;
-
-    chp {
-        *[
-            // receive the data
-            I?buf;
-
-            // check if we are should log it
-            [ LOG ->
-                log ("Sink ", SINK_ID, ": Received value ", buf, "%x (0x", buf, ")")
-            [] else ->
-                skip
-            ]
-        ]
-    }
+  l_sethi lx(enable);
 }
 
-/*
- * Simple sink with file logging functionality
- *
- * Use this if you need a simple sink that can dump
- * received tokens into a log file
- *
- * Ports:
- * - I: Token input
- *
- * Features:
- * - Token logging into file
- *
- * Parameters:
- * - D_WIDTH: Data output bus width
- * - SINK_ID: ID of the sink (used in log output)
- * - F_ID: ID of the file to save into
- * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
- * - LOG: Logger enable parameter
- *
- */
-export template<pint D_WIDTH, SINK_ID, VERBOSITY, F_ID; pbool LOG>
-defproc sink_file (chan?(int<D_WIDTH>) I)
+/* sink_file_en with enable set to 1 */
+  export defproc sink_file <: sink_file_en ()
 {
-    int<D_WIDTH> buf;
-    bool success;
-    int write_id;
-
-    chp {
-
-        // if logging is enabled, create the log file
-        [ LOG ->
-            write_id := file_private::openw (F_ID);
-            assert (write_id != 0, "Sink ", SINK_ID, " failed to open output file with ID ", F_ID, "!")
-        [] else ->
-            skip
-        ];
-
-        // receive the data and dump it into the file
-        *[
-            I?buf;
-
-            [ LOG ->
-                success := file_private::write_sink (write_id, VERBOSITY, SINK_ID, buf);
-                assert (success, "Sink ", SINK_ID, " failed to write to output file!")
-            [] else ->
-                skip
-            ]
-        ]
-    }
+  l_sethi lx(enable);
 }
   
-
 }

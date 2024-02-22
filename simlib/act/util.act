@@ -244,4 +244,21 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
 
 // add token counter -> generate finished signal when tokens = a certain number
 
+
+/*
+ * set the output to the constant 1
+ */
+defproc l_sethi (bool out)
+{
+  bool x;
+  spec {
+    rand_init (x)
+  }
+  prs {
+    [keeper=2;after=0] ~x -> out+
+    [keeper=2;after=0] x -> x-
+  }
+}  
+
+
 }
