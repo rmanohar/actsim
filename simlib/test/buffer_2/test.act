@@ -14,7 +14,7 @@ defproc test ()
 
     int res;
 
-    sim::buffer<D_WIDTH, true> buf;
+    sim::buffer<D_WIDTH, 0, true> buf;
 
     buf.enable_in = Vdd;
     buf.enable_out = GND;
