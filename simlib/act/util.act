@@ -88,13 +88,13 @@ export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, 
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - IN_CHANNELS: Number of channels
+ * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
  * - F_ID: ID of the file to save into
  * - LOG_ID: ID of the logger (used in log output)
- * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, IN_CHANNELS, F_ID, LOG_ID, VERBOSITY; pbool LOG>
+export template<pint D_WIDTH, IN_CHANNELS, VERBOSITY, F_ID, LOG_ID; pbool LOG>
 defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
 {
     int<D_WIDTH> buf[IN_CHANNELS];

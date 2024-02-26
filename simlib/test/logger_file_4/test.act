@@ -13,7 +13,7 @@ defproc test ()
     pint D_WIDTH = 8;
     int out;
 
-    sim::logger_file<D_WIDTH, 2, 0, 0, 2, true> log;
+    sim::logger_file<D_WIDTH, 2, 2, 0, 0, true> log;
     sim::sink_en<D_WIDTH, 0, true> snk_0;
     sim::sink_en<D_WIDTH, 1, true> snk_1;
 
