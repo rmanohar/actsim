@@ -304,6 +304,6 @@ defproc l_sethi (bool out)
         [keeper=2;after=0] ~x -> out+
         [keeper=2;after=0] x -> x-
     }
-}  
+}
 
 }
