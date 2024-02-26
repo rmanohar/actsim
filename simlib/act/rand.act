@@ -236,6 +236,25 @@ defproc source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
     }
 }
 
+/**
+ * Cell which pulls constantly high
+ * Used to create a non-en version for sources
+ * and sinks
+ */
+defproc l_sethi (bool out)
+{
+    bool x;
+    
+    spec {
+        rand_init (x)
+    }
+    
+    prs {
+        [keeper=2;after=0] ~x -> out+
+        [keeper=2;after=0] x -> x-
+    }
+}
+
 /* source_simple_en with enable set to 1 */
 export defproc source_simple <: source_simple_en ()
 {
