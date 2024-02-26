@@ -21,6 +21,25 @@
 
 namespace sim {
 
+/**
+ * Cell which pulls constantly high
+ * Used to create a non-en version for sources
+ * and sinks
+ */
+defproc l_sethi (bool out)
+{
+    bool x;
+    
+    spec {
+        rand_init (x)
+    }
+    
+    prs {
+        [keeper=2;after=0] ~x -> out+
+        [keeper=2;after=0] x -> x-
+    }
+}
+
 /*
  * Simple multi-channel logger
  *
@@ -240,8 +259,8 @@ defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, ena
 /** buffer_en, with both enable_in and enable_out set to 1 */
 export defproc buffer <: buffer_en ()
 {
-    l_sethi lx(enable_in);
-    l_sethi lx(enable_out);
+    l_sethi in_en_hi(enable_in);
+    l_sethi out_en_hi(enable_out);
 }
 
 /*
@@ -292,25 +311,5 @@ defproc splitter (chan?(int<D_WIDTH>) I; chan?(int<D_WIDTH>) O[OUT_CHANNELS])
 }
 
 // add token counter -> generate finished signal when tokens = a certain number
-
-
-/**
- * Cell which pulls constantly high
- * Used to create a non-en version for sources
- * and sinks
- */
-defproc l_sethi (bool out)
-{
-    bool x;
-    
-    spec {
-        rand_init (x)
-    }
-    
-    prs {
-        [keeper=2;after=0] ~x -> out+
-        [keeper=2;after=0] x -> x-
-    }
-}
 
 }
