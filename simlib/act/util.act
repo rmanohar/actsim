@@ -276,7 +276,7 @@ defproc splitter (chan?(int<D_WIDTH>) I; chan?(int<D_WIDTH>) O[OUT_CHANNELS])
 
             // log if needed
             [ LOG ->
-                log ("Splitter ", SPLITTER_ID, ": Received value ", buf[i], "%x (0x", buf[i], ")")
+                log ("Splitter ", SPLITTER_ID, ": Received value ", buf, "%x (0x", buf, ")")
             [] else ->
                 skip
             ]
