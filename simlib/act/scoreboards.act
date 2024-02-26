@@ -91,7 +91,7 @@ defproc generic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS]; c
             (, j : OUT_CHANNELS : OUT_D[j]?output_d[j]);
 
             // print the output
-            [ not_failed -> (
+            [ success -> (
                 
                 // only print successful tests if verbose testing is enabled
                 [ VERBOSE_TESTING -> (
