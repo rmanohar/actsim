@@ -25,6 +25,7 @@
 #include <common/simdes.h>
 #include <dlfcn.h>
 #include <common/pp.h>
+#include <sstream>
 
 class ChpSim;
 
@@ -1525,6 +1526,31 @@ int ChpSim::Step (Event *ev)
           actsim_log_flush ();
         }
       }
+      else if (strcmp (stmt->u.fn.name, "warn") == 0) {
+        if (_sc->isFiltered (buf)) {
+          int int_is_zero = 0;
+          int int_type = 0;
+          int int_width = -1;
+          std::stringstream stream;
+          
+          for (listitem_t *li = list_first (stmt->u.fn.l); li; li = list_next (li)) {
+            act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+            if (arg->isstring) {
+              const char *stmp = _process_string (string_char (arg->u.s),
+                    &int_is_zero,
+                    &int_type,
+                    &int_width);
+              stream << stmp;
+            }
+            else {
+              v = exprEval (arg->u.e);
+              stream << " [cannot print expressions] ";
+            }
+          }
+
+          warning ("%s", stream.str().c_str());
+        }
+      }
       else if (strcmp (stmt->u.fn.name, "assert") == 0) {
         int int_is_zero = 0;
         int int_type = 0;
@@ -2372,6 +2398,29 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
       if (strcmp (string_char (c->u.func.name), "log") == 0) actsim_log ("\n");
       actsim_log_flush ();
     }
+    else if (strcmp (string_char (c->u.func.name), "warn") == 0) {
+      int int_is_zero = 0;
+      int int_type = 0;
+      int int_width = -1;
+      std::stringstream stream;
+      
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+        act_func_arguments_t *arg = (act_func_arguments_t *) list_value (li);
+        if (arg->isstring) {
+          const char *stmp = _process_string (string_char (arg->u.s),
+                &int_is_zero,
+                &int_type,
+                &int_width);
+          stream << stmp;
+        }
+        else {
+          BigInt v = exprEval (arg->u.e);
+          stream << " [cannot print expressions] ";
+        }
+      }
+
+      warning ("%s", stream.str().c_str());
+    }
     else if (strcmp (string_char (c->u.func.name), "assert") == 0) {
       bool condition = true;
       int int_is_zero = 0;
@@ -2419,7 +2468,7 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
       actsim_log_flush ();
     }
     else {
-      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert",
+      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert, warn",
 	       string_char (c->u.func.name));
     }
     break;
@@ -5179,7 +5228,10 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     break;
 
   case ACT_CHP_FUNC:
-    if (strcmp (string_char (c->u.func.name), "log") == 0 || strcmp (string_char (c->u.func.name), "log_p") == 0) {
+    if (strcmp (string_char (c->u.func.name), "log") == 0 
+        || strcmp (string_char (c->u.func.name), "log_p") == 0 
+        || strcmp (string_char (c->u.func.name), "warn") == 0
+      ) {
       listitem_t *li;
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
@@ -5253,7 +5305,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       (*stop) = ret;
     }
     else {
-      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert",
+      warning ("Built-in function `%s' is not known; valid values: log, log_st, log_p, log_nl, assert, warn",
 	       string_char (c->u.func.name));
     }
     break;
