@@ -369,40 +369,40 @@ defproc source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 }
 
 
-/* source_static_en with enable set to 1 */
+/** source_static_en with enable set to 1 */
 export defproc source_static <: source_static_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_static_multi_en with enable set to 1 */
+/** source_static_multi_en with enable set to 1 */
 export defproc source_static_multi <: source_static_multi_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_sequence_en with enable set to 1 */
+/** source_sequence_en with enable set to 1 */
 export defproc source_sequence <: source_sequence_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_sequence_multi with enable set to 1 */
+/** source_sequence_multi with enable set to 1 */
 export defproc source_sequence_multi <: source_sequence_multi_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_file_en with enable set to 1 */
+/** source_file_en with enable set to 1 */
 export defproc source_file <: source_file_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_file_multi_en with enable set to 1 */
+/** source_file_multi_en with enable set to 1 */
 export defproc source_file_multi <: source_file_multi_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
 }

@@ -255,28 +255,28 @@ defproc l_sethi (bool out)
     }
 }
 
-/* source_simple_en with enable set to 1 */
+/** source_simple_en with enable set to 1 */
 export defproc source_simple <: source_simple_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_simple_multi_en with enable set to 1 */
+/** source_simple_multi_en with enable set to 1 */
 export defproc source_simple_multi <: source_simple_multi_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_range_en with enable set to 1 */
+/** source_range_en with enable set to 1 */
 export defproc source_range <: source_range_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* source_range_multi_en with enable set to 1 */
+/** source_range_multi_en with enable set to 1 */
 export defproc source_range_multi <: source_range_multi_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
 }

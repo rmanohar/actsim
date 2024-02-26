@@ -124,16 +124,16 @@ defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
 }
 
 
-/* sink_en, with enable set to 1 */
+/** sink_en, with enable set to 1 */
 export defproc sink <: sink_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* sink_file_en with enable set to 1 */
+/** sink_file_en with enable set to 1 */
   export defproc sink_file <: sink_file_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
   
 }
