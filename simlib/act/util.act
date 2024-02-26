@@ -173,7 +173,7 @@ function buffer_create () : int<32>;
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH; pbool LOG>
+export template<pint D_WIDTH, BUFFER_ID; pbool LOG>
 defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
 {
     // the bit width must be smaller than 64 bit (limitation of C function import)
@@ -203,7 +203,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             assert (success, "Write to buffer failed!");
 
             [ LOG ->
-                log ("Written ", write_buf, "%x (0x", write_buf, ") to buffer")
+                log ("Buffer ", BUFFER_ID, ": Written ", write_buf, "%x (0x", write_buf, ") to buffer")
             [] else ->
                 skip
             ];
@@ -226,7 +226,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             O!read_buf;
 
             [ LOG ->
-                log ("Read ", read_buf, "%x (0x", read_buf, ") from buffer")
+                log ("Buffer ", BUFFER_ID, ": Read ", read_buf, "%x (0x", read_buf, ") from buffer")
             [] else ->
                 skip
             ];
