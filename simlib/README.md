@@ -24,6 +24,7 @@ This library contains components for various purposes. A brief list can be found
 
 ### Scoreboards
 
+* `generic`: If your checks are more intricate than any of the pre-made scoreboards, this should be used for standardized logging and output parsing
 * `lockstep`: Used when one or more inputs and outputs are expected to see the same number of tokens in the same order for model and DUT
 * `deterministic`: Used when one or more output channels see the same number of tokens in the same order for model and DUT
 * `input_logger`: Used to log the input tokens for one or more input channels (identical to sink; same message format and verbosity parameters as scoreboards)
@@ -33,6 +34,7 @@ This library contains components for various purposes. A brief list can be found
 * `logger`: Zero-slack logger which reports tokens passing through the channel
 * `logger_file`: Zero-slack logger which prints tokens passing through the channel to a file (with configurable level of verbosity)
 * `buffer`: Infinite capacity buffer. Used to eliminate timing impact and channel blocking of simulation harness on the DUT
+* `splitter`: Copy tokens from one input channel to multiple
 
 ### File interaction
 
