@@ -174,7 +174,7 @@ function buffer_create () : int<32>;
  *
  */
 export template<pint D_WIDTH, BUFFER_ID; pbool LOG>
-defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
+defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
 {
     // the bit width must be smaller than 64 bit (limitation of C function import)
     {D_WIDTH < 64};
@@ -235,6 +235,13 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             empty := buffer_empty (id)
         ]
     }
+}
+
+/** buffer_en, with both enable_in and enable_out set to 1 */
+export defproc buffer <: buffer_en ()
+{
+    l_sethi lx(enable_in);
+    l_sethi lx(enable_out);
 }
 
 /*
