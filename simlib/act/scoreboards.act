@@ -29,27 +29,44 @@ export function eof (int<32> reader_id) : bool;
 export function closer (int<32> reader_id) : bool;
 }
 
-export
-template<pint D_WIDTH; pint F_ID; pbool LOOP>
+/**
+ * Deprecated check sink from old simulation library
+ *
+ * This should not be used in new designs and will be removed
+ * in next version!
+ *
+ */
+export template<pint D_WIDTH; pint F_ID; pbool LOOP>
 defproc check_sink (chan?(int<D_WIDTH>) I)
 {
-  int<D_WIDTH> x, y;
-  int reader_id;
-  bool dummy;
-  chp {
-    *[  reader_id := file_private::openr (F_ID);
-      *[ I?x;
-           y := file_private::read(reader_id);
-         [ x = y -> skip
-         [] else -> log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
-         ]
-	  <- ~file_private::eof(reader_id)
-       ];
-        dummy := file_private::closer(reader_id)
-       <- LOOP
-    ];
-    log ("Sink file #", F_ID, " ends.")
-  }
+    int<D_WIDTH> x, y;
+    int reader_id;
+    bool dummy;
+
+    chp {
+        *[
+            // open the known good output file for reading
+            reader_id := file_private::openr (F_ID);
+
+            *[
+                // receive the input value
+                I?x;
+                y := file_private::read(reader_id);
+
+                // compare the values
+                [ x = y -> 
+                    skip
+                [] else -> 
+                    log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
+                ]
+
+	        <- ~file_private::eof(reader_id) ];
+
+            dummy := file_private::closer(reader_id)
+
+        <- LOOP ];
+        log ("Sink file #", F_ID, " ends.")
+    }
 }
 
 export namespace scoreboard {
