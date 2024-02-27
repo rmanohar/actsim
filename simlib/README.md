@@ -6,7 +6,7 @@ Components in this folder are not synthesizable and should not be used in a fina
 
 ## Contents
 
-This library contains components for various purposes. A brief list can be found here.
+This library contains components for various purposes. A brief list can be found here. All components under [sources], [sinks], and [random generators] have enable versions, wich additionally expose a flag to control token flow.
 
 ### Sources
 
@@ -14,7 +14,7 @@ This library contains components for various purposes. A brief list can be found
 * `source_static_multi`: Simple multi-ended source that will repeatedly emit a static value token
 * `source_sequence`: Emits a static sequence of token values on a single output channel, can loop through the values
 * `source_sequence_multi`: Emits a static sequence of token values on a configurable number of output channels, can loop through the values
-* `source_file`: Emits a list of tokens given through an input file on a single output channel. The input file format supports comments, and is base 10 by default. Base 2 (0b), 8 (0o), and 16 (0x) are also supported. The input file must not have any trailing newlines.
+* `source_file`: Emits a list of tokens given through an input file on a single output channel. The input file format supports comments, and is base 10 by default. Base 2 (0b), 8 (0o), and 16 (0x) are also supported.
 * `source_file_multi`: Same as `source_file`, but with a configurable number of output channels.
 
 ### Sinks
@@ -24,6 +24,7 @@ This library contains components for various purposes. A brief list can be found
 
 ### Scoreboards
 
+* `generic`: If your checks are more intricate than any of the pre-made scoreboards, this should be used for standardized logging and output parsing
 * `lockstep`: Used when one or more inputs and outputs are expected to see the same number of tokens in the same order for model and DUT
 * `deterministic`: Used when one or more output channels see the same number of tokens in the same order for model and DUT
 * `input_logger`: Used to log the input tokens for one or more input channels (identical to sink; same message format and verbosity parameters as scoreboards)
@@ -33,6 +34,7 @@ This library contains components for various purposes. A brief list can be found
 * `logger`: Zero-slack logger which reports tokens passing through the channel
 * `logger_file`: Zero-slack logger which prints tokens passing through the channel to a file (with configurable level of verbosity)
 * `buffer`: Infinite capacity buffer. Used to eliminate timing impact and channel blocking of simulation harness on the DUT
+* `splitter`: Copy tokens from one input channel to multiple
 
 ### File interaction
 
@@ -54,8 +56,7 @@ This library contains components for various purposes. A brief list can be found
 ## Roadmap
 
 * Add tests for random sources
-* Add splitter to utility
-* Support trailing newline in file sources
+* Support trailing comments in file sources
 * Token counters; both to count to a parameter given number of tokens and raise a flag as well as count equal number of tokens on two different busses
 * Nondeterministic scoreboard for designs where the token order of design and model might differ but the token number is identical
 * Support for constrained random testing using new sources with C++ backend

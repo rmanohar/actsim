@@ -83,13 +83,13 @@ export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
- * - SINK_ID: ID of the sink (used in log output)
- * - F_ID: ID of the file to save into
  * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
+ * - F_ID: ID of the file to save into
+ * - SINK_ID: ID of the sink (used in log output)
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, SINK_ID, VERBOSITY, F_ID; pbool LOG>
+export template<pint D_WIDTH, VERBOSITY, F_ID, SINK_ID; pbool LOG>
 defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
 {
     int<D_WIDTH> buf;
@@ -124,16 +124,16 @@ defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
 }
 
 
-/* sink_en, with enable set to 1 */
+/** sink_en, with enable set to 1 */
 export defproc sink <: sink_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
 
-/* sink_file_en with enable set to 1 */
+/** sink_file_en with enable set to 1 */
   export defproc sink_file <: sink_file_en ()
 {
-  l_sethi lx(enable);
+    l_sethi lx(enable);
 }
   
 }

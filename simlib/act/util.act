@@ -21,6 +21,25 @@
 
 namespace sim {
 
+/**
+ * Cell which pulls constantly high
+ * Used to create a non-en version for sources
+ * and sinks
+ */
+defproc l_sethi (bool out)
+{
+    bool x;
+    
+    spec {
+        rand_init (x)
+    }
+    
+    prs {
+        [keeper=2;after=0] ~x -> out+
+        [keeper=2;after=0] x -> x-
+    }
+}
+
 /*
  * Simple multi-channel logger
  *
@@ -28,7 +47,7 @@ namespace sim {
  *
  * Features:
  * - Generate log line on passing token
- * - Enable through parameter
+ * - Enable logging through parameter
  * - Zero slack behavior
  *
  * Parameters:
@@ -79,26 +98,22 @@ export function write_log (int<32> writer_id; int<8> verbosity; int<32> log_id, 
  * Use this if you need a token logger on any channel
  * which saves tokens into a file.
  *
- * Eventually, this logger will have fancy output and multi-
- * channel capability; this is currently not possible due
- * to missing support for strings in the core language.
- *
  * Features:
  * - Generate log line on passing token
  * - Save to file
- * - Enable through parameter
+ * - Enable logging through parameter
  * - Zero slack behavior
  *
  * Parameters:
  * - D_WIDTH: Data output bus width
  * - IN_CHANNELS: Number of channels
- * - LOG_ID: ID of the logger (currently unused)
- * - F_ID: ID of the file to save into
  * - VERBOSITY: Verbosity with which to print to the file; 0: not verbose, 2: very verbose
+ * - F_ID: ID of the file to save into
+ * - LOG_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, IN_CHANNELS, LOG_ID, F_ID, VERBOSITY; pbool LOG>
+export template<pint D_WIDTH, IN_CHANNELS, VERBOSITY, F_ID, LOG_ID; pbool LOG>
 defproc logger_file (chan?(int<D_WIDTH>) I[IN_CHANNELS]; chan!(int<D_WIDTH>) O[IN_CHANNELS])
 {
     int<D_WIDTH> buf[IN_CHANNELS];
@@ -160,7 +175,7 @@ function buffer_create () : int<32>;
  * while the source can produce tokens with whatever speed the DUT
  * can consume them.
  *
- * Do not write to the empty flag.
+ * Leave the empty flag unconnected.
  *
  * Features:
  * - Infinite capacity (theoretically)
@@ -177,8 +192,8 @@ function buffer_create () : int<32>;
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH; pbool LOG>
-defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
+export template<pint D_WIDTH, BUFFER_ID; pbool LOG>
+defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
 {
     // the bit width must be smaller than 64 bit (limitation of C function import)
     {D_WIDTH < 64};
@@ -207,7 +222,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             assert (success, "Write to buffer failed!");
 
             [ LOG ->
-                log ("Written ", write_buf, "%x (0x", write_buf, ") to buffer")
+                log ("Buffer ", BUFFER_ID, ": Written ", write_buf, "%x (0x", write_buf, ") to buffer")
             [] else ->
                 skip
             ];
@@ -230,7 +245,7 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
             O!read_buf;
 
             [ LOG ->
-                log ("Read ", read_buf, "%x (0x", read_buf, ") from buffer")
+                log ("Buffer ", BUFFER_ID, ": Read ", read_buf, "%x (0x", read_buf, ") from buffer")
             [] else ->
                 skip
             ];
@@ -241,24 +256,60 @@ defproc buffer (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable
     }
 }
 
-
-// add token counter -> generate finished signal when tokens = a certain number
-
+/** buffer_en, with both enable_in and enable_out set to 1 */
+export defproc buffer <: buffer_en ()
+{
+    l_sethi in_en_hi(enable_in);
+    l_sethi out_en_hi(enable_out);
+}
 
 /*
- * set the output to the constant 1
+ * Token splitter
+ *
+ * Use this if you need to copy a token to multiple output channels.
+ *
+ * Features:
+ * - Generate log line on passing token
+ * - Enable logging through parameter
+ * - Zero slack behavior
+ *
+ * Ports:
+ * - I: Splitter input
+ * - O: Splitter output
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels
+ * - SPLITTER_ID: ID of the splitter (used in log output)
+ * - LOG: Logger enable parameter
+ *
  */
-defproc l_sethi (bool out)
+export template<pint D_WIDTH, OUT_CHANNELS, SPLITTER_ID; pbool LOG>
+defproc splitter (chan?(int<D_WIDTH>) I; chan?(int<D_WIDTH>) O[OUT_CHANNELS])
 {
-  bool x;
-  spec {
-    rand_init (x)
-  }
-  prs {
-    [keeper=2;after=0] ~x -> out+
-    [keeper=2;after=0] x -> x-
-  }
-}  
+    int<D_WIDTH> buf;
 
+    chp {
+        *[
+            // listen to input channel
+            [#I];
+
+            // forward the data to all output channels (zero-slack)
+            (, i : OUT_CHANNELS : O[i]!I);
+
+            // get the data
+            I?buf;
+
+            // log if needed
+            [ LOG ->
+                log ("Splitter ", SPLITTER_ID, ": Received value ", buf, "%x (0x", buf, ")")
+            [] else ->
+                skip
+            ]
+        ]
+    }
+}
+
+// add token counter -> generate finished signal when tokens = a certain number
 
 }

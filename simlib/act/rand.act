@@ -48,7 +48,7 @@ export function seed(int<32> prg_id; int<32> seed) : bool;
  *
  */
 export template<pint D_WIDTH, SOURCE_ID; pbool LOG>
-defproc source_simple(chan!(int<D_WIDTH>) O; bool enable)
+defproc source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -98,7 +98,7 @@ defproc source_simple(chan!(int<D_WIDTH>) O; bool enable)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, SOURCE_ID; pbool LOG>
-defproc source_simple_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+defproc source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -152,7 +152,7 @@ defproc source_simple_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
  *
  */
 export template<pint D_WIDTH, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
-defproc source_range(chan!(int<D_WIDTH>) O; bool enable)
+defproc source_range_en(chan!(int<D_WIDTH>) O; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -206,7 +206,7 @@ defproc source_range(chan!(int<D_WIDTH>) O; bool enable)
  *
  */
 export template<pint D_WIDTH, OUT_CHANNELS, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
-defproc source_range_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+defproc source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -234,6 +234,49 @@ defproc source_range_multi(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
             )
         ]
     }
+}
+
+/**
+ * Cell which pulls constantly high
+ * Used to create a non-en version for sources
+ * and sinks
+ */
+defproc l_sethi (bool out)
+{
+    bool x;
+    
+    spec {
+        rand_init (x)
+    }
+    
+    prs {
+        [keeper=2;after=0] ~x -> out+
+        [keeper=2;after=0] x -> x-
+    }
+}
+
+/** source_simple_en with enable set to 1 */
+export defproc source_simple <: source_simple_en ()
+{
+    l_sethi lx(enable);
+}
+
+/** source_simple_multi_en with enable set to 1 */
+export defproc source_simple_multi <: source_simple_multi_en ()
+{
+    l_sethi lx(enable);
+}
+
+/** source_range_en with enable set to 1 */
+export defproc source_range <: source_range_en ()
+{
+    l_sethi lx(enable);
+}
+
+/** source_range_multi_en with enable set to 1 */
+export defproc source_range_multi <: source_range_multi_en ()
+{
+    l_sethi lx(enable);
 }
 
 }

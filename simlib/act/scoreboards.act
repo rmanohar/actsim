@@ -29,30 +29,111 @@ export function eof (int<32> reader_id) : bool;
 export function closer (int<32> reader_id) : bool;
 }
 
-export
-template<pint D_WIDTH; pint F_ID; pbool LOOP>
+/**
+ * Deprecated check sink from old simulation library
+ *
+ * This should not be used in new designs and will be removed
+ * in next version!
+ *
+ */
+export template<pint D_WIDTH; pint F_ID; pbool LOOP>
 defproc check_sink (chan?(int<D_WIDTH>) I)
 {
-  int<D_WIDTH> x, y;
-  int reader_id;
-  bool dummy;
-  chp {
-    *[  reader_id := file_private::openr (F_ID);
-      *[ I?x;
-           y := file_private::read(reader_id);
-         [ x = y -> skip
-         [] else -> log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
-         ]
-	  <- ~file_private::eof(reader_id)
-       ];
-        dummy := file_private::closer(reader_id)
-       <- LOOP
-    ];
-    log ("Sink file #", F_ID, " ends.")
-  }
+    int<D_WIDTH> x, y;
+    int reader_id;
+    bool dummy;
+
+    chp {
+        *[
+            // open the known good output file for reading
+            reader_id := file_private::openr (F_ID);
+
+            *[
+                // receive the input value
+                I?x;
+                y := file_private::read(reader_id);
+
+                // compare the values
+                [ x = y -> 
+                    skip
+                [] else -> 
+                    log ("ASSERTION failed, value mismatch; expected: ", y, "%x (0x", y, "); got: ", x, "%x (0x", x, ")")
+                ]
+
+	        <- ~file_private::eof(reader_id) ];
+
+            dummy := file_private::closer(reader_id)
+
+        <- LOOP ];
+        log ("Sink file #", F_ID, " ends.")
+    }
 }
 
 export namespace scoreboard {
+
+/*
+ * Generic scoreboard
+ *
+ * Use this if your checks are more intricate and you only
+ * wish to use standardized logging
+ *
+ * Features:
+ * - Output token logging
+ *
+ * Assumes:
+ * - Valid channel receives true token if test succeeded
+ *
+ * Parameters:
+ * - D_WIDTH: Data output bus width
+ * - OUT_CHANNELS: Number of output channels coming from the model / design
+ * - SB_ID: ID of the scoreboard (used in log output)
+ * - VERBOSE_TESTING: If false, only failed tests are logged
+ *
+ */
+export template <pint D_WIDTH, OUT_CHANNELS, SB_ID; pbool VERBOSE_TESTING>
+defproc generic (chan?(int<D_WIDTH>) OUT_M[OUT_CHANNELS], OUT_D[OUT_CHANNELS]; chan?(bool) SUCCESS)
+{
+    int<D_WIDTH> output_m[OUT_CHANNELS], output_d[OUT_CHANNELS];
+    bool success;
+    int num;
+
+    chp {
+        
+        num := 0;
+
+        *[
+            // receive the data
+            SUCCESS?success,
+            (, i : OUT_CHANNELS : OUT_M[i]?output_m[i]),
+            (, j : OUT_CHANNELS : OUT_D[j]?output_d[j]);
+
+            // print the output
+            [ success -> (
+                
+                // only print successful tests if verbose testing is enabled
+                [ VERBOSE_TESTING -> (
+                    log_st ("");
+                    log_p ("Scoreboard ", SB_ID, ": TEST SUCCESS (", num, "); outputs {");
+                    (; i : OUT_CHANNELS : log_p (i, ": ", output_d[i], "%x (0x", output_d[i], "); "));
+                    log_p ("}");
+                    log_nl ("")
+                ) 
+                []  else -> (
+                    skip
+                )]
+            )
+            []  else -> (
+                log_st ("");
+                log_p ("Scoreboard ", SB_ID, ": TEST FAILED (", num, "); outputs {");
+                (; i : OUT_CHANNELS : log_p (i, ": expected ", output_m[i], "%x (0x", output_m[i], "), got ", output_d[i], "%x (0x", output_d[i], "); "));
+                log_p ("}");
+                log_nl ("")
+            )];
+            num := num + 1
+        ]
+
+    }
+}
 
 /*
  * Lockstep scoreboard
