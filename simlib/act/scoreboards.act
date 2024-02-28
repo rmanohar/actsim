@@ -44,6 +44,8 @@ defproc check_sink (chan?(int<D_WIDTH>) I)
     bool dummy;
 
     chp {
+        warn ("check_sink is deprecated and will be removed in a future version!");
+
         *[
             // open the known good output file for reading
             reader_id := file_private::openr (F_ID);

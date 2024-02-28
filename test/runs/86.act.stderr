@@ -1,3 +1,4 @@
 WARNING: one_buffer<>: substituting chp model (requested prs, not found)
 WARNING: check_sink<32,1,f>: substituting chp model (requested prs, not found)
 WARNING: tst_src<>: substituting chp model (requested prs, not found)
+WARNING: check_sink is deprecated and will be removed in a future version!
