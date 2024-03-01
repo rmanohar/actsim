@@ -100,7 +100,7 @@ do
         fi
 
         # simulate
-        actsim $fn_actfile $process_name < $fn_actsim_script > $process_name.stdout 2> $process_name.stderr
+        $ACT_HOME/bin/actsim $fn_actfile $process_name < $fn_actsim_script > $process_name.stdout 2> $process_name.stderr
 
         # check if actsim exited abnormally
         if [ $? -ne 0 ]
