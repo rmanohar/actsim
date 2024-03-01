@@ -57,7 +57,7 @@ jobs:
 
    ubuntu:
      docker:
-       - image: ubuntu:22.04
+       - image: ubuntu
      steps:
        - checkout
        - run:
