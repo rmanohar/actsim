@@ -113,4 +113,5 @@ workflows:
    build:
      jobs: 
         - ubuntu22
+        - ubuntu
 
