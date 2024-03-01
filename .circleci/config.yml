@@ -55,6 +55,59 @@ jobs:
               export ACT_TEST_INSTALL=1
               make runtest
 
+   ubuntu:
+     docker:
+       - image: ubuntu:22.04
+     steps:
+       - checkout
+       - run:
+          name: Dependencies
+          command: |
+              apt-get -q update -y
+              DEBIAN_FRONTEND=noninteractive apt-get -q install -y libedit-dev zlib1g-dev m4 build-essential git terminfo
+       - run: 
+          name: Install act base
+          command: |
+              git clone https://github.com/asyncvlsi/act --depth 1
+              mkdir install
+              export ACT_HOME=`pwd`/install
+              cd act
+              echo "===== build act base ====="
+              export VLSI_TOOLS_SRC=`pwd`
+              ./configure $ACT_HOME
+              ./build
+              echo "===== install act base ====="
+              make install
+              cd ..
+       - run: 
+          name: Install act stdlib
+          command: |
+              git clone https://github.com/asyncvlsi/stdlib --depth 1
+              export ACT_HOME=`pwd`/install
+              export PATH=$ACT_HOME/bin:$PATH
+              export VLSI_TOOLS_SRC=`pwd`/act
+              cd stdlib
+              echo "===== install act stdlib ====="
+              make install
+              cd ..
+       - run: 
+          name: Build install and test
+          command: |
+              export ACT_HOME=`pwd`/install
+              export PATH=$ACT_HOME/bin:$PATH
+              export VLSI_TOOLS_SRC=`pwd`/act
+              echo "===== build act addon ====="
+              ./configure
+              ./build.sh
+              echo "===== install act addon ====="
+              make install
+              
+              echo "===== test act addon ====="
+              export ACT_TEST_VERBOSE=1
+              make runtest
+              export ACT_TEST_INSTALL=1
+              make runtest
+
 workflows:
    version: 2
    build:
