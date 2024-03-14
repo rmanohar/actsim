@@ -230,21 +230,19 @@ extern "C" expr_res actsim_file_read(int argc, struct expr_res* args) {
         size_t base = 10;
 
         // check if base 16
-        if (line.rfind("0x", 0) == 0) {
+        if (line.find("0x", 0) == 0) {
             // remove the characters and set the base
             line = line.substr(2, std::string::npos);
             base = 16;
         }
-
-        // check if base 2
-        if (line.rfind("0b", 0) == 0) {
+        else if (line.find("0b", 0) == 0) {
+            // check if base 2
             // remove the characters and set the base
             line = line.substr(2, std::string::npos);
             base = 2;
         }
-
-        // check if base 8
-        if (line.rfind("0o", 0) == 0) {
+        else if (line.find("0o", 0) == 0) {
+            // check if base 8
             // remove the characters and set the base
             line = line.substr(2, std::string::npos);
             base = 8;
