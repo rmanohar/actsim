@@ -29,6 +29,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -38,8 +39,8 @@
 
 std::unordered_map<size_t, std::pair<std::ifstream, size_t>> input_streams;
 std::unordered_map<size_t, std::pair<std::ofstream, size_t>> output_streams;
-std::map<size_t, size_t> input_files;
-std::set<size_t> output_files;
+std::map<std::string, size_t> input_files;
+std::set<std::string> output_files;
 size_t reader_cnt = 0;
 size_t writer_cnt = 0;
 
@@ -52,6 +53,36 @@ size_t writer_cnt = 0;
  */
 extern "C" void _builtin_update_config(void* v) {
     config_set_state((struct Hashtable*)v);
+}
+
+/**
+ * @brief Get filename from a file id
+ *
+ * @param file_id Extension of the file, e.g., `file_id=0` -> "_infile_.0"
+ * @return Full filename
+ */
+std::optional<std::string> get_filename(size_t file_id, const char* caller_name) {
+    // check if the config defines an alias for this file
+    if (config_exists("sim.file.name_table")) {
+        int len = config_get_table_size("sim.file.name_table");
+
+        // make sure the configured alias is still in bounds
+        if (file_id >= len) {
+            std::cerr << caller_name << ": File name index " << file_id
+                      << " is out of bounds given the name table length of "
+                      << len << std::endl;
+            return {};
+        }
+
+        // and get the alias
+        return (config_get_table_string("sim.file.name_table"))[file_id];
+
+    } else {
+        // seems like we don't, load the file normally using the file prefix
+        std::ostringstream builder;
+        builder << config_get_string("sim.file.prefix") << "." << file_id;
+        return builder.str();
+    }
 }
 
 /**
@@ -86,39 +117,22 @@ extern "C" expr_res actsim_file_openr(int argc, struct expr_res* args) {
     size_t file_id = args[0].v;
 
     // get the file name to open
-    std::string filename;
-
-    // check if the config defines an alias for this file
-    if (config_exists("sim.file.name_table")) {
-        int len = config_get_table_size("sim.file.name_table");
-
-        // make sure the configured alias is still in bounds
-        if (file_id >= len) {
-            std::cerr << "actim_file_openr: File name index " << file_id
-                      << " is out of bounds given the name table length of "
-                      << len << std::endl;
-            return ret;
-        }
-
-        // and get the alias
-        filename = (config_get_table_string("sim.file.name_table"))[file_id];
-
-    } else {
-        // seems like we don't, load the file normally using the file prefix
-        std::ostringstream builder;
-        builder << config_get_string("sim.file.prefix") << "." << file_id;
-        filename = builder.str();
+    std::optional<std::string> maybe_filename = get_filename(file_id, "actsim_file_openr");
+    if (!maybe_filename.has_value()) {
+        std::cerr << "actsim_file_openr: Failed to get filename!" << std::endl;
+        return ret;
     }
+    std::string filename = maybe_filename.value();
 
     // make sure the file isn't already open for writing
-    if (output_files.find(file_id) != output_files.end()) {
+    if (output_files.find(filename) != output_files.end()) {
         std::cerr << "actsim_file_openr: File '" << filename
                   << "' is already opened for writing!" << std::endl;
         return ret;
     }
 
     // register the file as open in reading mode
-    input_files.emplace(file_id, 1);
+    input_files.emplace(filename, 1);
 
     // get a new reader ID
     // the first ID generated this way is 1, so we can use 0 as an error value
@@ -379,11 +393,19 @@ extern "C" expr_res actsim_file_closer(int argc, struct expr_res* args) {
     input_streams.erase(reader_id);
     ret.v = 1;
 
+    // get the file name to close
+    std::optional<std::string> maybe_filename = get_filename(file_id, "actsim_file_closer");
+    if (!maybe_filename.has_value()) {
+        std::cerr << "actsim_file_closer: Failed to get filename!" << std::endl;
+        return ret;
+    }
+    std::string filename = maybe_filename.value();
+
     // reduce the reference counter
-    --input_files[file_id];
+    --input_files[filename];
 
     // if the reference counter hit zero, remove it
-    if (input_files[file_id] == 0) input_files.erase(file_id);
+    if (input_files[filename] == 0) input_files.erase(filename);
 
     return ret;
 }
@@ -434,21 +456,21 @@ extern "C" expr_res actsim_file_openw(int argc, struct expr_res* args) {
     }
 
     // make sure the file isn't already open for reading
-    if (input_files.find(file_id) != input_files.end()) {
+    if (input_files.find(filename) != input_files.end()) {
         std::cerr << "actsim_file_openw: File '" << filename
                   << "' is already opened for reading!" << std::endl;
         return ret;
     }
 
     // make sure the file isn't already open for writing
-    if (output_files.find(file_id) != output_files.end()) {
+    if (output_files.find(filename) != output_files.end()) {
         std::cerr << "actsim_file_openw: File '" << filename
                   << "' is already opened for writing!" << std::endl;
         return ret;
     }
 
     // register the file as open for writing
-    output_files.emplace(file_id);
+    output_files.emplace(filename);
 
     // increase the writer id counter
     ++writer_cnt;
@@ -591,8 +613,16 @@ extern "C" expr_res actsim_file_closew(int argc, struct expr_res* args) {
     output_streams.erase(writer_id);
     ret.v = 1;
 
+    // get the file name to close
+    std::optional<std::string> maybe_filename = get_filename(file_id, "actsim_file_closew");
+    if (!maybe_filename.has_value()) {
+        std::cerr << "actsim_file_closew: Failed to get filename!" << std::endl;
+        return ret;
+    }
+    std::string filename = maybe_filename.value();
+
     // remove the file from the list of open files
-    output_files.erase(file_id);
+    output_files.erase(filename);
 
     return ret;
 }

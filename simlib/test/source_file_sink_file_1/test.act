@@ -1,0 +1,22 @@
+/*
+
+    Test that one can not read from and write to the same file when the default names are
+    overwritten in a custom `actsim.conf`
+
+*/
+
+import sim;
+import globals;
+
+defproc test ()
+{
+    pint F_ID = 0;
+
+    sim::source_file_en<8, F_ID, false, 0, true> src;
+    sim::sink_file_en<8, 0, F_ID, 0, true> snk;
+
+    snk.I = src.O;
+
+    snk.enable = Vdd;
+    src.enable = Vdd;
+}
