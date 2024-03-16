@@ -69,11 +69,11 @@ extern "C" expr_res actsim_file_write_sink(int argc, struct expr_res* args) {
 
     switch (verbosity) {
         case 0:
-            builder << std::hex << value << std::endl;
+            builder << "0x" << std::hex << value << std::endl;
             break;
 
         case 1:
-            builder << sink_id << ": " << std::hex << value << std::endl;
+            builder << sink_id << ": 0x" << std::hex << value << std::endl;
             break;
 
         case 2:
