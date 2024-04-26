@@ -1,0 +1,58 @@
+
+
+// compare
+export template<pint w_in, w_out>
+function sign_extend (int<w_in> in) : int<w_out>
+{
+    int<w_out> a,b;
+
+  chp {
+        // sign_extend alternative
+        a := in{w_in-1}=1 ? {~int(0,w_out-w_in),in} : {int(0,w_out-w_in),in};
+   
+        // std sign extend
+        [  in{w_in-1} = 1 -> b := in | (~int(0,w_out) << w_in)
+        [] else -> b := in
+        ];
+
+        //compare them
+        [  a!=b -> log(" input: ",in," DIFFERENT a: ",a," b: ",b,"%b a: ",a,"%b b: ",b )
+        [] a=b  -> log(" input: ",in," SAME      a: ",a," b: ",b,"%b a: ",a,"%b b: ",b )
+        ];		
+
+        self:=a
+  }
+}
+
+
+pint win=15;
+pint wout=32;
+pint examples=10;
+
+defproc test()
+{
+    int<win> v[10];
+    int<wout> out;
+    int<10> i;
+
+    chp{
+    
+    v[0]:=65468;
+    v[1]:=65451;
+    v[2]:=65500;
+    v[3]:=65488;
+    v[4]:=65526;
+    v[5]:=65528;
+    v[6]:=65485;
+    v[7]:=65492;
+    v[8]:=65481;
+    v[9]:=65486;
+    
+    i:=0;
+    *[ i< examples -> 
+            out := sign_extend<win,wout> (v[i]);
+            i:=i+1
+    ]
+
+    }
+}
