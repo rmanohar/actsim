@@ -213,6 +213,7 @@ static void dump_coverage (FILE *fp, ActInstTable *x)
 static unsigned long _get_energy (FILE *fp,
 				  ActInstTable *x, double *lk,
 				  unsigned long *area,
+				  bool print_type,
 				  int ts = 0)
 {
   unsigned long tot;
@@ -246,6 +247,18 @@ static unsigned long _get_energy (FILE *fp,
       else {
 	fprintf (fp, "-top-");
       }
+
+      if (print_type)  {
+	fprintf (fp, " [ ");
+	Process *p = x->obj->getProc();
+	if (p->getns() && p->getns() != ActNamespace::Global()) {
+	  char *ns = p->getns()->Name();
+	  fprintf (fp, "%s::", ns);
+	  FREE (ns);
+	}
+	fprintf (fp, "%s ] ", p->getName());
+      }
+      
       fprintf (fp, " %lu  (%g W); area: %lu\n", tot, totl, tota);
     }
   }
@@ -260,7 +273,7 @@ static unsigned long _get_energy (FILE *fp,
     hash_iter_init (x->H, &i);
     while ((b = hash_iter_next (x->H, &i))) {
       ActInstTable *tmp = (ActInstTable *) b->v;
-      tot += _get_energy (fp, tmp, &tmpl, &tmpa, ts+1);
+      tot += _get_energy (fp, tmp, &tmpl, &tmpa, print_type, ts+1);
       totl += tmpl;
       tota += tmpa;
     }
@@ -388,46 +401,61 @@ int process_getenergy (int argc, char **argv)
   unsigned long area;
   FILE *fp;
     
-  if (argc != 2 && argc != 3) {
-    fprintf (stderr, "Usage: %s <filename> [<instance-name>]\n", argv[0]);
+  if (argc != 2 && argc != 3 && argc != 4) {
+    fprintf (stderr, "Usage: %s [-v] <filename> [<instance-name>]\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
-  if (strcmp (argv[1], "-") == 0) {
+  int add_one = 0;
+  bool flag = false;
+
+  if (strcmp (argv[1], "-v") == 0) {
+    flag = true;
+    add_one = 1;
+
+    if (argc == 2) {
+      fprintf (stderr, "Usage: %s [-v] <filename> [<instance-name>]\n", argv[0]);
+      return LISP_RET_ERROR;
+    }
+  }
+
+
+  if (strcmp (argv[1+add_one], "-") == 0) {
     fp = stdout;
   }
   else {
-    fp = fopen (argv[1], "w");
+    fp = fopen (argv[1+add_one], "w");
     if (!fp) {
       fprintf (stderr, "%s: could not open file `%s' for writing\n",
-	       argv[0], argv[1]);
+	       argv[0], argv[1+add_one]);
       return LISP_RET_ERROR;
     }
   }
   
-  if (argc == 2) {
+  if (argc == 2+add_one) {
     /* all */
     id = NULL;
   }
   else {
-    id = my_parse_id (argv[2]);
+    id = my_parse_id (argv[2+add_one]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[2]);
+	       argv[2+add_one]);
       return LISP_RET_ERROR;
     }
   }
 
   if (!id) {
     /*-- print state of each process --*/
-    fprintf (fp, "Total: %lu", _get_energy (fp,
-				       glob_sim->getInstTable (), &lk, &area));
+    fprintf (fp, "Total: %lu",
+	     _get_energy (fp, glob_sim->getInstTable (), &lk, &area,
+			  flag));
     fprintf (fp, "  (%g W); area: %lu\n", lk, area);
   }
   else {
     /*-- find this process --*/
     ActInstTable *inst = find_table (id, glob_sim->getInstTable());
-    fprintf (fp, "Total: %lu", _get_energy (fp, inst, &lk, &area));
+    fprintf (fp, "Total: %lu", _get_energy (fp, inst, &lk, &area, flag));
     fprintf (fp, "  (%g W); area: %lu\n", lk, area);
     delete id;
   }
@@ -1571,7 +1599,7 @@ struct LispCliCommand Cmds[] = {
   { "logfile", "<file> - dump actsim log output to a log file <file>", process_logfile },
   
   { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
-  { "energy", "<filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy },
+  { "energy", "[-v] <filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy },
   { "coverage", "<filename> [<inst-name>] - report coverage for guards", process_coverage },
   { "goto", "[<inst-name>] <label> - for a single-threaded state, jump to label", process_goto }
 };
