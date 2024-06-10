@@ -1422,7 +1422,7 @@ int process_stopalint (int argc, char **argv)
   tmpbuf = tf_name (fmt);
 
   if (glob_sim->trIndex (fmt) == -1) {
-    fprintf (stderr, "%s: no format `%s' exists", argv[0], fmt);
+    fprintf (stderr, "%s: no format `%s' exists.\n", argv[0], fmt);
     FREE (tmpbuf);
     return LISP_RET_ERROR;
   }
