@@ -1013,6 +1013,26 @@ int process_watch (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_watch_proc (int argc, char **argv)
+{
+  if (argc < 2) {
+    fprintf (stderr, "Usage: %s <p1> <p2> ...\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  for (int i=1; i < argc; i++) {
+    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
+      return LISP_RET_ERROR;
+    } 
+    obj->addWatchPoint (type, offset, argv[i]);
+  }
+
+  return LISP_RET_TRUE;
+}
+
 int process_breakpt (int argc, char **argv)
 {
   if (argc != 2) {
@@ -1558,6 +1578,7 @@ struct LispCliCommand Cmds[] = {
   { "chcount", "<name> [#f] - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "watch_proc", "<p1> <p2> ... - add watchpoint for <p1> and all associated signals", process_watch_proc }
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
