@@ -318,23 +318,31 @@ ActSimObj *find_object (ActId **id, ActInstTable *x)
   char buf[1024];
   hash_bucket_t *b;
   
+  // if the ID pointer is empty, return the simulation object in the instance table
   if (!(*id)) { return x->obj; }
+  // if the instance table doesn't have sub-instances, return the simulation object
   if (!x->H) { return x->obj; }
 
+  // if the ID given is a namespace, return the simulation object
   if ((*id)->isNamespace()) {
     return x->obj;
   }
 
+  // extract the top level identifier from the ID and save it to buf
   ActId *tmp = (*id)->Rest();
   (*id)->prune();
   (*id)->sPrint (buf, 1024);
   (*id)->Append (tmp);
 
+  // find the top level object
   b = hash_lookup (x->H, buf);
+
+  // if the object was not found, return the original simulation object
   if (!b) {
     return x->obj;
   }
   else {
+    // looks like we're not on the bottom yet, traverse down
     (*id) = (*id)->Rest();
     return find_object (id, (ActInstTable *)b->v);
   }
@@ -1578,7 +1586,7 @@ struct LispCliCommand Cmds[] = {
   { "chcount", "<name> [#f] - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
-  { "watch_proc", "<p1> <p2> ... - add watchpoint for <p1> and all associated signals", process_watch_proc }
+  { "watch_proc", "<p1> <p2> ... - add watchpoint for <p1> and all associated signals", process_watch_proc },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
