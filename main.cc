@@ -568,28 +568,32 @@ int process_goto (int argc, char **argv)
 
 static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
+  // parse the ID string
   ActId *id = my_parse_id (s);
   if (!id) {
     fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
     return 0;
   }
 
-  /* -- find object / id combo -- */
+  // find object / id combo
   ActId *tmp = id;
   ActSimObj *obj = find_object (&tmp, glob_sim->getInstTable());
+
   stateinfo_t *si;
   int offset, type;
   int res;
   act_connection *c;
   
+  // make sure our object actually exists
   if (!obj) {
     fprintf (stderr, "Could not find `%s' in simulation\n", s);
     delete id;
     return 0;
   }
 
-  /* -- now convert tmp into a local offset -- */
+  // now convert tmp into a local offset
 
+  // get the state information for the containing process
   si = glob_sp->getStateInfo (obj->getProc ());
   if (!si) {
     fprintf (stderr, "Could not find info for process `%s'\n", obj->getProc()->getName());
@@ -597,49 +601,73 @@ static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pob
     return 0;
   }
 
+  // make sure the process actually contains the ID we think it does
   if (!si->bnl->cur->FullLookup (tmp, NULL)) {
     fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-	     s, obj->getProc()->getName());
+             s, obj->getProc()->getName());
     delete id;
     return 0;
   }
 
+  // check if any array index is invalid (missing or out of bounds)
   if (!tmp->validateDeref (si->bnl->cur)) {
     fprintf (stderr, "Array index is missing/out of bounds in `%s'!\n", s);
+    delete id;
     return 0;
   }
 
+  // get the canonical root identifier
   c = tmp->Canonical (si->bnl->cur);
   Assert (c, "What?");
 
+  // and infer the type offset in the state tables
   res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+  
   if (!res) {
-    /* it is possible that it is an array reference */
+    // it is possible that it is an array reference
     Array *ta = NULL;
+
+    // find the last ID component
     while (tmp->Rest()) {
       tmp = tmp->Rest();
     }
+
+    // is there array info available?
     ta = tmp->arrayInfo();
     if (ta) {
+
+      // remove the array specifier
       tmp->setArray (NULL);
+
+      // try again without the array specifier
       c = tmp->Canonical (si->bnl->cur);
       Assert (c, "Hmm...");
       res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+
+      // did we find anything now?
       if (res) {
-	InstType *it = si->bnl->cur->FullLookup (tmp, NULL);
-	Assert (it->arrayInfo(), "What?");
-	offset += it->arrayInfo()->Offset (ta);
+        // looks like it!
+        InstType *it = si->bnl->cur->FullLookup (tmp, NULL);
+        Assert (it->arrayInfo(), "What?");
+        
+        // since we're an array element, get the offset
+        offset += it->arrayInfo()->Offset (ta);
       }
+
+      // restore the array specifier
       tmp->setArray (ta);
     }
+
+    // check if we have found something now
     if (!res) {
       fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-	       s, obj->getProc()->getName());
+                s, obj->getProc()->getName());
       delete id;
       return 0;
     }
   }
 
+  // write all the data we gathered to the parameter pointers
   *ptype = type;
   *poffset = offset;
   if (pobj) {
