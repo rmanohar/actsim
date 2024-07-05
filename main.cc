@@ -23,7 +23,6 @@
  */
 #include <iostream>
 #include <ostream>
-#include <queue>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -770,7 +769,19 @@ static int watch_all_sub (ActId* id) {
     ActSimObj *port = find_object(&tmp, glob_sim->getInstTable());
 
     int type, offset;
-    obj_to_siminfo(tmp, port, &type, & offset);
+
+    // See if the object exists or was optimized away
+    if (!obj_to_siminfo(tmp, port, &type, & offset)) {
+      printf("Port does not exist in simulation and was probably optimized away.\n");
+
+      if (!root) {
+        // clean up the id
+        tail->prune();
+      }
+
+      delete name;
+      continue;
+    }
 
     if (type == 3) type = 2;
     id->sPrint(name_buf, name_buf_size);
@@ -802,7 +813,19 @@ static int watch_all_sub (ActId* id) {
     ActSimObj *prim = find_object(&tmp, glob_sim->getInstTable());
 
     int type, offset;
-    obj_to_siminfo(tmp, prim, &type, & offset);
+    
+    // See if the object exists or was optimized away
+    if (!obj_to_siminfo(tmp, prim, &type, & offset)) {
+      printf("Primitive does not exist in simulation and was probably optimized away.\n");
+
+      if (!root) {
+        // clean up the id
+        tail->prune();
+      }
+
+      delete name;
+      continue;
+    }
 
     if (type == 3) type = 2;
     id->sPrint(name_buf, name_buf_size);
