@@ -614,6 +614,12 @@ static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pob
     ta = tmp->arrayInfo();
     if (ta) {
       tmp->setArray (NULL);
+      if (!si->bnl->cur->FullLookup (tmp, NULL)) {
+	fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+		 s, obj->getProc()->getName());
+	delete id;
+	return 0;
+      }
       c = tmp->Canonical (si->bnl->cur);
       Assert (c, "Hmm...");
       res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
