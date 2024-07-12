@@ -1,0 +1,20 @@
+deftype str (int<4> x)
+{
+   methods {
+     macro plus (int<2> y) : int<4>
+     {
+       self := x + y
+     }
+   }
+}
+
+defproc test()
+{
+   str s;
+   chp {
+      s.x := 3;
+      log ("got ", s.plus(2))
+   }
+}
+
+test t;
