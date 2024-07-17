@@ -1,4 +1,4 @@
-deftype str (int<4> x)
+deftype str (int<4> x, z)
 {
    methods {
      function plus (int<2> y) : int<4>
@@ -13,7 +13,8 @@ defproc test()
    str s;
    chp {
       s.x := 3;
-      log ("got ", s.plus(2))
+      s.z := 1;
+      log ("got ", int(s))
    }
 }
 
