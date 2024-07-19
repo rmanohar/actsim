@@ -122,7 +122,11 @@ private:
 class ActSimDES : public SimDES {
 public:
   virtual ~ActSimDES() { };
-  virtual void propagate () { };
+  virtual void propagate (void *cause = NULL) { };
+  virtual void sPrintCause (char *buf, int sz) {
+    buf[0] = '\0';
+  }
+
 };
 
 class ActSimObj;
@@ -161,7 +165,7 @@ public:
   virtual unsigned long getArea () { return 0; }
   virtual void printStatus (int val, bool io_glob = false) { }
 
-  virtual void propagate ();
+  virtual void propagate (void *cause = NULL);
   virtual void computeFanout() { printf ("should not be here\n"); }
 
   /* manipulate object watchpoint, using local index values */
@@ -175,6 +179,16 @@ public:
   void sStall () { _shared->AddObject (this); }
   void sRemove() { _shared->DelObject (this); }
   int  sWaiting() { return _shared->isWaiting (this); }
+
+  virtual void sPrintCause (char *buf, int sz) {
+    // by default, the instance causes the change!
+    if (getName()) {
+      getName()->sPrint (buf, sz);
+    }
+    else {
+      buf[0] = '\0';
+    }
+  }
 
 protected:
   state_counts _o;		/* my state offsets for all local

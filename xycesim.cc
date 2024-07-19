@@ -1213,6 +1213,6 @@ void XyceSim::setGlobalBool (int off, int v)
   for (int i=0; i < _sc->numFanout (off, 0); i++) {
     ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
     Assert (p, "What?");
-    p->propagate ();
+    p->propagate (this);
   }
 }

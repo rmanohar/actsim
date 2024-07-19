@@ -176,6 +176,10 @@ class XyceSim : public ActSimObj {
   stateinfo_t *getSI () { return _si; }
   act_boolean_netlist_t *getBNL() { return _bnl; }
 
+  void sPrintCause (char *buf, int sz) {
+    snprintf (buf, sz, "-xyce-");
+  }
+
  private:
   stateinfo_t *_si;
   act_boolean_netlist_t *_bnl;

@@ -184,7 +184,7 @@ class ChpSim : public ActSimObj {
 
   int computeOffset (const struct chpsimderef *d);
 
-  virtual void propagate (void);
+  virtual void propagate (void *cause);
 
   void zeroInit ();
 
@@ -208,8 +208,16 @@ class ChpSim : public ActSimObj {
 
   void setHseMode() { _hse_mode = 1; }
   int isHseMode() { return _hse_mode; }
-  
 
+  void sPrintCause (char *buf, int sz) {
+    if (_npc == 0) {
+      snprintf (buf, sz, "chan-method");
+    }
+    else {
+      ActSimObj::sPrintCause (buf, sz);
+    }
+  }
+      
  private:
   int _npc;			/* # of program counters */
   int _pcused;			/* # of _pc[] slots currently being
@@ -266,7 +274,7 @@ class ChpSim : public ActSimObj {
 	       expr_multires *v, int bidir, expr_multires &xchg, int *frag,
 	       int *skipwrite);
 
-  int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v, int flag = 0);
+  int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v, void *cause, int flag = 0);
   
 
   int _updatepc (int pc);

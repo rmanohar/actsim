@@ -1233,7 +1233,7 @@ int ChpSim::Step (Event *ev)
 #if 0
 	printf (" [bglob=%d]", off);
 #endif
-	if (chkWatchBreakPt (0, my_loff, off, v)) {
+	if (chkWatchBreakPt (0, my_loff, off, v, ev->getCause())) {
 	  _breakpt = 1;
 	}
 	_sc->setBool (off, v.getVal (0));
@@ -1247,7 +1247,7 @@ int ChpSim::Step (Event *ev)
 	v.setWidth (stmt->u.assign.isint);
 	v.toStatic ();
 
-	if (chkWatchBreakPt (1, my_loff, off, v)) {
+	if (chkWatchBreakPt (1, my_loff, off, v, ev->getCause())) {
 	  _breakpt = 1;
 	}
 	v.setWidth (stmt->u.assign.isint);
@@ -1342,7 +1342,7 @@ int ChpSim::Step (Event *ev)
 #if 0
 		printf (" [glob=%d]", off);
 #endif
-		if (chkWatchBreakPt (0, id, off, v)) {
+		if (chkWatchBreakPt (0, id, off, v, ev->getCause())) {
 		  _breakpt = 1;
 		}
 		_sc->setBool (off, v.getVal (0));
@@ -1353,7 +1353,7 @@ int ChpSim::Step (Event *ev)
 #if 0	    
 		printf (" [glob=%d]", off);
 #endif
-		if (chkWatchBreakPt (1, id, off, v)) {
+		if (chkWatchBreakPt (1, id, off, v, ev->getCause())) {
 		  _breakpt = 1;
 		}
 		v.setWidth (stmt->u.sendrecv.width);
@@ -1378,6 +1378,7 @@ int ChpSim::Step (Event *ev)
 	}
       }
       if (chkWatchBreakPt (3, stmt->u.sendrecv.chvar, goff, v,
+			   ev->getCause(),
 			   (frag ? 1 : 0) | ((rv ? 1 : (flag ? 2 : 0)) << 1))) {
 	_breakpt = 1;
       }
@@ -1431,6 +1432,7 @@ int ChpSim::Step (Event *ev)
       }
       /*-- attempt to receive value --*/
       if (chkWatchBreakPt (2, stmt->u.sendrecv.chvar, goff, v,
+			   ev->getCause(),
 			   ((rv ? 1 : (flag ? 2 : 0)) << 1))) {
 	_breakpt = 1;
       }
@@ -1453,7 +1455,7 @@ int ChpSim::Step (Event *ev)
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
-	      if (chkWatchBreakPt (0, id, off, v)) {
+	      if (chkWatchBreakPt (0, id, off, v, ev->getCause())) {
 		_breakpt = 1;
 	      }
 	      _sc->setBool (off, v.getVal (0));
@@ -1464,7 +1466,7 @@ int ChpSim::Step (Event *ev)
 #if 0	    
 	      printf (" [glob=%d]", off);
 #endif
-	      if (chkWatchBreakPt (1, id, off, v)) {
+	      if (chkWatchBreakPt (1, id, off, v, ev->getCause())) {
 		_breakpt = 1;
 	      }
 
@@ -1928,7 +1930,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
       *skipwrite = c->skip_action;
       c->skip_action = 0;
     }
-    c->w->Notify (c->recv_here-1);
+    c->w->Notify (c->recv_here-1, this);
     c->recv_here = 0;
     if (c->send_here != 0) {
       act_connection *x;
@@ -1960,7 +1962,7 @@ int ChpSim::varSend (int pc, int wakeup, int id, int off, int flavor,
 #ifdef DUMP_ALL      
       printf (" [waiting-recvprobe %d]", c->recv_here-1);
 #endif
-      c->probe->Notify (c->recv_here-1);
+      c->probe->Notify (c->recv_here-1, this);
       c->recv_here = 0;
       c->receiver_probe = 0;
     }
@@ -2164,7 +2166,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
     if (bidir) {
       c->data = xchg;
     }
-    c->w->Notify (c->send_here-1);
+    c->w->Notify (c->send_here-1, this);
     c->send_here = 0;
     Assert (c->recv_here == 0 && c->receiver_probe == 0 &&
 	    c->sender_probe == 0, "What?");
@@ -2178,7 +2180,7 @@ int ChpSim::varRecv (int pc, int wakeup, int id, int off, int flavor,
 #ifdef DUMP_ALL      
       printf (" [waiting-sendprobe %d]", c->send_here-1);
 #endif      
-      c->probe->Notify (c->send_here-1);
+      c->probe->Notify (c->send_here-1, this);
       c->send_here = 0;
       c->sender_probe = 0;
     }
@@ -5689,9 +5691,9 @@ unsigned long ChpSim::getArea (void)
   return _area_cost;
 }
 
-void ChpSim::propagate (void)
+void ChpSim::propagate (void *cause)
 {
-  ActSimObj::propagate ();
+  ActSimObj::propagate (cause);
 }
 
 
@@ -5918,7 +5920,7 @@ void ChpSim::boolProp (int glob_off)
       printf ("\n");
 #endif
 #endif
-    p->propagate ();
+    p->propagate (this);
   }
 }
 
@@ -5955,7 +5957,7 @@ void ChpSim::intProp (int glob_off)
       printf ("\n");
 #endif
 #endif
-    p->propagate ();
+    p->propagate (this);
   }
 }
 
@@ -5969,7 +5971,7 @@ void ChpSim::intProp (int glob_off)
 	      : 2 = completed
 */
 int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
-			     int flag)
+			     void *cause,  int flag)
 {
   int verb = 0;
   int ret_break = 0;
@@ -5988,8 +5990,14 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
       if (oval != v.getVal (0)) {
 	if (verb & 1) {
 	  msgPrefix ();
-	  printf ("%s := %c\n", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
-
+	  printf ("%s := %c", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	  _sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
 	}
 	if (verb & 2) {
@@ -6008,8 +6016,14 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  v.decPrint (stdout);
 	  printf (" (0x");
 	  v.hexPrint (stdout);
-	  printf (")\n");
-
+	  printf (")");
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	  _sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
 	}
 	if (verb & 2) {
@@ -6031,7 +6045,7 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	printf ("%s: recv", nm->s);
 
 	if (umode == 1) {
-	  printf ("-blocked\n");
+	  printf ("-blocked");
 	  _sc->recordTrace (nm, 2, ACT_CHAN_RECV_BLOCKED, v);
 	}
 	else if (umode == 0 || umode == 2) {
@@ -6042,8 +6056,15 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	  v.decPrint (stdout);
 	  printf (" (0x");
 	  v.hexPrint (stdout);
-	  printf (")\n");
+	  printf (")");
 	}
+	if (cause) {
+	  char buf[1024];
+	  ActSimDES *x = (ActSimDES *) cause;
+	  x->sPrintCause (buf, 1024);
+	  printf ("   [by %s]", buf);
+	}
+	printf ("\n");
       }
       if (verb & 2) {
 	msgPrefix ();
@@ -6069,6 +6090,12 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	    v.hexPrint (stdout);
 	    printf (")");
 	  }
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
 	  printf ("\n");
 	  if (umode == 1) {
 	    _sc->recordTrace (nm, 2, ACT_CHAN_SEND_BLOCKED, v);
@@ -6084,7 +6111,14 @@ int ChpSim::chkWatchBreakPt (int type, int loff, int goff, const BigInt& v,
 	else {
 	  ChanTraceDelayed *obj = new ChanTraceDelayed (nm);
 	  new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
-	  printf ("%s : send complete\n", nm->s);
+	  printf ("%s : send complete", nm->s);
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	}
 	
 	if (verb & 2) {

@@ -624,15 +624,19 @@ static int _breakpt;
 	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
 			      _proc->getDelay ((x) == 0 ?	\
 					       _me->delay_dn :	\
-					       _me->delay_up));	\
+					       _me->delay_up),	\
+			      cause);				\
       }								\
     }								\
   } while (0)
 
 int OnePrsSim::Step (Event *ev)
 {
+  void *cause;
   int ev_type = ev->getType ();
   int t = SIM_EV_TYPE (ev_type);
+
+  cause = this;
 
   _breakpt = 0;
   _pending = NULL;
@@ -645,7 +649,7 @@ int OnePrsSim::Step (Event *ev)
     if (flags == (1+t)) {
       flags = PENDING_NONE;
     }
-    if (!_proc->setBool (_me->t2, t)) {
+    if (!_proc->setBool (_me->t2, t, this, (ActSimObj *)ev->getCause())) {
       flags = PENDING_NONE;
     }
     break;
@@ -654,7 +658,7 @@ int OnePrsSim::Step (Event *ev)
     if (flags == (1 + t)) {
       flags = PENDING_NONE;
     }
-    if (!_proc->setBool (_me->vid, t)) {
+    if (!_proc->setBool (_me->vid, t, this, (ActSimObj *)ev->getCause())) {
       flags = PENDING_NONE;
     }
     /* 
@@ -751,28 +755,28 @@ int OnePrsSim::matches (int val)
   } while (0)
 
 
-#define MAKE_NODE_X(nid)					\
-  do {								\
-    if (_proc->getBool (nid) != 2) {				\
-      if (flags != PENDING_X) {					\
-	if (_pending) {						\
-	  _pending->Remove ();					\
-	}							\
-	flags = PENDING_X;					\
-	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);	\
-      }								\
-    }								\
-    else {							\
-      if (flags == PENDING_0 || flags == PENDING_1) {		\
-	flags = 0;						\
-	if (_pending) {						\
-	  _pending->Remove();					\
-	}							\
-      }								\
-    }								\
+#define MAKE_NODE_X(nid)						\
+  do {									\
+    if (_proc->getBool (nid) != 2) {					\
+      if (flags != PENDING_X) {						\
+	if (_pending) {							\
+	  _pending->Remove ();						\
+	}								\
+	flags = PENDING_X;						\
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);	\
+      }									\
+    }									\
+    else {								\
+      if (flags == PENDING_0 || flags == PENDING_1) {			\
+	flags = 0;							\
+	if (_pending) {							\
+	  _pending->Remove();						\
+	}								\
+      }									\
+    }									\
   } while (0)
 
-void OnePrsSim::propagate ()
+void OnePrsSim::propagate (void *cause)
 {
   int u_state, d_state;
   int u_weak = 0, d_weak = 0;
@@ -883,7 +887,7 @@ void OnePrsSim::propagate ()
 #if 0      
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
-	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);
 	flags = PENDING_X;
       }
 #endif      
@@ -906,7 +910,7 @@ void OnePrsSim::propagate ()
 #if 0      
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
-	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1);
+	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);
 	flags = PENDING_X;
       }
 #endif      
@@ -1023,7 +1027,31 @@ void PrsSim::printName (FILE *fp, int lid)
 }
 
 
-bool PrsSim::setBool (int lid, int v)
+void PrsSim::sPrintName (char *buf, int sz, int lid)
+{
+  act_connection *c;
+  int dx;
+  c = _sc->getConnFromOffset (_proc, lid, 0, &dx);
+  if (!c) {
+    snprintf (buf, sz, "-?-");
+  }
+  else {
+    ActId *tid = c->toid();
+    int pos = 0;
+    tid->sPrint (buf, sz);
+    delete tid;
+    if (dx != -1) {
+      pos = strlen (buf);
+      sz -= pos;
+      if (sz <= 1) return;
+      snprintf (buf + pos, sz, "[%d]", dx);
+    }
+  }
+}
+
+
+
+bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
 {
   int off = getGlobalOffset (lid, 0);
   SimDES **arr;
@@ -1059,12 +1087,19 @@ bool PrsSim::setBool (int lid, int v)
       if (oval != v) {
 	if (verb & 1) {
 	  msgPrefix ();
-	  printf ("%s := %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+	  printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+	  if (cause) {
+	    ActSimDES *xx = (ActSimDES *) cause;
+	    char buf[1024];
+	    xx->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 
 	  BigInt tmpv;
 	  tmpv = v;
 	  _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
-			    
+
 	}
 	if (verb & 2) {
 	  msgPrefix ();
@@ -1098,7 +1133,7 @@ bool PrsSim::setBool (int lid, int v)
       }
       printf ("\n");
 #endif      
-      p->propagate ();
+      p->propagate (me);
     }
     return true;
   }
@@ -1236,4 +1271,29 @@ void OnePrsSim::flushPending ()
     _pending->Remove ();
     flags = PENDING_NONE;
   }
+}
+
+void OnePrsSim::sPrintCause (char *buf, int sz)
+{
+  int pos = 0;
+  int len;
+  ActId *inst = _proc->getName(); 
+  if (inst) {
+    inst->sPrint (buf + pos, sz);
+    len = strlen (buf);
+    pos += len;
+    sz -= len;
+    if (sz <= 1) return;
+    snprintf (buf + pos, sz, ".");
+    pos++;
+    sz--;
+    if (sz <= 1) return;
+  }
+  _proc->sPrintName (buf + pos, sz, _me->vid);
+  len = strlen (buf + pos);
+  pos += len;
+  sz -= len;
+  if (sz <= 1) return;
+  int cv = _proc->getBool (_me->vid);
+  snprintf (buf + pos, sz, " <- %c", (cv == 2 ? 'X' : ((char)cv + '0')));
 }

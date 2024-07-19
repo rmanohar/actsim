@@ -116,8 +116,9 @@ class PrsSim : public ActSimObj {
   
   int myGid (int lid) { return getGlobalOffset (lid, 0); }
     
-  bool setBool (int lid, int v);
+  bool setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause = NULL);
   void printName (FILE *fp, int lid);
+  void sPrintName (char *buf, int sz, int lid);
 
   void dumpState (FILE *fp);
 
@@ -152,12 +153,14 @@ private:
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x);
   int Step (Event *ev);
-  void propagate ();
+  void propagate (void *cause);
   void printName ();
   int matches (int val);
   void registerExcl ();
   void flushPending ();
   int isPending() { return _pending == NULL ? 0 : 1; }
+
+  void sPrintCause (char *buf, int sz);
 };
 
 

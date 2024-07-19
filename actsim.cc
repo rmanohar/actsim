@@ -1839,7 +1839,7 @@ void ActSimCore::incFanout (int off, int type, SimDES *who)
   nfo[off]++;
 }
 
-void ActSimObj::propagate ()
+void ActSimObj::propagate (void *cause)
 {
   /* by default, wake me up if stalled on something shared */
   sWakeup ();
@@ -2904,10 +2904,10 @@ int ActSimCore::initTrace (int fmt, const char *file)
       if (type == 0) {
 	int v = getBool (off);
 	if (v == 0) {
-	  v = ACT_SIG_BOOL_TRUE;
+	  v = ACT_SIG_BOOL_FALSE;
 	}
 	else if (v == 1) {
-	  v = ACT_SIG_BOOL_FALSE;
+	  v = ACT_SIG_BOOL_TRUE;
 	}
 	else if (v == 2) {
 	  v = ACT_SIG_BOOL_X;
