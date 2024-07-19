@@ -2,47 +2,47 @@
 <snk_l>  snk_l.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 3 (0x3)
 <src>  snk_ref.I : send value: 3 (0x3)
-<snk_ref>  snk_ref.I: recv-wakeup value: 3 (0x3)
+<snk_ref>  snk_ref.I: recv-wakeup value: 3 (0x3)   [by src]
 <log>  snk_l.I : send value: 3 (0x3)
 <snk_ref>  snk_ref.I: recv-blocked
-<snk_l>  snk_l.I: recv-wakeup value: 3 (0x3)
+<snk_l>  snk_l.I: recv-wakeup value: 3 (0x3)   [by log]
 <snk_l>  snk_l.I: recv-blocked
 <log>  log.I[0]: recv value: 3 (0x3)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <src>  log.I[0] : send-blocked value: 9 (0x9)
 <src>  snk_ref.I : send value: 9 (0x9)
-<snk_ref>  snk_ref.I: recv-wakeup value: 9 (0x9)
+<snk_ref>  snk_ref.I: recv-wakeup value: 9 (0x9)   [by src]
 <log>  snk_l.I : send value: 9 (0x9)
 <snk_ref>  snk_ref.I: recv-blocked
-<snk_l>  snk_l.I: recv-wakeup value: 9 (0x9)
+<snk_l>  snk_l.I: recv-wakeup value: 9 (0x9)   [by log]
 <snk_l>  snk_l.I: recv-blocked
 <log>  log.I[0]: recv value: 9 (0x9)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <src>  log.I[0] : send-blocked value: 1 (0x1)
 <src>  snk_ref.I : send value: 1 (0x1)
-<snk_ref>  snk_ref.I: recv-wakeup value: 1 (0x1)
+<snk_ref>  snk_ref.I: recv-wakeup value: 1 (0x1)   [by src]
 <log>  snk_l.I : send value: 1 (0x1)
 <snk_ref>  snk_ref.I: recv-blocked
-<snk_l>  snk_l.I: recv-wakeup value: 1 (0x1)
+<snk_l>  snk_l.I: recv-wakeup value: 1 (0x1)   [by log]
 <snk_l>  snk_l.I: recv-blocked
 <log>  log.I[0]: recv value: 1 (0x1)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <src>  log.I[0] : send-blocked value: 8 (0x8)
 <src>  snk_ref.I : send value: 8 (0x8)
-<snk_ref>  snk_ref.I: recv-wakeup value: 8 (0x8)
+<snk_ref>  snk_ref.I: recv-wakeup value: 8 (0x8)   [by src]
 <log>  snk_l.I : send value: 8 (0x8)
 <snk_ref>  snk_ref.I: recv-blocked
-<snk_l>  snk_l.I: recv-wakeup value: 8 (0x8)
+<snk_l>  snk_l.I: recv-wakeup value: 8 (0x8)   [by log]
 <snk_l>  snk_l.I: recv-blocked
 <log>  log.I[0]: recv value: 8 (0x8)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <src>  log.I[0] : send-blocked value: 4 (0x4)
 <src>  snk_ref.I : send value: 4 (0x4)
-<snk_ref>  snk_ref.I: recv-wakeup value: 4 (0x4)
+<snk_ref>  snk_ref.I: recv-wakeup value: 4 (0x4)   [by src]
 <log>  snk_l.I : send value: 4 (0x4)
 <snk_ref>  snk_ref.I: recv-blocked
-<snk_l>  snk_l.I: recv-wakeup value: 4 (0x4)
+<snk_l>  snk_l.I: recv-wakeup value: 4 (0x4)   [by log]
 <snk_l>  snk_l.I: recv-blocked
 <log>  log.I[0]: recv value: 4 (0x4)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <src>  Source 0: Sequence ended.

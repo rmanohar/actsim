@@ -19,7 +19,7 @@ then
 
     if [ $? -eq 0 ] 
     then
-        sed -E 's/(\[.*\]\s*)(<.*>.*)/\2/g' $new_reg > $new_reg.processed
+        sed 's/^[[ 0-9]*][ ]*//' $new_reg > $new_reg.processed
         mv $new_reg.processed test.truth
         rm -f $new_reg
         echo "test.truth updated successfully"

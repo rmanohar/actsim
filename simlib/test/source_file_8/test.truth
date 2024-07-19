@@ -4,8 +4,8 @@
 <src0>  snk0.I : send value: 2 (0x2)
 <src1>  Source 1: Sent value 2 (0x2)
 <src0>  Source 0: Sent value 2 (0x2)
-<snk1>  snk1.I: recv-wakeup value: 2 (0x2)
-<snk0>  snk0.I: recv-wakeup value: 2 (0x2)
+<snk1>  snk1.I: recv-wakeup value: 2 (0x2)   [by src1]
+<snk0>  snk0.I: recv-wakeup value: 2 (0x2)   [by src0]
 <snk1>  Sink 1: Received value 2 (0x2)
 <snk0>  Sink 0: Received value 2 (0x2)
 <snk1>  snk1.I: recv-blocked
@@ -14,8 +14,8 @@
 <src1>  snk1.I : send value: 5 (0x5)
 <src0>  Source 0: Sent value 5 (0x5)
 <src1>  Source 1: Sent value 5 (0x5)
-<snk0>  snk0.I: recv-wakeup value: 5 (0x5)
-<snk1>  snk1.I: recv-wakeup value: 5 (0x5)
+<snk0>  snk0.I: recv-wakeup value: 5 (0x5)   [by src0]
+<snk1>  snk1.I: recv-wakeup value: 5 (0x5)   [by src1]
 <snk0>  Sink 0: Received value 5 (0x5)
 <snk1>  Sink 1: Received value 5 (0x5)
 <snk0>  snk0.I: recv-blocked
@@ -24,8 +24,8 @@
 <src0>  snk0.I : send value: 8 (0x8)
 <src1>  Source 1: Sent value 8 (0x8)
 <src0>  Source 0: Sent value 8 (0x8)
-<snk1>  snk1.I: recv-wakeup value: 8 (0x8)
-<snk0>  snk0.I: recv-wakeup value: 8 (0x8)
+<snk1>  snk1.I: recv-wakeup value: 8 (0x8)   [by src1]
+<snk0>  snk0.I: recv-wakeup value: 8 (0x8)   [by src0]
 <snk1>  Sink 1: Received value 8 (0x8)
 <snk0>  Sink 0: Received value 8 (0x8)
 <src0>  Source 0: Input file #0 ended.

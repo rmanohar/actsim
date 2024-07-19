@@ -1,9 +1,9 @@
 <src>  snk.I : send-blocked value: 5 (0x5)
 <snk>  snk.I: recv value: 5 (0x5)
-<src>  snk.I : send complete
+<src>  snk.I : send complete   [by snk]
 <snk>  snk.I: recv-blocked
 <src>  snk.I : send value: 5 (0x5)
-<snk>  snk.I: recv-wakeup value: 5 (0x5)
+<snk>  snk.I: recv-wakeup value: 5 (0x5)   [by src]
 <snk>  snk.I: recv-blocked
 <src>  snk.I : send value: 5 (0x5)
-<snk>  snk.I: recv-wakeup value: 5 (0x5)
+<snk>  snk.I: recv-wakeup value: 5 (0x5)   [by src]

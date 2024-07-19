@@ -1,16 +1,16 @@
 <snk>  snk.I: recv-blocked
 <src>  snk.I : send value: 2 (0x2)
-<snk>  snk.I: recv-wakeup value: 2 (0x2)
+<snk>  snk.I: recv-wakeup value: 2 (0x2)   [by src]
 <src>  Source 0: Sent value 2 (0x2)
 <snk>  Sink 0: Received value 2 (0x2)
 <snk>  snk.I: recv-blocked
 <src>  snk.I : send value: 85 (0x55)
-<snk>  snk.I: recv-wakeup value: 85 (0x55)
+<snk>  snk.I: recv-wakeup value: 85 (0x55)   [by src]
 <src>  Source 0: Sent value 85 (0x55)
 <snk>  Sink 0: Received value 85 (0x55)
 <snk>  snk.I: recv-blocked
 <src>  snk.I : send value: 8 (0x8)
-<snk>  snk.I: recv-wakeup value: 8 (0x8)
+<snk>  snk.I: recv-wakeup value: 8 (0x8)   [by src]
 <src>  Source 0: Sent value 8 (0x8)
 <snk>  Sink 0: Received value 8 (0x8)
 <snk>  snk.I: recv-blocked

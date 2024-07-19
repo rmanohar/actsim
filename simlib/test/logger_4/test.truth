@@ -3,46 +3,46 @@
 <src>  log.I[0] : send-blocked value: 3 (0x3)
 <log>  snk_1.I : send value: 3 (0x3)
 <log>  snk_0.I : send value: 3 (0x3)
-<snk_1>  snk_1.I: recv-wakeup value: 3 (0x3)
-<snk_0>  snk_0.I: recv-wakeup value: 3 (0x3)
+<snk_1>  snk_1.I: recv-wakeup value: 3 (0x3)   [by log]
+<snk_0>  snk_0.I: recv-wakeup value: 3 (0x3)   [by log]
 <log>  log.I[0]: recv value: 3 (0x3)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 9 (0x9)
 <log>  snk_1.I : send value: 9 (0x9)
 <log>  snk_0.I : send value: 9 (0x9)
-<snk_1>  snk_1.I: recv-wakeup value: 9 (0x9)
-<snk_0>  snk_0.I: recv-wakeup value: 9 (0x9)
+<snk_1>  snk_1.I: recv-wakeup value: 9 (0x9)   [by log]
+<snk_0>  snk_0.I: recv-wakeup value: 9 (0x9)   [by log]
 <log>  log.I[0]: recv value: 9 (0x9)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 1 (0x1)
 <log>  snk_1.I : send value: 1 (0x1)
 <log>  snk_0.I : send value: 1 (0x1)
-<snk_1>  snk_1.I: recv-wakeup value: 1 (0x1)
-<snk_0>  snk_0.I: recv-wakeup value: 1 (0x1)
+<snk_1>  snk_1.I: recv-wakeup value: 1 (0x1)   [by log]
+<snk_0>  snk_0.I: recv-wakeup value: 1 (0x1)   [by log]
 <log>  log.I[0]: recv value: 1 (0x1)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 8 (0x8)
 <log>  snk_1.I : send value: 8 (0x8)
 <log>  snk_0.I : send value: 8 (0x8)
-<snk_1>  snk_1.I: recv-wakeup value: 8 (0x8)
-<snk_0>  snk_0.I: recv-wakeup value: 8 (0x8)
+<snk_1>  snk_1.I: recv-wakeup value: 8 (0x8)   [by log]
+<snk_0>  snk_0.I: recv-wakeup value: 8 (0x8)   [by log]
 <log>  log.I[0]: recv value: 8 (0x8)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 4 (0x4)
 <log>  snk_1.I : send value: 4 (0x4)
 <log>  snk_0.I : send value: 4 (0x4)
-<snk_1>  snk_1.I: recv-wakeup value: 4 (0x4)
-<snk_0>  snk_0.I: recv-wakeup value: 4 (0x4)
+<snk_1>  snk_1.I: recv-wakeup value: 4 (0x4)   [by log]
+<snk_0>  snk_0.I: recv-wakeup value: 4 (0x4)   [by log]
 <log>  log.I[0]: recv value: 4 (0x4)
-<src>  log.I[0] : send complete
+<src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
 <src>  Source 0: Sequence ended.

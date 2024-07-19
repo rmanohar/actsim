@@ -2,17 +2,17 @@
 <src>  src.O[1] : send-blocked value: 5 (0x5)
 <snk0>  src.O[0]: recv value: 5 (0x5)
 <snk1>  src.O[1]: recv value: 5 (0x5)
-<src>  src.O[0] : send complete
-<src>  src.O[1] : send complete
+<src>  src.O[0] : send complete   [by snk0]
+<src>  src.O[1] : send complete   [by snk1]
 <snk0>  src.O[0]: recv-blocked
 <snk1>  src.O[1]: recv-blocked
 <src>  src.O[0] : send value: 5 (0x5)
 <src>  src.O[1] : send value: 5 (0x5)
-<snk0>  src.O[0]: recv-wakeup value: 5 (0x5)
-<snk1>  src.O[1]: recv-wakeup value: 5 (0x5)
+<snk0>  src.O[0]: recv-wakeup value: 5 (0x5)   [by src]
+<snk1>  src.O[1]: recv-wakeup value: 5 (0x5)   [by src]
 <src>  src.O[1] : send-blocked value: 5 (0x5)
 <src>  src.O[0] : send-blocked value: 5 (0x5)
 <snk0>  src.O[0]: recv value: 5 (0x5)
 <snk1>  src.O[1]: recv value: 5 (0x5)
-<src>  src.O[0] : send complete
-<src>  src.O[1] : send complete
+<src>  src.O[0] : send complete   [by snk0]
+<src>  src.O[1] : send complete   [by snk1]

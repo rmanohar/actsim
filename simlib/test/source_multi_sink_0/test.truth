@@ -4,8 +4,8 @@
 <snk1>  src.O[1]: recv value: 5 (0x5)
 <snk0>  Sink 0: Received value 5 (0x5)
 <snk1>  Sink 1: Received value 5 (0x5)
-<src>  src.O[0] : send complete
-<src>  src.O[1] : send complete
+<src>  src.O[0] : send complete   [by snk0]
+<src>  src.O[1] : send complete   [by snk1]
 <src>  Source 0 (Channel 0): Sent value 5 (0x5)
 <src>  Source 0 (Channel 1): Sent value 5 (0x5)
 <snk0>  src.O[0]: recv-blocked
@@ -14,7 +14,7 @@
 <src>  src.O[1] : send value: 5 (0x5)
 <src>  Source 0 (Channel 0): Sent value 5 (0x5)
 <src>  Source 0 (Channel 1): Sent value 5 (0x5)
-<snk0>  src.O[0]: recv-wakeup value: 5 (0x5)
-<snk1>  src.O[1]: recv-wakeup value: 5 (0x5)
+<snk0>  src.O[0]: recv-wakeup value: 5 (0x5)   [by src]
+<snk1>  src.O[1]: recv-wakeup value: 5 (0x5)   [by src]
 <snk0>  Sink 0: Received value 5 (0x5)
 <snk1>  Sink 1: Received value 5 (0x5)
