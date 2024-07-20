@@ -1,0 +1,15 @@
+defproc test()
+{
+   int<8> w;
+   chp {
+      w := 0x42;
+      log ("%bw is currently: ", w);
+      w{0} := 1;
+      log ("%bw is currently: ", w);
+      w{4..2} := 0b101;
+      log ("%bw is currently: ", w);
+      skip
+   }
+}
+
+test t;
