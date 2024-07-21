@@ -1,0 +1,24 @@
+deftype str (int<4> x)
+{
+   methods {
+     function plus (int<2> y) : int<4>
+     {
+       int i;
+       chp { i := 3; 
+             self := x + y;
+            *[ i > 0 -> self := self + i; i := i - 1 ]
+           }
+     }
+   }
+}
+
+defproc test()
+{
+   str s;
+   chp {
+      s.x := 3;
+      log ("got ", s.plus(2))
+   }
+}
+
+test t;
