@@ -152,12 +152,17 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
 	fprintf (stderr, "ERROR: missing VCD library\n");
       }
       else {
-	char *nm;
-	MALLOC (nm, char, strlen (file) + 5);
-	snprintf (nm, strlen (file) + 5, "%s.vcd", file);
-
-	_vcd = act_trace_create (ext, nm, stop_time, dt, 1);
-	FREE (nm);
+        if (act_trace_fmt_has_writer (ext)) {
+	  char *nm;
+	  MALLOC (nm, char, strlen (file) + 5);
+	  snprintf (nm, strlen (file) + 5, "%s.vcd", file);
+	  _vcd = act_trace_create (ext, nm, stop_time, dt, 1);
+	  FREE (nm);
+	}
+	else {
+	  fprintf (stderr, "ERROR: VCD library has no writer API\n");
+	  act_trace_close_format (ext);
+	}
       }
     }
     if ((fmts >> ALINT_FMT) & 1) {
@@ -167,7 +172,13 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
 	fprintf (stderr, "ERROR: missing atr library\n");
       }
       else {
-	_at = act_trace_create (ext, file, stop_time, dt, 0);
+	if (act_trace_fmt_has_writer (ext)) {
+	  _at = act_trace_create (ext, file, stop_time, dt, 0);
+	}
+	else {
+	  fprintf (stderr, "ERROR: atr library has no writer API\n");
+	  act_trace_close_format (ext);
+	}
       }
     }
     if ((fmts >> LXT2_FMT) & 1) {
@@ -177,11 +188,16 @@ class xyceIO : public Xyce::IO::ExternalOutputInterface
 	fprintf (stderr, "ERROR: missing LXT2 library\n");
       }
       else {
-	char *nm;
-	MALLOC (nm, char, strlen (file) + 6);
-	snprintf (nm, strlen (file) + 6, "%s.lxt2", file);
-	_lxt2 = act_trace_create (ext, nm, stop_time, dt, 0);
-	FREE (nm);
+	if (act_trace_fmt_has_writer (ext)) {
+	  char *nm;
+	  MALLOC (nm, char, strlen (file) + 6);
+	  snprintf (nm, strlen (file) + 6, "%s.lxt2", file);
+	  _lxt2 = act_trace_create (ext, nm, stop_time, dt, 0);
+	  FREE (nm);
+	}
+	else {
+	  fprintf (stderr, "ERROR: LXT2 library has no writer API\n");
+	}
       }
     }
   }

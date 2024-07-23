@@ -2841,6 +2841,11 @@ int ActSimCore::initTrace (int fmt, const char *file)
   if (!_trfn[fmt]) {
     return 0;
   }
+  if (!act_trace_fmt_has_writer (_trfn[fmt])) {
+    act_trace_close_format (_trfn[fmt]);
+    _trfn[fmt] = NULL;
+    return 0;
+  }
 
   _tr[fmt] = act_trace_create (_trfn[fmt], file, tm, _int_to_float_timescale,
 			       act_trace_has_alt (_trfn[fmt]) ? 1 : 0);
