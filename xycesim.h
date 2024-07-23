@@ -171,7 +171,7 @@ class XyceSim : public ActSimObj {
   void setBool (int lid, int v);
   void setGlobalBool (int off, int v);
 
-  void propagate ();
+  void propagate (void *cause = NULL);
 
   stateinfo_t *getSI () { return _si; }
   act_boolean_netlist_t *getBNL() { return _bnl; }

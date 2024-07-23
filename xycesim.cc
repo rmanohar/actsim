@@ -1210,7 +1210,7 @@ void XyceSim::computeFanout()
   }
 }
 
-void XyceSim::propagate()
+void XyceSim::propagate(void *cause)
 {
   XyceActInterface::getXyceInterface()->updateDAC();
 }
