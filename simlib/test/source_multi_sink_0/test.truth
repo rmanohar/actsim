@@ -16,5 +16,3 @@
 <src>  Source 0 (Channel 1): Sent value 5 (0x5)
 <snk0>  src.O[0]: recv-wakeup value: 5 (0x5)   [by src]
 <snk1>  src.O[1]: recv-wakeup value: 5 (0x5)   [by src]
-<snk0>  Sink 0: Received value 5 (0x5)
-<snk1>  Sink 1: Received value 5 (0x5)

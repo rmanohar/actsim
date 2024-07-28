@@ -38,15 +38,17 @@ namespace sim {
  * - VALUE: Static value to output
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  *
  */
-export template<pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
-defproc source_static_en (chan!(int<D_WIDTH>) O; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
+defproc gen_source_static_en (chan!(int<D_WIDTH>) O; bool enable)
 {
     chp {
         *[
             // wait on enable flag
-            [enable];
+	    [~INCLUDE_ENABLE|enable];
 
             O!VALUE;
 
@@ -76,16 +78,17 @@ defproc source_static_en (chan!(int<D_WIDTH>) O; bool enable)
  * - VALUE: Static value to output
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
- *
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  */
-export template<pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_ID; pbool LOG>
-defproc source_static_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_ID; pbool LOG>
+defproc gen_source_static_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     chp {
         (, i : OUT_CHANNELS : 
             *[
                 // wait on enable flag
-                [enable];
+  	        [~INCLUDE_ENABLE|enable];
 
                 O[i]!VALUE;
 
@@ -120,10 +123,11 @@ defproc source_static_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable
  * - LOOP: Repeat the sequence indefinitely
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
- *
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  */
-export template<pint D_WIDTH, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc gen_source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
 {
     int i;
     int<D_WIDTH> buf;
@@ -136,7 +140,7 @@ defproc source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
                 [([]k:N: i=k -> buf := DATA[k])];
 
                 // wait on enable flag
-                [enable]; 
+	        [~INCLUDE_ENABLE|enable];
 
                 // and send it
                 O!buf;
@@ -180,10 +184,12 @@ defproc source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
  * - LOOP: Repeat the sequence indefinitely
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_sequence_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, N; pint DATA[N]; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc gen_source_sequence_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int i;
     int<D_WIDTH> buf;
@@ -198,7 +204,7 @@ defproc source_sequence_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enab
                 [([]k:N: i=k -> buf := DATA[k])];
 
                 // wait on enable flag
-                [enable];
+	        [~INCLUDE_ENABLE|enable];
                 
                 // and send it to every channel
                 (, j : OUT_CHANNELS :
@@ -253,10 +259,12 @@ export function closer (int<32> reader_id) : bool;
  * - LOOP: Repeat the sequence indefinitely
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  *
  */
-export template<pint D_WIDTH, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_file_en (chan!(int<D_WIDTH>) O; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc gen_source_file_en (chan!(int<D_WIDTH>) O; bool enable)
 {
     int<D_WIDTH> buf;
     int reader_id;
@@ -273,7 +281,7 @@ defproc source_file_en (chan!(int<D_WIDTH>) O; bool enable)
             // read until the file reports EOF and send it to the output channel
             *[
                 // wait on enable flag
-                [enable];
+	        [~INCLUDE_ENABLE|enable];
 
                 // read, then send the value
                 buf := file_private::read(reader_id);
@@ -323,10 +331,12 @@ defproc source_file_en (chan!(int<D_WIDTH>) O; bool enable)
  * - LOOP: Repeat the sequence indefinitely
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
+ * - INCLUDE_ENABLE: set to true to include the enable wait, false to
+ * skip it.
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
-defproc source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, F_ID; pbool LOOP; pint SOURCE_ID; pbool LOG>
+defproc gen_source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     bool success;
     int<D_WIDTH> buf;
@@ -343,7 +353,7 @@ defproc source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
             // read until the file reports EOF and send it to the output channel
             *[
                 // wait on enable flag
-                [enable];
+	        [~INCLUDE_ENABLE|enable];
 
                 buf := file_private::read(reader_id);
                 
@@ -369,40 +379,29 @@ defproc source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 }
 
 
-/** source_static_en with enable set to 1 */
-export defproc source_static <: source_static_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_static variations */
+export defproc source_static <: gen_source_static_en<false> () { }
+export defproc source_static_en <: gen_source_static_en<true> () { }
 
-/** source_static_multi_en with enable set to 1 */
-export defproc source_static_multi <: source_static_multi_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_static_multi variations */
+export defproc source_static_multi <: gen_source_static_multi_en<false> () { }
+export defproc source_static_multi_en <: gen_source_static_multi_en<true> () { }
 
-/** source_sequence_en with enable set to 1 */
-export defproc source_sequence <: source_sequence_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_sequence variations */
+export defproc source_sequence <: gen_source_sequence_en<false> () { }
+export defproc source_sequence_en <: gen_source_sequence_en<true> () { }
 
-/** source_sequence_multi with enable set to 1 */
-export defproc source_sequence_multi <: source_sequence_multi_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_sequence_multi variations */
+export defproc source_sequence_multi <: gen_source_sequence_multi_en<false> (){}
+export defproc source_sequence_multi_en <: gen_source_sequence_multi_en<true> (){}
 
-/** source_file_en with enable set to 1 */
-export defproc source_file <: source_file_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_file variations */
+export defproc source_file <: gen_source_file_en<false> () { }
+export defproc source_file_en <: gen_source_file_en<true> () { }
 
-/** source_file_multi_en with enable set to 1 */
-export defproc source_file_multi <: source_file_multi_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_file_multi variations */
+export defproc source_file_multi <: gen_source_file_multi_en<false> () { }
+export defproc source_file_multi_en <: gen_source_file_multi_en<true> () { }
+
 
 }

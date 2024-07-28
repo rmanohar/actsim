@@ -30,5 +30,3 @@
 <snk1>  snk1.I: recv-wakeup value: 9 (0x9)   [by src]
 <snk0>  Sink 0: Received value 9 (0x9)
 <snk1>  Sink 1: Received value 9 (0x9)
-<snk0>  snk0.I: recv-blocked
-<snk1>  snk1.I: recv-blocked

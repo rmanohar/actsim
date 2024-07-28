@@ -21,25 +21,6 @@
 
 namespace sim {
 
-/**
- * Cell which pulls constantly high
- * Used to create a non-en version for sources
- * and sinks
- */
-defproc l_sethi (bool out)
-{
-    bool x;
-    
-    spec {
-        rand_init (x)
-    }
-    
-    prs {
-        [keeper=2;after=0] ~x -> out+
-        [keeper=2;after=0] x -> x-
-    }
-}
-
 /*
  * Simple multi-channel logger
  *
@@ -192,8 +173,8 @@ function buffer_create () : int<32>;
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, BUFFER_ID; pbool LOG>
-defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
+  export template<pbool INCLUDE_EIN, INCLUDE_EOUT; pint D_WIDTH, BUFFER_ID; pbool LOG>
+defproc gen_buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, enable_in, enable_out)
 {
     // the bit width must be smaller than 64 bit (limitation of C function import)
     {D_WIDTH < 64};
@@ -210,7 +191,7 @@ defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, ena
         // feeder loop
         *[
             // wait on input enable flag
-            [enable_in];
+	    [~INCLUDE_EIN|enable_in];
             
             // read a new input value
             I?write_buf;
@@ -237,7 +218,7 @@ defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, ena
             [~empty];
 
             // wait on output enable flag
-            [enable_out];
+            [~INCLUDE_EOUT|enable_out];
 
             // grab the next value from the buffer
             read_buf := buffer_pop (id);
@@ -257,11 +238,8 @@ defproc buffer_en (chan?(int<D_WIDTH>) I; chan!(int<D_WIDTH>) O; bool empty, ena
 }
 
 /** buffer_en, with both enable_in and enable_out set to 1 */
-export defproc buffer <: buffer_en ()
-{
-    l_sethi in_en_hi(enable_in);
-    l_sethi out_en_hi(enable_out);
-}
+export defproc buffer <: gen_buffer_en<false,false> () { }
+export defproc buffer_en <: gen_buffer_en<true,true> () { }
 
 /*
  * Token splitter

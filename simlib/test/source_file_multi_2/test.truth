@@ -68,11 +68,3 @@
 <snk0>  Sink 0: Received value 2 (0x2)
 <snk1>  snk1.I: recv-wakeup value: 2 (0x2)   [by src]
 <snk1>  Sink 1: Received value 2 (0x2)
-<snk0>  snk0.I: recv-blocked
-<snk1>  snk1.I: recv-blocked
-<src>  snk1.I : send value: 5 (0x5)
-<src>  snk0.I : send value: 5 (0x5)
-<src>  Source 0 (Channel 1): Sent value 5 (0x5)
-<src>  Source 0 (Channel 0): Sent value 5 (0x5)
-<snk1>  snk1.I: recv-wakeup value: 5 (0x5)   [by src]
-<snk1>  Sink 1: Received value 5 (0x5)

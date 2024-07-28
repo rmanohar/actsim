@@ -39,15 +39,15 @@ namespace sim {
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, SINK_ID; pbool LOG>
-defproc sink_en (chan?(int<D_WIDTH>) I; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, SINK_ID; pbool LOG>
+defproc gen_sink_en (chan?(int<D_WIDTH>) I; bool enable)
 {
     int<D_WIDTH> buf;
 
     chp {
         *[
             // wait for sink to get enabled
-            [enable];
+            [INCLUDE_ENABLE -> [enable] [] else -> skip ];
 
             // receive the data
             I?buf;
@@ -89,8 +89,8 @@ export function write_sink (int<32> writer_id; int<8> verbosity; int<32> sink_id
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, VERBOSITY, F_ID, SINK_ID; pbool LOG>
-defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, VERBOSITY, F_ID, SINK_ID; pbool LOG>
+defproc gen_sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
 {
     int<D_WIDTH> buf;
     bool success;
@@ -109,7 +109,7 @@ defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
         // receive the data and dump it into the file
         *[
             // wait for sink to be enabled
-            [enable];
+	    [INCLUDE_ENABLE -> [enable] [] else -> skip ];
 
             I?buf;
 
@@ -125,15 +125,11 @@ defproc sink_file_en (chan?(int<D_WIDTH>) I; bool enable)
 
 
 /** sink_en, with enable set to 1 */
-export defproc sink <: sink_en ()
-{
-    l_sethi lx(enable);
-}
+export defproc sink <: gen_sink_en<false> () { }
+export defproc sink_en <: gen_sink_en<true> () { }
 
 /** sink_file_en with enable set to 1 */
-  export defproc sink_file <: sink_file_en ()
-{
-    l_sethi lx(enable);
-}
-  
+export defproc sink_file <: gen_sink_file_en<false> () { }
+export defproc sink_file_en <: gen_sink_file_en<true> () { }
+
 }

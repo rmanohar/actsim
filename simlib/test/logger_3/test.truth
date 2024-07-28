@@ -1,5 +1,5 @@
-<snk_1>  snk_1.I: recv-blocked
 <snk_0>  snk_0.I: recv-blocked
+<snk_1>  snk_1.I: recv-blocked
 <src_0>  log.I[0] : send-blocked value: 3 (0x3)
 <log>  snk_0.I : send value: 3 (0x3)
 <snk_0>  snk_0.I: recv-wakeup value: 3 (0x3)   [by log]

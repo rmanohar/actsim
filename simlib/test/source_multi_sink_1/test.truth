@@ -14,5 +14,3 @@
 <src>  src.O[0] : send-blocked value: 5 (0x5)
 <snk0>  src.O[0]: recv value: 5 (0x5)
 <snk1>  src.O[1]: recv value: 5 (0x5)
-<src>  src.O[0] : send complete   [by snk0]
-<src>  src.O[1] : send complete   [by snk1]

@@ -3,4 +3,4 @@ watch snk0.I
 watch src1.O
 watch snk1.I
 set Vdd 1
-step 100
+step 110

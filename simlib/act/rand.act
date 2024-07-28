@@ -28,6 +28,7 @@ export function init_range(int<8> data_width; int<32> minval, maxval) : int<32>;
 export function get(int<32> prg_id) : int<64>;
 export function seed(int<32> prg_id; int<32> seed) : bool;
 
+
 /*
  * Simple random source with one output channel
  *
@@ -45,10 +46,12 @@ export function seed(int<32> prg_id; int<32> seed) : bool;
  * - D_WIDTH: Data output bus width
  * - SOURCE_ID: ID of the logger (used in log output)
  * - LOG: Logger enable parameter
+ * - INCLUDE_ENABLE: true if the wait for the enable is to be
+ * included, false otherwise.
  *
  */
-export template<pint D_WIDTH, SOURCE_ID; pbool LOG>
-defproc source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, SOURCE_ID; pbool LOG>
+defproc gen_source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -59,7 +62,7 @@ defproc source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
 
         *[
             // wait for the enable flag
-            [enable];
+  	    [~INCLUDE_ENABLE|enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -97,8 +100,8 @@ defproc source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, SOURCE_ID; pbool LOG>
-defproc source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, SOURCE_ID; pbool LOG>
+defproc gen_source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -109,7 +112,7 @@ defproc source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 
         *[
             // wait for the enable flag
-            [enable];
+            [~INCLUDE_ENABLE|enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -151,8 +154,8 @@ defproc source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
-defproc source_range_en(chan!(int<D_WIDTH>) O; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
+defproc gen_source_range_en(chan!(int<D_WIDTH>) O; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -163,7 +166,7 @@ defproc source_range_en(chan!(int<D_WIDTH>) O; bool enable)
 
         *[
             // wait for the enable flag
-            [enable];
+            [~INCLUDE_ENABLE|enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -205,8 +208,8 @@ defproc source_range_en(chan!(int<D_WIDTH>) O; bool enable)
  * - LOG: Logger enable parameter
  *
  */
-export template<pint D_WIDTH, OUT_CHANNELS, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
-defproc source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
+export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, MIN_VAL, MAX_VAL, SOURCE_ID; pbool LOG>
+defproc gen_source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     int prg_id;
     int<D_WIDTH> buf;
@@ -217,7 +220,7 @@ defproc source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 
         *[
             // wait for the enable flag
-            [enable];
+            [~INCLUDE_ENABLE|enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -236,49 +239,21 @@ defproc source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
     }
 }
 
-/**
- * Cell which pulls constantly high
- * Used to create a non-en version for sources
- * and sinks
- */
-defproc l_sethi (bool out)
-{
-    bool x;
-    
-    spec {
-        rand_init (x)
-    }
-    
-    prs {
-        [keeper=2;after=0] ~x -> out+
-        [keeper=2;after=0] x -> x-
-    }
-}
-
-/** source_simple_en with enable set to 1 */
-export defproc source_simple <: source_simple_en ()
-{
-    l_sethi lx(enable);
-}
+/** source_simple_en with enable turned off */
+export defproc source_simple <: gen_source_simple_en<false> () { }
+export defproc source_simple_en <: gen_source_simple_en<true> () { }
 
 /** source_simple_multi_en with enable set to 1 */
-export defproc source_simple_multi <: source_simple_multi_en ()
-{
-    l_sethi lx(enable);
-}
+export defproc source_simple_multi <: gen_source_simple_multi_en<false> () { }
+export defproc source_simple_multi_en <: gen_source_simple_multi_en<true> () { }
 
 /** source_range_en with enable set to 1 */
-export defproc source_range <: source_range_en ()
-{
-    l_sethi lx(enable);
-}
+export defproc source_range <: gen_source_range_en<false> () { }
+export defproc source_range_en <: gen_source_range_en<true> () { }
 
 /** source_range_multi_en with enable set to 1 */
-export defproc source_range_multi <: source_range_multi_en ()
-{
-    l_sethi lx(enable);
-}
+export defproc source_range_multi <: gen_source_range_multi_en<false> () { }
+export defproc source_range_multi_en <: gen_source_range_multi_en<true> () { }
 
 }
-
 }
