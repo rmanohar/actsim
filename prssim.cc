@@ -572,30 +572,37 @@ static const int _or_table[3][3] = { { 0, 1, 2 },
 #define PENDING_1    (1+1)
 #define PENDING_X    (1+2)
 
-int OnePrsSim::eval (prssim_expr *x)
+int OnePrsSim::eval (prssim_expr *x, int cause, int *lid)
 {
   int a, b;
   if (!x) { return 0; }
   switch (x->type) {
   case PRSSIM_EXPR_AND:
-    a = eval (x->l);
-    b = eval (x->r);
+    a = eval (x->l, cause, lid);
+    b = eval (x->r, cause, lid);
     return _and_table[a][b];
     break;
     
   case PRSSIM_EXPR_OR:
-    a = eval (x->l);
-    b = eval (x->r);
+    a = eval (x->l, cause, lid);
+    b = eval (x->r, cause, lid);
     return _or_table[a][b];
     break;
 
   case PRSSIM_EXPR_NOT:
-    a = eval (x->l);
+    a = eval (x->l, cause, lid);
     return _not_table[a];
     break;
 
   case PRSSIM_EXPR_VAR:
-    return _proc->getBool (x->vid);
+    {
+      int gid;
+      int ret = _proc->getBool (x->vid, &gid);
+      if (gid == cause) {
+	*lid = x->vid;
+      }
+      return ret;
+    }
     break;
 
   case PRSSIM_EXPR_TRUE:
@@ -668,6 +675,8 @@ int OnePrsSim::Step (Event *ev)
     */
     if (t == 2 /* X */ && flags == PENDING_NONE) {
       int u_state, d_state, u_weak, d_weak;
+      u_weak = 0;
+      d_weak = 0;
       u_state = eval (_me->up[PRSSIM_NORM]);
       if (u_state == 0) {
 	u_state = eval (_me->up[PRSSIM_WEAK]);
@@ -780,6 +789,16 @@ void OnePrsSim::propagate (void *cause)
 {
   int u_state, d_state;
   int u_weak = 0, d_weak = 0;
+  int lid = -1;
+  int causeid;
+
+  if (cause) {
+    ActSimDES *xx = (ActSimDES *) cause;
+    causeid = xx->causeGlobalIdx ();
+  }
+  else {
+    causeid = -1;
+  }
 
   /*-- fire rule --*/
   switch (_me->type) {
@@ -853,17 +872,20 @@ void OnePrsSim::propagate (void *cause)
 
   case PRSSIM_RULE:
     /* evaluate up, up-weak and dn, dn-weak */
-    u_state = eval (_me->up[PRSSIM_NORM]);
+    u_state = eval (_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
     if (u_state == 0) {
-      u_state = eval (_me->up[PRSSIM_WEAK]);
+      u_state = eval (_me->up[PRSSIM_WEAK], causeid,
+		      causeid == -1 ? NULL : &lid);
       if (u_state != 0) {
         u_weak = 1;
       }
     }
 
-    d_state = eval (_me->dn[PRSSIM_NORM]);
+    d_state = eval (_me->dn[PRSSIM_NORM], causeid,
+		    causeid == -1 ? NULL : &lid);
     if (d_state == 0) {
-      d_state = eval (_me->dn[PRSSIM_WEAK]);
+      d_state = eval (_me->dn[PRSSIM_WEAK], causeid,
+		      causeid == -1 ? NULL : &lid);
       if (d_state != 0) {
 	d_weak = 1;
       }
@@ -1296,4 +1318,9 @@ void OnePrsSim::sPrintCause (char *buf, int sz)
   if (sz <= 1) return;
   int cv = _proc->getBool (_me->vid);
   snprintf (buf + pos, sz, " <- %c", (cv == 2 ? 'X' : ((char)cv + '0')));
+}
+
+int OnePrsSim::causeGlobalIdx ()
+{
+  return _proc->getGlobalOffset (_me->vid, 0);
 }

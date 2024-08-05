@@ -109,14 +109,31 @@ class PrsSim : public ActSimObj {
 
   void computeFanout ();
 
-  int getBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->getBool (off); }
-  int isSpecialBool (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isSpecialBool (off); }
+  int getBool (int lid, int *gid = NULL) {
+    int off = getGlobalOffset (lid, 0);
+    if (gid) {
+      *gid = off;
+    }
+    return _sc->getBool (off);
+  }
 
-  bool isHazard (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isHazard (off); }
+  int isSpecialBool (int lid) {
+    int off = getGlobalOffset (lid, 0);
+    return _sc->isSpecialBool (off);
+  }
+
+  bool isHazard (int lid) {
+    int off = getGlobalOffset (lid, 0);
+    return _sc->isHazard (off);
+  }
   
   int myGid (int lid) { return getGlobalOffset (lid, 0); }
-    
+
+  /*
+    me, cause are both used for cause tracing
+  */
   bool setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause = NULL);
+
   void printName (FILE *fp, int lid);
   void sPrintName (char *buf, int sz, int lid);
 
@@ -133,10 +150,6 @@ class PrsSim : public ActSimObj {
  private:
   void _computeFanout (prssim_expr *, SimDES *);
   
-  void varSet (int id, int type, BigInt &v);
-  int varSend (int pc, int wakeup, int id, BigInt &v);
-  int varRecv (int pc, int wakeup, int id, BigInt *v);
-
   PrsSimGraph *_g;
   list_t *_sim;			// simulation objects
 };
@@ -148,7 +161,7 @@ private:
   PrsSim *_proc;		// process core [maps, etc]
   struct prssim_stmt *_me;	// the rule
   Event *_pending;
-  int eval (prssim_expr *);
+  int eval (prssim_expr *, int cause_id = -1, int *lid = NULL);
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x);
@@ -161,6 +174,7 @@ public:
   int isPending() { return _pending == NULL ? 0 : 1; }
 
   void sPrintCause (char *buf, int sz);
+  int causeGlobalIdx ();
 };
 
 

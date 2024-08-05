@@ -57,10 +57,27 @@ static void usage (char *name)
   exit (1);
 }
 
+class DummyObject : public ActSimDES {
+ public:
+  DummyObject() { gid = -1; };
+  ~DummyObject() { };
+
+  int Step (Event *ev) { return 1; }
+  void computeFanout() { }
+  int causeGlobalIdx() { return gid; }
+  void setGid(int id) { gid = id; }
+  void sPrintCause(char *buf, int sz) { snprintf (buf, sz, "-cmd-"); }
+
+ private:
+  int gid;
+};
+
+
 static ActStatePass *glob_sp;
 ActSim *glob_sim;
 static Act *glob_act;
 static Process *glob_top;
+DummyObject *glob_dummy;
 
 int is_rand_excl()
 {
@@ -696,7 +713,6 @@ static int id_to_siminfo_glob_raw (char *s,
 }
 
 
-
 int process_set (int argc, char **argv)
 {
   if (argc != 3) {
@@ -785,10 +801,11 @@ int process_set (int argc, char **argv)
 
   SimDES **arr;
   arr = glob_sim->getFO (offset, type);
+  glob_dummy->setGid (offset);
   for (int i=0; i < glob_sim->numFanout (offset, type); i++) {
     ActSimDES *p = dynamic_cast <ActSimDES *> (arr[i]);
     Assert (p, "Hmm?");
-    p->propagate ();
+    p->propagate (glob_dummy);
   }
   return LISP_RET_TRUE;
 }
@@ -1690,6 +1707,7 @@ int main (int argc, char **argv)
   glob_sp->run (p);
   
   glob_sim = new ActSim (p);
+  glob_dummy = new DummyObject ();
   glob_sim->runInit ();
   ActExclConstraint::_sc = glob_sim;
 

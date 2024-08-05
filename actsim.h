@@ -126,7 +126,7 @@ public:
   virtual void sPrintCause (char *buf, int sz) {
     buf[0] = '\0';
   }
-
+  virtual int causeGlobalIdx() { return -1; }
 };
 
 class ActSimObj;
