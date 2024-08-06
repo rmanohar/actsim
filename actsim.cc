@@ -57,7 +57,7 @@ char *ActSimCore::_trname[TRACE_NUM_FORMATS] =
   { NULL, NULL, NULL };
 
 
-ActSimCore::ActSimCore (Process *p)
+ActSimCore::ActSimCore (Process *p, SDF *sdf)
 {
   _have_filter = 0;
   for (int i=0; i < TRACE_NUM_FORMATS; i++) {
@@ -1611,7 +1611,7 @@ void ActSimCore::_register_prssim_with_excl (ActInstTable *t)
   }
 }
 
-ActSim::ActSim (Process *root) : ActSimCore (root)
+ActSim::ActSim (Process *root, SDF *sdf) : ActSimCore (root, sdf)
 {
   /* nothing */
   _init_simobjs = NULL;

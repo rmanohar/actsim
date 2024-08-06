@@ -53,7 +53,8 @@ static void clr_interrupt (void)
 
 static void usage (char *name)
 {
-  fprintf (stderr, "Usage: %s <actfile> <process>\n", name);
+  fprintf (stderr, "Usage: %s [-S <sdf>] <actfile> <process>\n", name);
+  fprintf (stderr, "       %s [-S <sdf>] -p <process> <actfile>\n", name);
   exit (1);
 }
 
@@ -1661,11 +1662,41 @@ int main (int argc, char **argv)
 
   debug_metrics = config_get_int ("sim.chp.debug_metrics");
 
-  /* some usage check */
-  if (argc != 3) {
-    usage (argv[0]);
+  int ch;
+  char *procname = NULL;
+  while ((ch = getopt (argc, argv, "S:p:")) != -1) {
+    switch (ch) {
+    case 'S':
+      config_set_string ("sim.sdf_file", optarg);
+      break;
+      
+    case 'p':
+      if (procname) {
+	FREE (procname);
+      }
+      procname = Strdup (optarg);
+      break;
+      
+    default:
+    case '?':
+      usage (argv[0]);
+      break;
+    }
   }
 
+  /* some usage check */
+  if (optind != argc-2) {
+    if (!procname || optind != argc-1) {
+      usage (argv[0]);
+    }
+  }
+  else if (procname) {
+    usage (argv[0]);
+  }
+  else {
+    procname = argv[optind+1];
+  }
+  
   if (config_exists ("sim.chp.metrics_tech_name")) {
     metrics_tech_name = config_get_string ("sim.chp.metrics_tech_name");
     if (strcmp (metrics_tech_name, getenv ("ACT_TECH")) != 0) {
@@ -1676,7 +1707,7 @@ int main (int argc, char **argv)
   }
 
   /* read in the ACT file */
-  glob_act = new Act (argv[1]);
+  glob_act = new Act (argv[optind]);
 
   /* expand it */
   glob_act->Expand ();
@@ -1686,10 +1717,11 @@ int main (int argc, char **argv)
   //cp->run();
  
   /* find the process specified on the command line */
-  Process *p = glob_act->findProcess (argv[2], true);
+  Process *p = glob_act->findProcess (procname, true);
 
   if (!p) {
-    fatal_error ("Could not find process `%s' in file `%s'", argv[2], argv[1]);
+    fatal_error ("Could not find process `%s' in file `%s'", procname,
+		 argv[optind]);
   }
 
   if (!p->isExpanded()) {
@@ -1697,7 +1729,7 @@ int main (int argc, char **argv)
   }
 
   if (!p->isExpanded()) {
-    fatal_error ("Process `%s' is not expanded.", argv[2]);
+    fatal_error ("Process `%s' is not expanded.", procname);
   }
 
   glob_top = p;
@@ -1705,8 +1737,20 @@ int main (int argc, char **argv)
   /* do stuff here */
   glob_sp = new ActStatePass (glob_act);
   glob_sp->run (p);
+
+  /* check if we have an SDF file specified */
+  SDF *sdf_data = NULL;
+  if (config_exists ("sim.sdf_file")) {
+    sdf_data = new SDF (true);
+    if (!sdf_data->Read (config_get_string ("sim.sdf_file"))) {
+      warning ("SDF file `%s': reading failed; omitting.",
+	       config_get_string ("sim.sdf_file"));
+      delete sdf_data;
+      sdf_data = NULL;
+    }
+  }
   
-  glob_sim = new ActSim (p);
+  glob_sim = new ActSim (p, sdf_data);
   glob_dummy = new DummyObject ();
   glob_sim->runInit ();
   ActExclConstraint::_sc = glob_sim;

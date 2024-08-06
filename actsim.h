@@ -28,6 +28,7 @@
 #include <string.h>
 #include <act/act.h>
 #include <act/passes.h>
+#include <act/sdf.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <math.h>
@@ -290,7 +291,7 @@ class XyceSim;
  */
 class ActSimCore {
  public:
-  ActSimCore (Process *root = NULL); /* create simulation engine */
+  ActSimCore (Process *root = NULL, SDF *sdf = NULL); /* create simulation engine */
   ~ActSimCore ();
 
   void addStdEnv ();
@@ -701,7 +702,7 @@ protected:
 
 class ActSim : public ActSimCore {
 public:
-  ActSim (Process *root = NULL); // root of the simulation
+  ActSim (Process *root = NULL, SDF *sdf = NULL); // root of the simulation
   ~ActSim ();
 
   void setBp (act_connection *c); // breakpoint if this changes
