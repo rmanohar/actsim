@@ -584,6 +584,7 @@ class ActSimCore {
 
 protected:
   Act *a;
+  SDF *_sdf;
 
   int nfo_len;
   int nint_start;
