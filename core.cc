@@ -33,9 +33,10 @@
  */
 
 struct process_info {
-  process_info() { chp = NULL; hse = NULL; prs = NULL; }
+  process_info() { chp = NULL; hse = NULL; prs = NULL; ci = NULL; }
   chpsimgraph_info *chp, *hse;
   PrsSimGraph *prs;
+  sdf_celltype *ci;
 };
 
 
@@ -448,7 +449,6 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   }
   printf ("\n");
 #endif
-
   process_info *pgi;
   ihash_bucket_t *b;
   b = ihash_lookup (map, (long)_curproc);
@@ -459,8 +459,15 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
     b = ihash_add (map, (long)_curproc);
     pgi = new process_info ();
     b->v = pgi;
-  }
 
+    if (_sdf) {
+      char buf[1024];
+      a->msnprintfproc (buf, 1024, _curproc);
+      pgi->ci = _sdf->getCell (buf);
+      pgi->ci->used = true;
+    }
+  }
+  
   if (!pgi->prs) {
     pgi->prs = PrsSimGraph::buildPrsSimGraph (this, p);
   }
