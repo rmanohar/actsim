@@ -28,6 +28,7 @@ jobs:
               cd ..
               git clone https://github.com/asyncvlsi/annotate --depth 1
               cd annotate && make install_inc && make && make install
+              cd ..
        - run: 
           name: Install act stdlib
           command: |
@@ -80,6 +81,9 @@ jobs:
               ./build
               echo "===== install act base ====="
               make install
+              cd ..
+              git clone https://github.com/asyncvlsi/annotate --depth 1
+              cd annotate && make install_inc && make && make install
               cd ..
        - run: 
           name: Install act stdlib
