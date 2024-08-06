@@ -345,6 +345,13 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
       pgi = new process_info();
       b = ihash_add (map, (long)_curproc);
       b->v = pgi;
+
+      if (_sdf) {
+	char buf[1024];
+	a->msnprintfproc (buf, 1024, _curproc);
+	pgi->ci = _sdf->getCell (buf);
+	pgi->ci->used = true;
+      }
     }
     if (!pgi->chp) {
       if (c->c && c->c->type == ACT_CHP_COMMA) {
@@ -414,6 +421,13 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
     pgi = new process_info();
     b = ihash_add (map, (long)_curproc);
     b->v = pgi;
+
+    if (_sdf) {
+      char buf[1024];
+      a->msnprintfproc (buf, 1024, _curproc);
+      pgi->ci = _sdf->getCell (buf);
+      pgi->ci->used = true;
+    }
   }
 
   if (!pgi->hse) {
