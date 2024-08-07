@@ -1183,13 +1183,27 @@ int process_mode (int argc, char **argv)
 int process_random (int argc, char **argv)
 {
   if (argc == 1) {
-    glob_sim->setRandom();
+    glob_sim->setRandom(false);
   }
-  else if (argc == 3) {
-    glob_sim->setRandom (atoi (argv[1]), atoi(argv[2]));
+  else if (argc == 3 || argc == 4) {
+    if (argc == 4) {
+      if (strcmp (argv[1], "-u") != 0) {
+	fprintf (stderr, "Usage: %s [-u] [min max]\n", argv[0]);
+	return LISP_RET_ERROR;
+      }
+    }
+    glob_sim->setRandom (atoi (argv[1]), atoi(argv[2]),
+			 (argc == 4 ? true : false));
   }
+  else if (argc == 2) {
+    if (strcmp (argv[1], "-u") != 0) {
+      fprintf (stderr, "Usage: %s [-u] [min max]\n", argv[0]);
+      return LISP_RET_ERROR;
+    }
+    glob_sim->setRandom (true);
+  }      
   else {
-    fprintf (stderr, "Usage: %s [min max]\n", argv[0]);
+    fprintf (stderr, "Usage: %s [-u] [min max]\n", argv[0]);
     return LISP_RET_ERROR;
   }
   return LISP_RET_TRUE;
@@ -1556,7 +1570,7 @@ struct LispCliCommand Cmds[] = {
 
   { "mode", "reset|run - set running mode", process_mode },
   
-  { "random", "[min max] - randomize timings", process_random },
+  { "random", "[-u] [min max] - randomize timings; -u only randomizes unspecified times", process_random },
   { "random_seed", "<val> - set random number seed", process_random_seed },
   { "norandom", "- deterministic timing", process_norandom },
   { "random_choice", "on|off - randomize non-deterministic choices", process_random_choice },

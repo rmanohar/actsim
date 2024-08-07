@@ -146,6 +146,7 @@ ActSimCore::ActSimCore (Process *p, SDF *sdf)
   _rand_max = 100;
   _sim_rand_excl = 0;
   _sim_rand = 0;
+  _sim_rand_when = 0;
   _prs_sim_mode = 0;
   _on_warning = 0;
 
@@ -483,11 +484,18 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   }
   
   if (!pgi->prs) {
-    pgi->prs = PrsSimGraph::buildPrsSimGraph (this, p);
+    sdf_cell *di;
+    if (pgi->ci && pgi->ci->all) {
+      di = pgi->ci->all;
+    }
+    else {
+      di = NULL;
+    }
+    /* di is the generic cell delay, non-instance specific */
+    pgi->prs = PrsSimGraph::buildPrsSimGraph (this, p, di);
   }
   
   /* need prs simulation graph */
-
   PrsSim *x = new PrsSim (pgi->prs, this, _curproc);
   x->setName (_curinst);
   x->setOffsets (&_curoffset);

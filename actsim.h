@@ -362,10 +362,11 @@ class ActSimCore {
   int isFiltered (const char *s);
 
   void setMode (int mode) { _prs_sim_mode = mode; }
-  void setRandom () { _sim_rand = 1; }
-  void setNoRandom() { _sim_rand = 0; }
-  void setRandom (int min, int max) {
+  void setRandom (bool flag = false) { _sim_rand = 1; if (flag) { _sim_rand_when = 1; } else { _sim_rand_when = 0; } }
+  void setNoRandom() { _sim_rand = 0; _sim_rand_when = 0; }
+  void setRandom (int min, int max, bool flag = false) {
     _sim_rand = 2; _rand_min = min; _rand_max = max;
+    if (flag) _sim_rand_when = 1; else _sim_rand_when = 0;
   }
   void setRandomSeed (unsigned seed) { _seed = seed; }
   void setRandomChoice (int v) { _sim_rand_excl = v; }
@@ -392,15 +393,26 @@ class ActSimCore {
     unsigned long val;
 
     if (_sim_rand == 0 || delay == 0) {
-      return delay;
+      /* default delay is 10 units */
+      return delay < 0 ? 10 : delay;
     }
     else if (_sim_rand == 1) {
-      d = (0.0 + rand_r (&_seed))/RAND_MAX;
-      val = exp(d*LN_MAX_VAL)-1;
+      if (_sim_rand_when == 0 || delay < 0) {
+	d = (0.0 + rand_r (&_seed))/RAND_MAX;
+	val = exp(d*LN_MAX_VAL)-1;
+      }
+      else {
+	return delay;
+      }
     }
     else if (_sim_rand == 2) {
-      d = (0.0 + rand_r (&_seed))/RAND_MAX;
-      val = _rand_min + d*(_rand_max - _rand_min);
+      if (_sim_rand_when == 0 || delay < 0) {
+	d = (0.0 + rand_r (&_seed))/RAND_MAX;
+	val = _rand_min + d*(_rand_max - _rand_min);
+      }
+      else {
+	return delay;
+      }
     }
     else {
       val = 0;
@@ -682,6 +694,9 @@ protected:
   regex_t match;
 
   unsigned int _prs_sim_mode:1;	 /* 0 = normal, 1 = reset */
+
+  unsigned int _sim_rand_when:1; /* 0 = normal, 1 = only randomize
+				    unspecified delays */
   unsigned int _sim_rand:2;	 /* 0 = normal, 1 = random, 2 = rand
 				    range */
   

@@ -321,7 +321,7 @@ static void _merge_prs (ActSimCore *sc, struct prssim_expr **pe,
   return;
 }
 
-void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
+void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci)
 {
   struct prssim_stmt *s;
   int rhs;
@@ -350,8 +350,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     s->vid = rhs;
     s->c = rhsc;
     s->unstab = 0;
-    s->delay_up = 10;
-    s->delay_dn = 10;
+    s->setDelayDefault ();
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -379,13 +378,13 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
     if (p->u.one.dir) {
       _merge_prs (sc, &s->up[weak], p->u.one.e, 0);
       if (delay >= 0) {
-	s->delay_up = delay;
+	s->setUpDelay (delay);
       }
     }
     else {
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       if (delay >= 0) {
-	s->delay_dn = delay;
+	s->setDnDelay (delay);
       }
     }
     break;
@@ -401,8 +400,8 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
       _merge_prs (sc, &s->up[weak], p->u.one.e, 1);
     }
     if (delay >= 0) {
-      s->delay_up = delay;
-      s->delay_dn = delay;
+      s->setUpDelay (delay);
+      s->setDnDelay (delay);
     }
     break;
     
@@ -417,8 +416,8 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p)
       _merge_prs (sc, &s->up[weak], p->u.one.e, 2);
     }
     if (delay >= 0) {
-      s->delay_up = delay;
-      s->delay_dn = delay;
+      s->setUpDelay (delay);
+      s->setDnDelay (delay);
     }
     break;
     
@@ -434,8 +433,7 @@ void PrsSimGraph::_add_one_gate (ActSimCore *sc, act_prs_lang_t *p)
   struct prssim_stmt *s;
   NEW (s, struct prssim_stmt);
   s->next = NULL;
-  s->delay_up = 10;
-  s->delay_dn = 10;
+  s->setDelayDefault ();
   if (p->u.p.g) {
     if (p->u.p._g) {
       s->type = PRSSIM_TGATE;
@@ -459,12 +457,12 @@ void PrsSimGraph::_add_one_gate (ActSimCore *sc, act_prs_lang_t *p)
   q_ins (_rules, _tail, s);
 }
 
-void PrsSimGraph::addPrs (ActSimCore *sc, act_prs_lang_t *p)
+void PrsSimGraph::addPrs (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci)
 {
   while (p) {
     switch (ACT_PRS_LANG_TYPE (p->type)) {
     case ACT_PRS_RULE:
-      _add_one_rule (sc, p);
+      _add_one_rule (sc, p, ci);
       break;
       
     case ACT_PRS_GATE:
@@ -477,7 +475,7 @@ void PrsSimGraph::addPrs (ActSimCore *sc, act_prs_lang_t *p)
       
     case ACT_PRS_TREE:
     case ACT_PRS_SUBCKT:
-      addPrs (sc, p->u.l.p);
+      addPrs (sc, p->u.l.p, ci);
       break;
 
     default:
@@ -542,14 +540,15 @@ PrsSimGraph::~PrsSimGraph()
   }
 }
 
-PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p)
+PrsSimGraph *PrsSimGraph::buildPrsSimGraph (ActSimCore *sc, act_prs *p,
+					    sdf_cell *ci)
 {
   PrsSimGraph *pg;
 
   pg = new PrsSimGraph ();
   
   while (p) {
-    pg->addPrs (sc, p->p);
+    pg->addPrs (sc, p->p, ci);
     p = p->next;
   }
   return pg;
@@ -630,8 +629,8 @@ static int _breakpt;
 	flags = (1 + (x));					\
 	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
 			      _proc->getDelay ((x) == 0 ?	\
-					       _me->delay_dn :	\
-					       _me->delay_up),	\
+					       _me->delayDn(0) :	\
+					       _me->delayUp(0)),	\
 			      cause);				\
       }								\
     }								\

@@ -57,10 +57,18 @@ struct prssim_expr {
 #define PRSSIM_WEAK 1
 
 struct prssim_stmt {
-  unsigned int type:2; /* RULE, P, N, TRANSGATE */
-  unsigned int unstab:1; /* is unstable? */
+  unsigned int type:2;		/* RULE, P, N, TRANSGATE */
+  unsigned int unstab:1;	/* is unstable? */
+  unsigned int std_delay:1;     /* 1 if this uses the standard delay,
+				   0 if it uses delay tables */
   struct prssim_stmt *next;
-  int delay_up, delay_dn;
+  // default inst-independent delay tables
+  struct delay_info {
+    union {
+      int val;			// up delay is either a value (std)
+      int *val_tab;		// ... or a value table (not std)
+    } up, dn;
+  } delay;
   union {
     struct {
       prssim_expr *up[2], *dn[2];
@@ -71,6 +79,24 @@ struct prssim_stmt {
       int t1, t2, g, _g;
     };
   };
+
+  int delayUp(int idx) {
+    return std_delay ? delay.up.val : delay.up.val_tab[idx];
+  }
+  int delayDn(int idx) {
+    return std_delay ? delay.dn.val : delay.dn.val_tab[idx];
+  }
+  void setDelayDefault() {
+    std_delay = 1;
+    delay.up.val = -1;
+    delay.dn.val = -1;
+  }
+  void setUpDelay (int val) {
+    delay.up.val = val;
+  }
+  void setDnDelay (int val) {
+    delay.dn.val = val;
+  }
 };
   
 
@@ -79,19 +105,19 @@ private:
   struct prssim_stmt *_rules, *_tail;
   struct Hashtable *_labels;
 
-  void _add_one_rule (ActSimCore *, act_prs_lang_t *);
+  void _add_one_rule (ActSimCore *, act_prs_lang_t *, sdf_cell *);
   void _add_one_gate (ActSimCore *, act_prs_lang_t *);
   
 public:
   PrsSimGraph();
   ~PrsSimGraph();
   
-  void addPrs (ActSimCore *, act_prs_lang_t *);
+  void addPrs (ActSimCore *, act_prs_lang_t *, sdf_cell *);
 
   prssim_stmt *getRules () { return _rules; }
 
 
-  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *);
+  static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, sdf_cell *ci);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs *);
   static void checkFragmentation (ActSimCore *, PrsSim *, act_prs_lang_t *);
   static void checkFragmentation (ActSimCore *, PrsSim *, ActId *, int);
