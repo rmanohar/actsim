@@ -12,9 +12,10 @@ This program is for use with [the ACT toolkit](https://github.com/asyncvlsi/act)
 
    * Please install the ACT toolkit first; installation instructions are [here](https://github.com/asyncvlsi/act/blob/master/README.md).
    * Also install the ACT [standard library](https://github.com/asyncvlsi/stdlib).
+   * Also install the ACT [annotate library](https://github.com/asyncvlsi/annotate).
    * Build this program using the standard ACT tool install instructions [here](https://github.com/asyncvlsi/act/blob/master/README_tool.md).
 
-To build, run `./configure` and then `./build.sh` and `make install`.
+To build and install, run `./configure` and then `./build.sh`.
 
 
 ### Building with Xyce
