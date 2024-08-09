@@ -31,6 +31,23 @@ PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
   _sc = sim;
   _g = g;
   _sim = list_new ();
+  _delay = NULL;
+}
+
+void PrsSim::updateDelays (act_prs *prs, sdf_celltype *ci)
+{
+  if (!ci) return;
+  if (!ci->inst) return;
+
+  chash_bucket_t *cb;
+  cb = chash_lookup (ci->inst, name);
+  if (!cb) return;
+
+  sdf_cell *di = (sdf_cell *)cb->v;
+  di->used = true;
+
+  // now we need to translate this to internal delay info!
+
 }
 
 PrsSim::~PrsSim()
@@ -41,6 +58,20 @@ PrsSim::~PrsSim()
     delete x;
   }
   list_free (_sim);
+  if (_delay) {
+    for (li = list_first (_delay); li; li = list_next (li)) {
+      unsigned long ptr = (unsigned long) list_value (li);
+      gate_delay_info *gd = (gate_delay_info *)(ptr & ~0x1UL);
+      if (ptr & 0x1UL) {
+	// fixed delay
+      }
+      else {
+	gd->delete_table ();
+      }
+      delete gd;
+    }
+    list_free (_delay);
+  }
 }
 
 int PrsSim::Step (Event */*ev*/)
@@ -193,9 +224,13 @@ static int _attr_check (const char *nm, act_attr_t *attr)
 
 static struct Hashtable *at_table;
 
+static sdf_cell *current_ci;
+static prssim_stmt *current_stmt;
+
 prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
 {
   prssim_expr *x, *tmp;
+  int is_fall;
   
   if (!e) return NULL;
 
@@ -245,13 +280,23 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
       NEW (x->l, prssim_expr);
       x->r = NULL;
       tmp = x->l;
+      is_fall = 1;
     }
     else {
       tmp = x;
+      is_fall = 0;
     }
     tmp->type = PRSSIM_EXPR_VAR;
     tmp->vid = sc->getLocalOffset (e->u.v.id, sc->cursi(), NULL);
     tmp->c = e->u.v.id->Canonical (sc->cursi()->bnl->cur);
+    if (current_ci) {
+      /*-- look through SDF paths from e->u.v.id to current_stmt->c --*/
+      printf ("look-for: ");
+      e->u.v.id->Print (stdout);
+      printf ("%c to ", is_fall ? '-' : '+');
+      current_stmt->c->Print (stdout);
+      printf ("\n");
+    }
     break;
 
   case ACT_PRS_EXPR_TRUE:
@@ -350,7 +395,12 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
     s->vid = rhs;
     s->c = rhsc;
     s->unstab = 0;
-    s->setDelayDefault ();
+    if (ci) {
+      s->setDelayTables ();
+    }
+    else {
+      s->setDelayDefault ();
+    }
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -371,7 +421,8 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
   delay = _attr_check ("after", p->u.one.attr);
 
   /*-- now handle the rule --*/
-
+  current_stmt = s;
+  current_ci = ci;
   switch (p->u.one.arrow_type) {
   case 0:
     /* normal arrow */

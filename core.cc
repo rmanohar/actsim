@@ -78,6 +78,7 @@ ActSimCore::ActSimCore (Process *p, SDF *sdf)
   _is_internal_parallel = 0;
 
   _sdf = sdf;
+  _sdf_errs = NULL;
 
   if (!root_scope->isExpanded()) {
     fatal_error ("Need to expand ACT prior to starting a simulation");
@@ -351,7 +352,12 @@ ChpSim *ActSimCore::_add_chp (act_chp *c)
 	char buf[1024];
 	a->msnprintfproc (buf, 1024, _curproc);
 	pgi->ci = _sdf->getCell (buf);
-	pgi->ci->used = true;
+	if (pgi->ci) {
+	  pgi->ci->used = true;
+	}
+	else {
+	  _add_sdf_type_error (_curproc);
+	}
       }
     }
     if (!pgi->chp) {
@@ -427,7 +433,12 @@ ChpSim *ActSimCore::_add_hse (act_chp *c)
       char buf[1024];
       a->msnprintfproc (buf, 1024, _curproc);
       pgi->ci = _sdf->getCell (buf);
-      pgi->ci->used = true;
+      if (pgi->ci) {
+	pgi->ci->used = true;
+      }
+      else {
+	_add_sdf_type_error (_curproc);
+      }
     }
   }
 
@@ -479,7 +490,12 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
       char buf[1024];
       a->msnprintfproc (buf, 1024, _curproc);
       pgi->ci = _sdf->getCell (buf);
-      pgi->ci->used = true;
+      if (pgi->ci) {
+	pgi->ci->used = true;
+      }
+      else {
+	_add_sdf_type_error (_curproc);
+      }
     }
   }
   
@@ -500,6 +516,7 @@ PrsSim *ActSimCore::_add_prs (act_prs *p)
   x->setName (_curinst);
   x->setOffsets (&_curoffset);
   x->setPorts (_cur_abs_port_bool, _cur_abs_port_int, _cur_abs_port_chan);
+  x->updateDelays (p, pgi->ci);
 
   return x;
 }
@@ -1555,6 +1572,23 @@ void ActSimCore::_initSim ()
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
 
+  if (simroot && _sdf) {
+    char buf[1024];
+    a->msnprintfproc (buf, 1024, simroot);
+    sdf_celltype *ci = _sdf->getCell (buf);
+    if (ci) {
+      ci->used = 1;
+      if (ci->all) {
+	// we always use the generic instance for the top-level
+	ci->all->used = true;
+      }
+    }
+    else {
+      _add_sdf_type_error (simroot);
+    }
+    //XXX: do something here!
+  }
+
   list_free (_si_stack);
   list_free (_obj_stack);
 
@@ -2463,4 +2497,45 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
   }
 }
 
+void ActSimCore::_add_sdf_type_error (Process *p)
+{
+  if (!_sdf_errs) {
+    _sdf_errs = phash_new (4);
+  }
+  phash_bucket_t *b;
+  b = phash_lookup (_sdf_errs, p);
+  if (!b) {
+    b = phash_add (_sdf_errs, p);
+  }
+}
+
+void ActSimCore::_sdf_report ()
+{
+  phash_bucket_t *b;
+  phash_iter_t it;
+  char buf[1024];
+
+  if (!_sdf_errs) return;
+
+  phash_iter_init (_sdf_errs, &it);
+  while ((b = phash_iter_next (_sdf_errs, &it))) {
+    Process *p = (Process *) b->key;
+    fprintf (stderr, ">> Missing SDF entry for ");
+    if (p->getns() && p->getns() != ActNamespace::Global()) {
+      char *s = p->getns()->Name();
+      fprintf (stderr, "%s::", s);
+      FREE (s);
+    }
+    fprintf (stderr, "%s", p->getName());
+    a->msnprintfproc (buf, 1024, p);
+    fprintf (stderr, " [%s]\n", buf);
+  }
+}
+
+void ActSimCore::_sdf_clear_errors ()
+{
+  if (!_sdf_errs) return;
+  phash_free (_sdf_errs);
+  _sdf_errs = NULL;
+}
 

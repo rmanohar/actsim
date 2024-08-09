@@ -713,6 +713,12 @@ protected:
   int _black_box_mode;
 
   A_DECL (int, _rand_init);
+
+  struct pHashtable *_sdf_errs;	/* sdf errors */
+
+  void _add_sdf_type_error (Process *p);
+  void _sdf_report ();
+  void _sdf_clear_errors ();
 };
 
 

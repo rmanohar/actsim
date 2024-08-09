@@ -98,6 +98,12 @@ ActSim::ActSim (Process *root, SDF *sdf) : ActSimCore (root, sdf)
     /* 10ps default */
     _int_to_float_timescale = 10e-12;
   }
+
+  if (sdf) {
+    sdf->reportUnusedCells ("actsim-sdf", stderr);
+    _sdf_report ();
+    _sdf_clear_errors ();
+  }
 }
 
 ActSim::~ActSim()

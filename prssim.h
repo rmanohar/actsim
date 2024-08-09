@@ -25,6 +25,81 @@
 #include <common/simdes.h>
 #include "actsim.h"
 
+
+/**
+ * Used to represent upgoing and downgoing delays. We need one bit of info
+ * to know if this is a single value or a value table; this information is
+ * not in this class, otherwise padding requirements would increase the
+ * storage needs. The bit is passed in to all methods.
+ */
+class gate_delay_info {
+private:
+  union {
+    int val;			// up delay is either a value (std)
+    int *val_tab;		// ... or a value table (not std)
+  };
+public:
+  // default is to assume it is a fixed delay
+  gate_delay_info() { val = -1; }
+
+  void clear() { val = -1; }
+
+  void delete_table() { FREE (val_tab); }
+
+  int lookup (int idx, bool fixed_delay = true) {
+    if (fixed_delay) {
+      return val;
+    }
+    for (int i=0; i < val_tab[0]; i++) {
+      if (val_tab[2*i+1] == idx) {
+	return val_tab[2*i+2];
+      }
+    }
+    // not found, retu
+    return -1;
+  }
+
+  void add (int idx, int dval, bool fixed_delay = true) {
+    int j = -1;
+    if (fixed_delay) {
+      val = dval;
+      return;
+    }
+    for (int i=0; i < val_tab[0]; i++) {
+      if (val_tab[2*i+1] == idx) {
+	if (val_tab[2*i+2] < dval) {
+	  val_tab[2*i+2] = dval;
+	  return;
+	}
+      }
+      if (val_tab[2*i+1] == 0) {
+	j = i;
+	break;
+      }
+    }
+    if (j == -1) {
+      j = val_tab[0] + 2;
+      REALLOC (val_tab, int, j*2+1);
+      val_tab[0] = j;
+      j -= 2;
+      val_tab[2*j+1] = idx;
+      val_tab[2*j+2] = dval;
+    }
+  }
+
+  /*
+   * delay tables:
+   *    [0] = # of slots
+   *    [2*i+1] and [2*i+2] is slot i, corresponding to an (idx, val) pair
+   */
+  void mkTables() {
+    MALLOC (val_tab, int, 3);
+    val_tab[0] = 1;
+    val_tab[1] = 0; // unused marker
+  }
+};
+
+
 /*
  * up, down, wup, wdn
  */
@@ -56,19 +131,17 @@ struct prssim_expr {
 #define PRSSIM_NORM 0
 #define PRSSIM_WEAK 1
 
+
 struct prssim_stmt {
   unsigned int type:2;		/* RULE, P, N, TRANSGATE */
   unsigned int unstab:1;	/* is unstable? */
   unsigned int std_delay:1;     /* 1 if this uses the standard delay,
 				   0 if it uses delay tables */
   struct prssim_stmt *next;
-  // default inst-independent delay tables
-  struct delay_info {
-    union {
-      int val;			// up delay is either a value (std)
-      int *val_tab;		// ... or a value table (not std)
-    } up, dn;
-  } delay;
+
+  // default inst-independent delays/delay tables
+  gate_delay_info delay_up, delay_dn;
+  
   union {
     struct {
       prssim_expr *up[2], *dn[2];
@@ -81,21 +154,37 @@ struct prssim_stmt {
   };
 
   int delayUp(int idx) {
-    return std_delay ? delay.up.val : delay.up.val_tab[idx];
+    return delay_up.lookup (idx, std_delay ? true : false);
   }
+
   int delayDn(int idx) {
-    return std_delay ? delay.dn.val : delay.dn.val_tab[idx];
+    return delay_dn.lookup (idx, std_delay ? true : false);
   }
+
   void setDelayDefault() {
     std_delay = 1;
-    delay.up.val = -1;
-    delay.dn.val = -1;
+    delay_up.clear ();
+    delay_dn.clear();
   }
+
+  /*
+   * delay tables:
+   *    [0] = # of slots
+   *    [2*i+1] and [2*i+2] is slot i, corresponding to an (idx, val) pair
+   */
+  void setDelayTables() {
+    delay_up.mkTables();
+    delay_dn.mkTables();
+  }
+
   void setUpDelay (int val) {
-    delay.up.val = val;
+    if (!std_delay) return;
+    delay_up.add (0, val, true);
   }
+
   void setDnDelay (int val) {
-    delay.dn.val = val;
+    if (!std_delay) return;
+    delay_dn.add (0, val, true);
   }
 };
   
@@ -172,12 +261,20 @@ class PrsSim : public ActSimObj {
   void printStatus (int val, bool io_glob = false);
 
   void registerExcl ();
+
+  void updateDelays (act_prs *prs, sdf_celltype *ci);
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
   
   PrsSimGraph *_g;
+
   list_t *_sim;			// simulation objects
+
+  list_t *_delay;		// delay objects, if there are
+				// per-instance delays! The LSB of the
+				// pointer in the list will be the
+				// flag used for the delay
 };
 
 
