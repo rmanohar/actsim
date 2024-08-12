@@ -91,13 +91,6 @@ ActSim::ActSim (Process *root, SDF *sdf) : ActSimCore (root, sdf)
 {
   /* nothing */
   _init_simobjs = NULL;
-  if (config_exists ("sim.device.timescale")) {
-    _int_to_float_timescale = config_get_real ("sim.device.timescale");
-  }
-  else {
-    /* 10ps default */
-    _int_to_float_timescale = 10e-12;
-  }
 
   if (sdf) {
     sdf->reportUnusedCells ("actsim-sdf", stderr);

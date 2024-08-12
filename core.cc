@@ -54,6 +54,14 @@ ActSimCore::ActSimCore (Process *p, SDF *sdf)
   
   _black_box_mode = config_get_int ("net.black_box_mode");
 
+  if (config_exists ("sim.device.timescale")) {
+    _int_to_float_timescale = config_get_real ("sim.device.timescale");
+  }
+  else {
+    /* 10ps default */
+    _int_to_float_timescale = 10e-12;
+  }
+
   A_INIT (_rand_init);
   
   if (!p) {

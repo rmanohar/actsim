@@ -531,6 +531,14 @@ class ActSimCore {
     return f;
   }
 
+  double sdfTimeMetricUnits() {
+    if (_sdf) {
+      return _sdf->getTimescale();
+    }
+    else {
+      return -1;
+    }
+  }
 
   int isInternalParallel() { return _is_internal_parallel; }
   void setInternalParallel (int v) { _is_internal_parallel = v; }

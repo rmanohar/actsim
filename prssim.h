@@ -31,6 +31,14 @@
  * to know if this is a single value or a value table; this information is
  * not in this class, otherwise padding requirements would increase the
  * storage needs. The bit is passed in to all methods.
+ *
+ * Delay table representation:
+ *   [0] = # of slots
+ *   [2*i+1] and [2*i+2] is slot i, corresponding to an (idx,val) pair
+ *
+ * If the msb of idx is 1, that is an unused slot.
+ *
+ *
  */
 class gate_delay_info {
 private:
@@ -59,6 +67,8 @@ public:
     return -1;
   }
 
+#define VAL_UNUSED (int)((1UL << (8*sizeof(int)-1)))
+
   void add (int idx, int dval, bool fixed_delay = true) {
     int j = -1;
     if (fixed_delay) {
@@ -72,7 +82,7 @@ public:
 	  return;
 	}
       }
-      if (val_tab[2*i+1] == 0) {
+      if (val_tab[2*i+1] == VAL_UNUSED) {
 	j = i;
 	break;
       }
@@ -84,19 +94,47 @@ public:
       j -= 2;
       val_tab[2*j+1] = idx;
       val_tab[2*j+2] = dval;
+      val_tab[2*j+3] = VAL_UNUSED;
     }
   }
 
   /*
-   * delay tables:
-   *    [0] = # of slots
-   *    [2*i+1] and [2*i+2] is slot i, corresponding to an (idx, val) pair
+   * Increment delay!
    */
+  void inc (int idx, int dval, bool fixed_delay = true) {
+    int j = -1;
+    if (fixed_delay) {
+      val = dval;
+      return;
+    }
+    for (int i=0; i < val_tab[0]; i++) {
+      if (val_tab[2*i+1] == idx) {
+	val_tab[2*i+2] += dval;
+	return;
+      }
+      if (val_tab[2*i+1] == VAL_UNUSED) {
+	j = i;
+	break;
+      }
+    }
+    if (j == -1) {
+      j = val_tab[0] + 2;
+      REALLOC (val_tab, int, j*2+1);
+      val_tab[0] = j;
+      j -= 2;
+      val_tab[2*j+1] = idx;
+      val_tab[2*j+2] = dval;
+      val_tab[2*j+3] = VAL_UNUSED;
+    }
+  }
+
   void mkTables() {
     MALLOC (val_tab, int, 3);
     val_tab[0] = 1;
-    val_tab[1] = 0; // unused marker
+    val_tab[1] = VAL_UNUSED; // unused marker
   }
+#undef VAL_UNUSED
+  
 };
 
 
@@ -161,6 +199,23 @@ struct prssim_stmt {
     return delay_dn.lookup (idx, std_delay ? true : false);
   }
 
+  void setUpDelay (int idx, int val) {
+    if (std_delay) return;
+    delay_up.add (idx, val, false);
+  }
+  void setDnDelay (int idx, int val) {
+    if (std_delay) return;
+    delay_dn.add (idx, val, false);
+  }
+  void incUpDelay (int idx, int val) {
+    if (std_delay) return;
+    delay_up.inc (idx, val, false);
+  }
+  void incDnDelay (int idx, int val) {
+    if (std_delay) return;
+    delay_dn.inc (idx, val, false);
+  }
+
   void setDelayDefault() {
     std_delay = 1;
     delay_up.clear ();
@@ -185,6 +240,10 @@ struct prssim_stmt {
   void setDnDelay (int val) {
     if (!std_delay) return;
     delay_dn.add (0, val, true);
+  }
+
+  bool simpleDelay() {
+    return std_delay ? true : false;
   }
 };
   

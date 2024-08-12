@@ -226,6 +226,36 @@ static struct Hashtable *at_table;
 
 static sdf_cell *current_ci;
 static prssim_stmt *current_stmt;
+static double sdf_ts_conv;
+
+/*
+  WARNING: this assumes that double -> int conversion truncates the
+  fractional part
+*/
+static int my_conv (double v)
+{
+  int res;
+  double cvt = v * sdf_ts_conv;
+
+  // XXX: this should not happen
+  if (cvt < 0) return 1;
+  
+  res = (int) cvt;
+
+  double x = cvt - res;
+
+  if (fabs(x-0.5) < 1e-6) {
+    // round to nearest even
+    if (res & 1) {
+      res++;
+    }
+  }
+  else if (x > 0.5) {
+    res++;
+  }
+  return res;
+}
+
 
 prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
 {
@@ -291,11 +321,52 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
     tmp->c = e->u.v.id->Canonical (sc->cursi()->bnl->cur);
     if (current_ci) {
       /*-- look through SDF paths from e->u.v.id to current_stmt->c --*/
+      ActId *out_id = current_stmt->c->toid();
+
+      for (int i=0; i < A_LEN (current_ci->_paths); i++) {
+	sdf_path *p = &current_ci->_paths[i];
+	// from might be NULL
+	// to cannot be NULL
+	if (p->type == SDF_ELEM_DEVICE) {
+	  Assert (p->to, "What");
+	  if (p->to->isEqual (out_id)) {
+	    // match device!
+	    p->used = 1;
+	    // ADD TO UP AND DOWN for the output current_stmt->vid */
+	  }
+	}
+	else if (p->type == SDF_ELEM_IOPATH) {
+	  Assert (p->to && p->from, "What?");
+	  if (p->to->isEqual (out_id) && p->from->isEqual (e->u.v.id) &&
+	      (p->dirfrom == 0 ||
+	       (p->dirfrom == 1 /* posedge */ && is_fall == 0) ||
+	       (p->dirfrom == 2 /* negedge */ && is_fall == 1))) {
+	    p->used = 1;
+	    if (current_stmt->simpleDelay()) {
+	      current_stmt->setDelayTables();
+	    }
+	    if (p->abs) {
+	      current_stmt->setUpDelay (tmp->vid, my_conv (p->d.z2o.typ));
+	      current_stmt->setDnDelay (tmp->vid, my_conv (p->d.o2z.typ));
+	    }
+	    else {
+	      current_stmt->incUpDelay (tmp->vid, my_conv (p->d.z2o.typ));
+	      current_stmt->incDnDelay (tmp->vid, my_conv (p->d.o2z.typ));
+	    }
+	  }
+	}
+	else {
+	  /* that's it */
+	}
+      }
+      delete out_id;
+#if 0      
       printf ("look-for: ");
       e->u.v.id->Print (stdout);
       printf ("%c to ", is_fall ? '-' : '+');
       current_stmt->c->Print (stdout);
       printf ("\n");
+#endif      
     }
     break;
 
@@ -428,13 +499,13 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
     /* normal arrow */
     if (p->u.one.dir) {
       _merge_prs (sc, &s->up[weak], p->u.one.e, 0);
-      if (delay >= 0) {
+      if (delay >= 0 && s->simpleDelay()) {
 	s->setUpDelay (delay);
       }
     }
     else {
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
-      if (delay >= 0) {
+      if (delay >= 0 && s->simpleDelay()) {
 	s->setDnDelay (delay);
       }
     }
@@ -450,7 +521,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       _merge_prs (sc, &s->up[weak], p->u.one.e, 1);
     }
-    if (delay >= 0) {
+    if (delay >= 0 && s->simpleDelay()) {
       s->setUpDelay (delay);
       s->setDnDelay (delay);
     }
@@ -466,7 +537,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
       _merge_prs (sc, &s->dn[weak], p->u.one.e, 0);
       _merge_prs (sc, &s->up[weak], p->u.one.e, 2);
     }
-    if (delay >= 0) {
+    if (delay >= 0 && s->simpleDelay()) {
       s->setUpDelay (delay);
       s->setDnDelay (delay);
     }
@@ -510,6 +581,21 @@ void PrsSimGraph::_add_one_gate (ActSimCore *sc, act_prs_lang_t *p)
 
 void PrsSimGraph::addPrs (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci)
 {
+  double conv, sdf_units;
+  conv = sc->getTimescale ();
+  sdf_units = sc->sdfTimeMetricUnits();
+
+  if (sdf_units >= 0) {
+    // sdf exists, has units!
+    //    time = X in SDF => X * sdf_units => (X * sdf_units) / conv units
+    conv = sdf_units/conv;
+  }
+  else {
+    conv = -1;
+  }
+  /* set conversion from sdf units to actsim integer units. */
+  sdf_ts_conv = conv;
+  
   while (p) {
     switch (ACT_PRS_LANG_TYPE (p->type)) {
     case ACT_PRS_RULE:
@@ -673,27 +759,35 @@ int OnePrsSim::eval (prssim_expr *x, int cause, int *lid)
 
 static int _breakpt;
 
-#define DO_SET_VAL(nid,x)					\
-  do {								\
-    if (_proc->getBool (nid) != (x)) {				\
-      if (flags != (1 + (x))) {					\
-	flags = (1 + (x));					\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),	\
-			      _proc->getDelay ((x) == 0 ?	\
+#define DO_SET_VAL(nid,lidc,gidc,x)					\
+  do {									\
+    if (_proc->getBool (nid) != (x)) {					\
+      if (flags != (1 + (x))) {						\
+	flags = (1 + (x));						\
+	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),		\
+			      _proc->getDelay ((x) == 0 ?		\
 					       _me->delayDn(0) :	\
 					       _me->delayUp(0)),	\
-			      cause);				\
-      }								\
-    }								\
+			      cause);					\
+      }									\
+    }									\
   } while (0)
 
 int OnePrsSim::Step (Event *ev)
 {
-  void *cause;
+  void *cause = ev->getCause ();
+  int causeid;
+  int lid = -1;
   int ev_type = ev->getType ();
   int t = SIM_EV_TYPE (ev_type);
 
-  cause = this;
+  if (cause) {
+    ActSimDES *xx = (ActSimDES *) cause;
+    causeid = xx->causeGlobalIdx();
+  }
+  else {
+    causeid = -1;
+  }
 
   _breakpt = 0;
   _pending = NULL;
@@ -727,17 +821,21 @@ int OnePrsSim::Step (Event *ev)
       int u_state, d_state, u_weak, d_weak;
       u_weak = 0;
       d_weak = 0;
-      u_state = eval (_me->up[PRSSIM_NORM]);
+      u_state = eval (_me->up[PRSSIM_NORM], causeid,
+		      causeid == -1 ? NULL : &lid);
       if (u_state == 0) {
-	u_state = eval (_me->up[PRSSIM_WEAK]);
+	u_state = eval (_me->up[PRSSIM_WEAK], causeid,
+			causeid == -1 ? NULL : &lid);
 	if (u_state != 0) {
 	  u_weak = 1;
 	}
       }
 
-      d_state = eval (_me->dn[PRSSIM_NORM]);
+      d_state = eval (_me->dn[PRSSIM_NORM], causeid,
+		      causeid == -1 ? NULL : &lid);
       if (d_state == 0) {
-	d_state = eval (_me->dn[PRSSIM_WEAK]);
+	d_state = eval (_me->dn[PRSSIM_WEAK], causeid,
+			causeid == -1 ? NULL : &lid);
 	if (d_state != 0) {
 	  d_weak = 1;
 	}
@@ -746,22 +844,22 @@ int OnePrsSim::Step (Event *ev)
       /* copied from propagate() */
       if (u_state == 0) {
 	if (d_state == 1) {
-	  DO_SET_VAL (_me->vid, 0);
+	  DO_SET_VAL (_me->vid, lid, causeid, 0);
 	}
       }
       else if (u_state == 1) {
 	if (d_state == 0) {
-	  DO_SET_VAL (_me->vid, 1);
+	  DO_SET_VAL (_me->vid, lid, causeid, 1);
 	}
 	else if (d_state == 2 && (!u_weak && d_weak)) {
-	  DO_SET_VAL (_me->vid, 1);
+	  DO_SET_VAL (_me->vid, lid, causeid, 1);
 	}
 	else if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, 0);
+	    DO_SET_VAL (_me->vid, lid, causeid, 0);
 	  }
 	  else if (!u_weak && d_weak) {
-	    DO_SET_VAL (_me->vid, 1);
+	    DO_SET_VAL (_me->vid, lid, causeid, 1);
 	  }
 	}
       }
@@ -769,7 +867,7 @@ int OnePrsSim::Step (Event *ev)
 	/* u_state == 2 */
 	if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, 0);
+	    DO_SET_VAL (_me->vid, lid, causeid, 0);
 	  }
 	}
       }
@@ -853,12 +951,14 @@ void OnePrsSim::propagate (void *cause)
   /*-- fire rule --*/
   switch (_me->type) {
   case PRSSIM_PASSP:
+    /* XXX: right now we don't trace SDF delays through
+       pass/transmission gates */
     u_state = _proc->getBool (_me->_g);
     if (u_state == 0) {
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 1 && d_weak != 1) {
-	DO_SET_VAL (_me->t2, 1);
+	DO_SET_VAL (_me->t2, -1, -1, 1);
       }
       else if (u_weak == 2 && d_weak != 2) {
 	MAKE_NODE_X (_me->t2);
@@ -879,7 +979,7 @@ void OnePrsSim::propagate (void *cause)
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 0 && d_weak != 0) {
-	DO_SET_VAL (_me->t2, 0);
+	DO_SET_VAL (_me->t2, -1, -1, 0);
       }
       else if (u_weak == 2 && d_weak != 2) {
 	MAKE_NODE_X (_me->t2);
@@ -901,7 +1001,7 @@ void OnePrsSim::propagate (void *cause)
     d_weak = _proc->getBool (_me->t2);
     if (u_weak == 1) {
       if (u_state == 0) {
-	DO_SET_VAL (_me->t2, 1);
+	DO_SET_VAL (_me->t2, -1, -1, 1);
       }
       else if (u_state == 2) {
 	MAKE_NODE_X (_me->t2);
@@ -909,7 +1009,7 @@ void OnePrsSim::propagate (void *cause)
     }
     else if (u_weak == 0) {
       if (d_state == 1) {
-	DO_SET_VAL (_me->t2, 0);
+	DO_SET_VAL (_me->t2, -1, -1, 0);
       }
       else if (d_state == 2) {
 	MAKE_NODE_X (_me->t2);
@@ -996,7 +1096,7 @@ void OnePrsSim::propagate (void *cause)
 
       case 1:
 	/* set to 0 */
-	DO_SET_VAL (_me->vid, 0);
+	DO_SET_VAL (_me->vid, lid, causeid, 0);
 	break;
 	
       case 2:
@@ -1011,12 +1111,12 @@ void OnePrsSim::propagate (void *cause)
       switch (d_state) {
       case 0:
 	/* set to 1 */
-	DO_SET_VAL (_me->vid, 1);
+	DO_SET_VAL (_me->vid, lid, causeid, 1);
 	break;
 
       case 2:
 	if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, 1);
+	  DO_SET_VAL (_me->vid, lid, causeid, 1);
 	}
 	else {
 	  if (!_proc->isResetMode()) {
@@ -1029,10 +1129,10 @@ void OnePrsSim::propagate (void *cause)
       case 1:
 	/* interference */
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL (_me->vid, 0);
+	  DO_SET_VAL (_me->vid, lid, causeid, 0);
 	}
 	else if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, 1);
+	  DO_SET_VAL (_me->vid, lid, causeid, 1);
 	}
 	else {
 	  WARNING_MSG ("interference", "");
@@ -1053,7 +1153,7 @@ void OnePrsSim::propagate (void *cause)
       case 1:
 	if (u_weak && !d_weak) {
 	  /* set to 0 */
-	  DO_SET_VAL (_me->vid, 0);
+	  DO_SET_VAL (_me->vid, lid, causeid, 0);
 	}
 	else {
 	  if (!_proc->isResetMode()) {
