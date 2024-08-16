@@ -30,48 +30,27 @@ PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 {
   _sc = sim;
   _g = g;
-  _sim = list_new ();
-  _delay = NULL;
-}
-
-void PrsSim::updateDelays (act_prs *prs, sdf_celltype *ci)
-{
-  if (!ci) return;
-  if (!ci->inst) return;
-
-  chash_bucket_t *cb;
-  cb = chash_lookup (ci->inst, name);
-  if (!cb) return;
-
-  sdf_cell *di = (sdf_cell *)cb->v;
-  di->used = true;
-
-  // now we need to translate this to internal delay info!
-
+  _sim = NULL;
+  _nobjs = 0;
+  _inst_gate_delay = NULL;
 }
 
 PrsSim::~PrsSim()
 {
-  listitem_t *li;
-  for (li = list_first (_sim); li; li = list_next (li)) {
-    OnePrsSim *x = (OnePrsSim *) list_value (li);
-    delete x;
-  }
-  list_free (_sim);
-  if (_delay) {
-    for (li = list_first (_delay); li; li = list_next (li)) {
-      unsigned long ptr = (unsigned long) list_value (li);
-      gate_delay_info *gd = (gate_delay_info *)(ptr & ~0x1UL);
-      if (ptr & 0x1UL) {
-	// fixed delay
-      }
-      else {
-	gd->delete_table ();
-      }
-      delete gd;
+  for (int i=0; i < _nobjs; i++) {
+    _sim[i].~OnePrsSim();
+    if (_inst_gate_delay) {
+      _inst_gate_delay[i]->delete_tables();
+      delete _inst_gate_delay[i];
     }
-    list_free (_delay);
   }
+  if (_sim) {
+    FREE (_sim);
+  }
+  if (_inst_gate_delay) {
+    FREE (_inst_gate_delay);
+  }
+  _nobjs = 0;
 }
 
 int PrsSim::Step (Event */*ev*/)
@@ -121,8 +100,8 @@ void PrsSim::printStatus (int val, bool io_glob)
     }
   }
   else {
-    for (li = list_first (_sim); li; li = list_next (li)) {
-      if (((OnePrsSim *)list_value (li))->matches (val)) {
+    for (int i=0; i < _nobjs; i++) {
+      if (_sim[i].matches (val)) {
 	if (!emit_name) {
 	  if (name) {
 	    name->Print (stdout);
@@ -136,7 +115,7 @@ void PrsSim::printStatus (int val, bool io_glob)
 	else {
 	  printf (" ");
 	}
-	((OnePrsSim *)list_value (li))->printName ();
+	_sim[i].printName ();
       }
     }
   }
@@ -181,11 +160,20 @@ void PrsSim::_computeFanout (prssim_expr *e, SimDES *s)
 void PrsSim::computeFanout ()
 {
   prssim_stmt *x;
+  int count = 0;
 
   for (x = _g->getRules(); x; x = x->next) {
+    count++;
+  }
+  if (count > 0) {
+    _nobjs = count;
+    MALLOC (_sim, OnePrsSim, count);
+  }
+  count = 0;
+  for (x = _g->getRules(); x; x = x->next) {
     /* -- create rule -- */
-    OnePrsSim *t = new OnePrsSim (this, x);
-    list_append (_sim, t);
+    new (&_sim[count++]) OnePrsSim (this, x);
+    OnePrsSim *t = &_sim[count-1];
     if (x->type == PRSSIM_RULE) {
       _computeFanout (x->up[0], t);
       _computeFanout (x->up[1], t);
@@ -237,7 +225,7 @@ static int my_conv (double v)
   int res;
   double cvt = v * sdf_ts_conv;
 
-  // XXX: this should not happen
+  // WARNING: this should not happen
   if (cvt < 0) return 1;
   
   res = (int) cvt;
@@ -257,7 +245,143 @@ static int my_conv (double v)
 }
 
 
-prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
+// use current_ci to find path 
+static sdf_path *_find_sdf_path (ActId *in_id, ActId *out_id, int is_fall)
+{
+  if (!current_ci) return NULL;
+  
+  for (int i=0; i < A_LEN (current_ci->_paths); i++) {
+    sdf_path *p = &current_ci->_paths[i];
+    // from might be NULL
+    // to cannot be NULL
+    if (p->type == SDF_ELEM_DEVICE) {
+      Assert (p->to, "What");
+      if (p->to->isEqual (out_id)) {
+	// match device!
+	p->used = 1;
+	return p;
+      }
+    }
+    else if (p->type == SDF_ELEM_IOPATH) {
+      Assert (p->to && p->from, "What?");
+      if (p->to->isEqual (out_id) && p->from->isEqual (in_id) &&
+	  (p->dirfrom == 0 ||
+	   (p->dirfrom == 1 /* posedge */ && is_fall == 0) ||
+	   (p->dirfrom == 2 /* negedge */ && is_fall == 1))) {
+	p->used = 1;
+	return p;
+      }
+    }
+    else {
+      /* XXX: that's it: we need to put interconnect delays somewhere! */
+	
+      // PORT, INTERCONNECT, NETDELAY
+      if (p->from && p->to) {
+	if (p->to->isEqual (out_id) && p->from->isEqual (in_id)) {
+	  p->used = 1;
+	}
+      }
+      else if (p->to) {
+	if (p->to->isEqual (out_id)) {
+	  p->used = 1;
+	}
+      }
+      else {
+	Assert (0, "Should not be here!");
+	p->used = 1;
+      }
+    }
+  }
+  return NULL;
+}
+				 
+
+static gate_delay_info *current_gi;
+
+static void _record_inst_delays (ActSimCore *sc, act_prs_expr_t *e, int type)
+{
+  int is_fall;
+  
+  if (!e) return;
+
+  switch (e->type) {
+  case ACT_PRS_EXPR_AND:
+  case ACT_PRS_EXPR_OR:
+    _record_inst_delays (sc, e->u.e.l, type);
+    _record_inst_delays (sc, e->u.e.r, type);
+    break;
+
+  case ACT_PRS_EXPR_NOT:
+    if (type == 2) {
+      _record_inst_delays (sc, e->u.e.l, 2);
+    }
+    else {
+      _record_inst_delays (sc, e->u.e.l, 1-type);
+    }
+    break;
+
+  case ACT_PRS_EXPR_VAR:
+    if (type != 0) {
+      is_fall = 1;
+    }
+    else {
+      is_fall = 0;
+    }
+    {
+      int vid = sc->getLocalOffset (e->u.v.id, sc->cursi(), NULL);
+      act_connection *c = e->u.v.id->Canonical (sc->cursi()->bnl->cur);
+      if (current_ci) {
+	/*-- look through SDF paths from e->u.v.id to current_stmt->c --*/
+	ActId *out_id = current_stmt->c->toid();
+	sdf_path *p = _find_sdf_path (e->u.v.id, out_id, is_fall);
+	if (p) {
+	  if (p->abs) {
+	    current_gi->up.add (vid, my_conv (p->d.z2o.typ), false);
+	    current_gi->dn.add (vid, my_conv (p->d.o2z.typ), false);
+	  }
+	  else {
+	    current_gi->up.inc (vid, my_conv (p->d.z2o.typ), false);
+	    current_gi->dn.inc (vid, my_conv (p->d.o2z.typ), false);
+	  }
+	}
+	delete out_id;
+      }
+    }
+    break;
+
+  case ACT_PRS_EXPR_TRUE:
+  case ACT_PRS_EXPR_FALSE:
+    break;
+
+  case ACT_PRS_EXPR_LABEL:
+    {
+      hash_bucket_t *b = hash_lookup (at_table, e->u.l.label);
+      if (!b) {
+	fatal_error ("Unknown label `%s'", e->u.l.label);
+      }
+      act_prs_lang_t *pl = (act_prs_lang_t *) b->v;
+      if (pl->u.one.dir == 0) {
+	if (type != 2) {
+	  _record_inst_delays (sc, pl->u.one.e, (type == 0 ? 1 : 0));
+	}
+	else {
+	  _record_inst_delays (sc, pl->u.one.e, 0);
+	}
+      }
+      else {
+	_record_inst_delays (sc, pl->u.one.e, type);
+      }
+    }
+    break;
+
+  default:
+    fatal_error ("Huh?");
+    break;
+  }
+}
+	
+
+static prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
 {
   prssim_expr *x, *tmp;
   int is_fall;
@@ -323,6 +447,7 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
       /*-- look through SDF paths from e->u.v.id to current_stmt->c --*/
       ActId *out_id = current_stmt->c->toid();
 
+      /* XXX: SDF we're currently ignoring SDF conditions */
       for (int i=0; i < A_LEN (current_ci->_paths); i++) {
 	sdf_path *p = &current_ci->_paths[i];
 	// from might be NULL
@@ -333,6 +458,18 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
 	    // match device!
 	    p->used = 1;
 	    // ADD TO UP AND DOWN for the output current_stmt->vid */
+	    if (current_stmt->simpleDelay()) {
+	      current_stmt->setDelayTables();
+	    }
+	    if (p->abs) {
+	      current_stmt->setUpDelay (tmp->vid, my_conv (p->d.z2o.typ));
+	      current_stmt->setDnDelay (tmp->vid, my_conv (p->d.o2z.typ));
+	    }
+	    else {
+	      current_stmt->incUpDelay (tmp->vid, my_conv (p->d.z2o.typ));
+	      current_stmt->incDnDelay (tmp->vid, my_conv (p->d.o2z.typ));
+	    }
+	    break;
 	  }
 	}
 	else if (p->type == SDF_ELEM_IOPATH) {
@@ -353,14 +490,31 @@ prssim_expr *_convert_prs (ActSimCore *sc, act_prs_expr_t *e, int type)
 	      current_stmt->incUpDelay (tmp->vid, my_conv (p->d.z2o.typ));
 	      current_stmt->incDnDelay (tmp->vid, my_conv (p->d.o2z.typ));
 	    }
+	    break;
 	  }
 	}
 	else {
-	  /* that's it */
+	  /* XXX: that's it: we need to put interconnect delays somewhere! */
+	  
+	  // PORT, INTERCONNECT, NETDELAY
+	  if (p->from && p->to) {
+	    if (p->to->isEqual (out_id) && p->from->isEqual (e->u.v.id)) {
+	      p->used = 1;
+	    }
+	  }
+	  else if (p->to) {
+	    if (p->to->isEqual (out_id)) {
+	      p->used = 1;
+	    }
+	  }
+	  else {
+	    Assert (0, "Should not be here!");
+	    p->used = 1;
+	  }
 	}
       }
       delete out_id;
-#if 0      
+#if 0
       printf ("look-for: ");
       e->u.v.id->Print (stdout);
       printf ("%c to ", is_fall ? '-' : '+');
@@ -468,6 +622,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
     s->unstab = 0;
     if (ci) {
       s->setDelayTables ();
+      ci->used = 1;
     }
     else {
       s->setDelayDefault ();
@@ -663,6 +818,9 @@ PrsSimGraph::~PrsSimGraph()
       _free_prssim_expr (_rules->up[1]);
       _free_prssim_expr (_rules->dn[0]);
       _free_prssim_expr (_rules->dn[1]);
+      if (!_rules->std_delay) {
+	_rules->delay.delete_tables();
+      }
       break;
       
     case PRSSIM_PASSP:
@@ -759,20 +917,36 @@ int OnePrsSim::eval (prssim_expr *x, int cause, int *lid)
 
 static int _breakpt;
 
+/*
+ * Delay lookup:
+ *    - if this has an instance-specific delay, use it!
+ *    - otherwise get the delay from the instance-agnostic table.
+ */
 #define DO_SET_VAL(nid,lidc,gidc,x)					\
   do {									\
     if (_proc->getBool (nid) != (x)) {					\
       if (flags != (1 + (x))) {						\
+	int ed;								\
+	if (gidc != -1) {						\
+	  /* cause */							\
+	  gate_delay_info *gi = _proc->getInstDelay (this);		\
+	  if (gi) {							\
+	    ed =((x) == 0 ? gi->dn.lookup (lidc, false) : gi->up.lookup (lidc, false));	\
+	  }								\
+	  else {							\
+	    ed = ((x) == 0 ? _me->delayDn (lidc) : _me->delayUp (lidc)); \
+	  }								\
+	}								\
+	else {								\
+	  ed = ((x) == 0 ? _me->delayDn (0) : _me->delayUp (0));	\
+	}								\
+	ed = _proc->getDelay (ed);					\
 	flags = (1 + (x));						\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0),		\
-			      _proc->getDelay ((x) == 0 ?		\
-					       _me->delayDn(0) :	\
-					       _me->delayUp(0)),	\
-			      cause);					\
+	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
       }									\
     }									\
   } while (0)
-
+    
 int OnePrsSim::Step (Event *ev)
 {
   void *cause = ev->getCause ();
@@ -951,7 +1125,7 @@ void OnePrsSim::propagate (void *cause)
   /*-- fire rule --*/
   switch (_me->type) {
   case PRSSIM_PASSP:
-    /* XXX: right now we don't trace SDF delays through
+    /* XXX: SDF right now we don't trace SDF delays through
        pass/transmission gates */
     u_state = _proc->getBool (_me->_g);
     if (u_state == 0) {
@@ -1056,7 +1230,7 @@ void OnePrsSim::propagate (void *cause)
 	}
       }
       MAKE_NODE_X (_me->vid);
-#if 0      
+#if 0
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
 	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);
@@ -1429,10 +1603,8 @@ void OnePrsSim::registerExcl ()
 
 void PrsSim::registerExcl ()
 {
-  listitem_t *li;
-  for (li = list_first (_sim); li; li = list_next (li)) {
-    OnePrsSim *one = (OnePrsSim *) list_value (li);
-    one->registerExcl ();
+  for (int i=0; i < _nobjs; i++) {
+    _sim[i].registerExcl ();
   }
 }
 
@@ -1473,4 +1645,134 @@ void OnePrsSim::sPrintCause (char *buf, int sz)
 int OnePrsSim::causeGlobalIdx ()
 {
   return _proc->getGlobalOffset (_me->vid, 0);
+}
+
+
+
+void PrsSim::_updatePrs (act_prs_lang_t *p)
+{
+  struct prssim_stmt *s;
+  while (p) {
+    switch (ACT_PRS_LANG_TYPE (p->type)) {
+    case ACT_PRS_RULE:
+      {
+	int count = 0;
+	if (p->u.one.label) return;
+	/* now find the location of this rule in the prs list */
+	int rhs = _sc->getLocalOffset (p->u.one.id, _sc->cursi(), NULL);
+	for (s = _g->getRules(); s; s = s->next) {
+	  if (s->type == PRSSIM_RULE) {
+	    if (s->vid == rhs) {
+	      current_gi = _inst_gate_delay[count];
+	      current_stmt = s;
+	      break;
+	    }
+	  }
+	  count++;
+	}
+	Assert (s, "Something went wrong");
+	
+	switch (p->u.one.arrow_type) {
+	case 0:
+	  // normal arrow
+	  _record_inst_delays (_sc, p->u.one.e, 0);
+	  break;
+	case 1:
+	  // combinational
+	  _record_inst_delays (_sc, p->u.one.e, 0);
+	  _record_inst_delays (_sc, p->u.one.e, 1);
+	  break;
+	case 2:
+	  _record_inst_delays (_sc, p->u.one.e, 0);
+	  _record_inst_delays (_sc, p->u.one.e, 2);
+	  break;
+	default:
+	  Assert (0, "Illegal arrow type");
+	  break;
+	}
+	current_gi = NULL;
+	current_stmt = NULL;
+      }
+      break;
+      
+    case ACT_PRS_GATE:
+      // XXX: don't handle gates yet!
+      break;
+
+    case ACT_PRS_DEVICE:
+      /* devs not simulated */
+      break;
+      
+    case ACT_PRS_TREE:
+    case ACT_PRS_SUBCKT:
+      _updatePrs (p->u.l.p);
+      break;
+
+    default:
+      fatal_error ("Unknown prs type (%d)", p->type);
+      break;
+    }
+    p = p->next;
+  }
+}
+
+void PrsSim::updateDelays (act_prs *prs, sdf_celltype *ci)
+{
+  if (!ci) return;
+  if (!ci->inst) return;
+
+  chash_bucket_t *cb;
+  cb = chash_lookup (ci->inst, name);
+  if (!cb) return;
+
+  sdf_cell *di = (sdf_cell *)cb->v;
+
+  double conv, sdf_units;
+  conv = _sc->getTimescale ();
+  sdf_units = _sc->sdfTimeMetricUnits();
+
+  if (sdf_units >= 0) {
+    // sdf exists, has units!
+    //    time = X in SDF => X * sdf_units => (X * sdf_units) / conv units
+    conv = sdf_units/conv;
+  }
+  else {
+    conv = -1;
+  }
+  /* set conversion from sdf units to actsim integer units. */
+  sdf_ts_conv = conv;
+
+   di->used = true;
+  // XXX: SDF now we need to translate this to internal delay info!
+  prssim_stmt *x;
+  int count;
+  for (x = _g->getRules(); x; x = x->next) {
+    count++;
+  }
+  if (count > 0) {
+    MALLOC (_inst_gate_delay, gate_delay_info *, count);
+    for (int i=0; i < count; i++) {
+      _inst_gate_delay[i] = new gate_delay_info;
+      _inst_gate_delay[i]->mkTables ();
+    }
+  }
+
+  at_table = _g->getLabels ();
+  current_ci = di;
+  while (prs) {
+    _updatePrs (prs->p);
+    prs = prs->next;
+  }
+}
+
+
+inline gate_delay_info *PrsSim::getInstDelay (OnePrsSim *sim)
+{
+  int idx;
+  if (!_inst_gate_delay) return NULL;
+  idx = (int) (sim - _sim);
+  if (idx < _nobjs) {
+    return _inst_gate_delay[idx];
+  }
+  return NULL;
 }

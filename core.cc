@@ -1594,7 +1594,8 @@ void ActSimCore::_initSim ()
     else {
       _add_sdf_type_error (simroot);
     }
-    //XXX: do something here!
+    // XXX: SDF do something here! After fanout is computed, 
+    //      we need to assign interconnect delays
   }
 
   list_free (_si_stack);

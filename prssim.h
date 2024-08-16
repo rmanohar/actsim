@@ -40,7 +40,7 @@
  *
  *
  */
-class gate_delay_info {
+class gate_delay_info_onedir {
 private:
   union {
     int val;			// up delay is either a value (std)
@@ -48,26 +48,33 @@ private:
   };
 public:
   // default is to assume it is a fixed delay
-  gate_delay_info() { val = -1; }
+  gate_delay_info_onedir() { val = -1; }
 
   void clear() { val = -1; }
 
   void delete_table() { FREE (val_tab); }
 
+#define VAL_UNUSED (int)((1UL << (8*sizeof(int)-1)))
+  
   int lookup (int idx, bool fixed_delay = true) {
     if (fixed_delay) {
       return val;
     }
+    int maxval = -1;
     for (int i=0; i < val_tab[0]; i++) {
+      if (val_tab[2*i+1] == VAL_UNUSED) break;
       if (val_tab[2*i+1] == idx) {
 	return val_tab[2*i+2];
       }
+      if (maxval < val_tab[2*i+2]) {
+	maxval = val_tab[2*i+2];
+      }
     }
-    // not found, retu
-    return -1;
+    // not found, return max value (conservative); returns -1 if there
+    // are no values in the table, i.e. the default delay.
+    return maxval;
   }
 
-#define VAL_UNUSED (int)((1UL << (8*sizeof(int)-1)))
 
   void add (int idx, int dval, bool fixed_delay = true) {
     int j = -1;
@@ -78,9 +85,10 @@ public:
     for (int i=0; i < val_tab[0]; i++) {
       if (val_tab[2*i+1] == idx) {
 	if (val_tab[2*i+2] < dval) {
+	  // this maxes out the sdf_conds for the moment
 	  val_tab[2*i+2] = dval;
-	  return;
 	}
+	return;
       }
       if (val_tab[2*i+1] == VAL_UNUSED) {
 	j = i;
@@ -95,6 +103,10 @@ public:
       val_tab[2*j+1] = idx;
       val_tab[2*j+2] = dval;
       val_tab[2*j+3] = VAL_UNUSED;
+    }
+    else {
+      val_tab[2*j+1] = idx;
+      val_tab[2*j+2] = dval;
     }
   }
 
@@ -126,6 +138,27 @@ public:
       val_tab[2*j+2] = dval;
       val_tab[2*j+3] = VAL_UNUSED;
     }
+    else {
+      val_tab[2*j+1] = idx;
+      val_tab[2*j+2] = dval;
+    }
+  }
+
+  void dump_table(FILE *fp) {
+    if (val_tab[0] != 0) {
+      fprintf (fp, "[");
+      for (int i=0; i < val_tab[0]; i++) {
+	if (val_tab[2*i+1] == VAL_UNUSED) break;
+	if (i != 0) {
+	  fprintf (fp, " ");
+	}
+	fprintf (fp, "%d:%d", val_tab[2*i+1], val_tab[2*i+2]);
+      }
+      fprintf (fp, "]");
+    }
+    else {
+      fprintf (fp, "*");
+    }
   }
 
   void mkTables() {
@@ -134,7 +167,36 @@ public:
     val_tab[1] = VAL_UNUSED; // unused marker
   }
 #undef VAL_UNUSED
-  
+
+};
+
+struct gate_delay_info {
+  gate_delay_info_onedir up, dn;
+
+  gate_delay_info() : up(), dn() { }
+
+  void clear() {
+    up.clear ();
+    dn.clear();
+  }
+
+  void mkTables() {
+    up.mkTables();
+    dn.mkTables();
+  }
+
+  void delete_tables() {
+    up.delete_table();
+    dn.delete_table();
+  }
+
+  void dump_tables(FILE *fp) {
+    fprintf (fp, "{up: ");
+    up.dump_table (fp);
+    fprintf (fp, "; dn: ");
+    dn.dump_table (fp);
+    fprintf (fp, "}");
+  }
 };
 
 
@@ -178,7 +240,7 @@ struct prssim_stmt {
   struct prssim_stmt *next;
 
   // default inst-independent delays/delay tables
-  gate_delay_info delay_up, delay_dn;
+  gate_delay_info delay;
   
   union {
     struct {
@@ -192,34 +254,33 @@ struct prssim_stmt {
   };
 
   int delayUp(int idx) {
-    return delay_up.lookup (idx, std_delay ? true : false);
+    return delay.up.lookup (idx, std_delay ? true : false);
   }
 
   int delayDn(int idx) {
-    return delay_dn.lookup (idx, std_delay ? true : false);
+    return delay.dn.lookup (idx, std_delay ? true : false);
   }
 
   void setUpDelay (int idx, int val) {
     if (std_delay) return;
-    delay_up.add (idx, val, false);
+    delay.up.add (idx, val, false);
   }
   void setDnDelay (int idx, int val) {
     if (std_delay) return;
-    delay_dn.add (idx, val, false);
+    delay.dn.add (idx, val, false);
   }
   void incUpDelay (int idx, int val) {
     if (std_delay) return;
-    delay_up.inc (idx, val, false);
+    delay.up.inc (idx, val, false);
   }
   void incDnDelay (int idx, int val) {
     if (std_delay) return;
-    delay_dn.inc (idx, val, false);
+    delay.dn.inc (idx, val, false);
   }
 
   void setDelayDefault() {
     std_delay = 1;
-    delay_up.clear ();
-    delay_dn.clear();
+    delay.clear ();
   }
 
   /*
@@ -228,18 +289,17 @@ struct prssim_stmt {
    *    [2*i+1] and [2*i+2] is slot i, corresponding to an (idx, val) pair
    */
   void setDelayTables() {
-    delay_up.mkTables();
-    delay_dn.mkTables();
+    delay.mkTables ();
   }
 
   void setUpDelay (int val) {
     if (!std_delay) return;
-    delay_up.add (0, val, true);
+    delay.up.add (0, val, true);
   }
 
   void setDnDelay (int val) {
     if (!std_delay) return;
-    delay_dn.add (0, val, true);
+    delay.dn.add (0, val, true);
   }
 
   bool simpleDelay() {
@@ -263,6 +323,7 @@ public:
   void addPrs (ActSimCore *, act_prs_lang_t *, sdf_cell *);
 
   prssim_stmt *getRules () { return _rules; }
+  struct Hashtable *getLabels() { return _labels; }
 
 
   static PrsSimGraph *buildPrsSimGraph (ActSimCore *, act_prs *, sdf_cell *ci);
@@ -322,18 +383,19 @@ class PrsSim : public ActSimObj {
   void registerExcl ();
 
   void updateDelays (act_prs *prs, sdf_celltype *ci);
+
+  inline gate_delay_info *getInstDelay (OnePrsSim *sim);
   
  private:
   void _computeFanout (prssim_expr *, SimDES *);
+
+  void _updatePrs (act_prs_lang_t *p);
   
   PrsSimGraph *_g;
 
-  list_t *_sim;			// simulation objects
-
-  list_t *_delay;		// delay objects, if there are
-				// per-instance delays! The LSB of the
-				// pointer in the list will be the
-				// flag used for the delay
+  int _nobjs;			     // # of simulation objects
+  OnePrsSim *_sim;		     // simulation objects
+  gate_delay_info **_inst_gate_delay; // delay info specific to each instance
 };
 
 
