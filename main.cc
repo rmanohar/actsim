@@ -53,8 +53,12 @@ static void clr_interrupt (void)
 
 static void usage (char *name)
 {
-  fprintf (stderr, "Usage: %s [-S <sdf>] <actfile> <process>\n", name);
-  fprintf (stderr, "       %s [-S <sdf>] -p <process> <actfile>\n", name);
+  fprintf (stderr, "Usage: %s [-n] [-S <sdf>] <actfile> <process>\n", name);
+  fprintf (stderr, "       %s [-n] [-S <sdf>] -p <process> <actfile>\n", name);
+  fprintf (stderr, "\n");
+  fprintf (stderr, " -n        : turn off name unmangling.\n");
+  fprintf (stderr, " -S <sdf>  : use delay from the specified SDF file.\n");
+  fprintf (stderr, " -p <proc> : set <proc> as the top-level for simulation.\n");
   exit (1);
 }
 
@@ -1676,10 +1680,16 @@ int main (int argc, char **argv)
 
   debug_metrics = config_get_int ("sim.chp.debug_metrics");
 
+  config_set_default_int ("sim.sdf_mangled_names", 1);
+
   int ch;
   char *procname = NULL;
-  while ((ch = getopt (argc, argv, "S:p:")) != -1) {
+  while ((ch = getopt (argc, argv, "S:p:n")) != -1) {
     switch (ch) {
+    case 'n':
+      config_set_int ("sim.sdf_mangled_names", 0);
+      break;
+
     case 'S':
       config_set_string ("sim.sdf_file", optarg);
       break;
@@ -1755,7 +1765,7 @@ int main (int argc, char **argv)
   /* check if we have an SDF file specified */
   SDF *sdf_data = NULL;
   if (config_exists ("sim.sdf_file")) {
-    sdf_data = new SDF (true);
+    sdf_data = new SDF (config_get_int ("sim.sdf_mangled_names") ? true : false);
     if (!sdf_data->Read (config_get_string ("sim.sdf_file"))) {
       warning ("SDF file `%s': reading failed; omitting.",
 	       config_get_string ("sim.sdf_file"));

@@ -1745,7 +1745,7 @@ void PrsSim::updateDelays (act_prs *prs, sdf_celltype *ci)
    di->used = true;
   // XXX: SDF now we need to translate this to internal delay info!
   prssim_stmt *x;
-  int count;
+  int count = 0;
   for (x = _g->getRules(); x; x = x->next) {
     count++;
   }
