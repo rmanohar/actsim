@@ -987,7 +987,7 @@ static int _breakpt;
 	}								\
 	ed = _objs[0]->_proc->getDelay (ed);					\
 	_objs[0]->flags = (1 + (x));						\
-	_objs[0]->_pending = new Event (_objs[0], SIM_EV_MKTYPE ((x), 0), ed); \
+	_objs[0]->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed); \
       }									\
     }									\
   } while (0)
@@ -1175,7 +1175,7 @@ int OnePrsSim::matches (int val)
 	  _objs[0]->_pending->Remove ();						\
 	}								\
 	_objs[0]->flags = PENDING_X;						\
-	_objs[0]->_pending = new Event (_objs[0], SIM_EV_MKTYPE (2, 0), 1, cause);	\
+	_objs[0]->_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);	\
       }									\
     }									\
     else {								\
@@ -1926,6 +1926,7 @@ int MultiPrsSim::Step (Event *ev)
 	d_weak = 1;
       }
     }
+
     /* copied from propagate() */
     if (u_state == 0) {
       if (d_state == 1) {
