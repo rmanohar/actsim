@@ -419,6 +419,8 @@ public:
 
   void sPrintCause (char *buf, int sz);
   int causeGlobalIdx ();
+
+  friend class MultiPrsSim;
 };
 
 class MultiPrsSim : public ActSimDES {
