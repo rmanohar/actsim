@@ -421,5 +421,35 @@ public:
   int causeGlobalIdx ();
 };
 
+class MultiPrsSim : public ActSimDES {
+private:
+  OnePrsSim **_objs;
+  int _nobjs, _count;
+public:
+  MultiPrsSim (int nobjs) {
+    Assert (nobjs > 1, "What?");
+    _nobjs = nobjs;
+    MALLOC (_objs, OnePrsSim *, _nobjs);
+    _count = 0;
+  }
+  
+  ~MultiPrsSim () {
+    if (_objs) {
+      FREE (_objs);
+      _objs = NULL;
+    }
+  }
+
+  void addOnePrsSim (OnePrsSim *x) {
+    Assert (_count < _nobjs, "What?");
+    _objs[_count++] = x;
+  }
+
+  /*-- virtual methods --*/
+  int Step (Event *ev);
+  void propagate (void *cause);
+  void sPrintCause (char *buf, int sz);
+  int causeGlobalIdx ();
+};
 
 #endif /* __ACT_CHP_SIM_H__ */

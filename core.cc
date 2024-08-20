@@ -40,6 +40,76 @@ struct process_info {
 };
 
 
+/*
+ * Record multi-driver information
+ */
+class multi_driver_info {
+ public:
+  multi_driver_info() {
+    local = NULL;
+  }
+  ~multi_driver_info() {
+    if (local) {
+      ihash_free (local);
+      local = NULL;
+    }
+  }
+
+  void addmd (int idx, int count) {
+    if (!local) {
+      local = ihash_new (2);
+    }
+    ihash_bucket_t *b;
+    b = ihash_lookup (local, idx);
+    if (!b) {
+      b = ihash_add (local, idx);
+      b->i = 0;
+    }
+    b->i += count;
+  }
+
+  int getcount (int idx) {
+    if (!local) {
+      return 0;
+    }
+    ihash_bucket_t *b;
+    b = ihash_lookup (local, idx);
+    if (!b) {
+      return 0;
+    }
+    return b->i;
+  }
+
+  void iter_init () {
+    if (!local) return;
+    ihash_iter_init (local, &it);
+  }
+  ihash_bucket_t *iter_next () {
+    return ihash_iter_next (local, &it);
+  }
+
+  void dump (FILE *fp, ActStatePass *sp, stateinfo_t *si) {
+    if (!local) return;
+    ihash_bucket_t *b;
+    ihash_iter_t it;
+    ihash_iter_init (local, &it);
+    while ((b = ihash_iter_next (local, &it))) {
+      act_connection *c;
+      int dy = 0;
+      fprintf (fp, "[");
+      c = sp->getConnFromOffset (si, b->key, 0, &dy);
+      c->Print (fp);
+      fprintf (fp, "] ");
+      fprintf (fp, "%ld -> count %d\n", (long)b->key, b->i);
+    }
+  }
+
+  private:
+  ihash_iter_t it;
+  struct iHashtable *local;	/* local table */
+};
+
+
 char *ActSimCore::_trname[TRACE_NUM_FORMATS] =
   { NULL, NULL, NULL };
 
@@ -167,6 +237,9 @@ ActSimCore::ActSimCore (Process *p, SDF *sdf)
   _W = ihash_new (4);
   _B = ihash_new (4);
 
+  _multi_driver = phash_new (4);
+  _global_multi = NULL;
+
   _initSim();
 
   /* add in handlers for the exclhi/excllo directives in prs bodies */
@@ -204,7 +277,7 @@ static void _delete_sim_objs (ActInstTable *I, int del)
     FREE (I);
   }
 }
-      
+
 ActSimCore::~ActSimCore()
 {
   Assert (_rootsi, "What");
@@ -311,6 +384,19 @@ ActSimCore::~ActSimCore()
   if (_sdf) {
     delete _sdf;
   }
+
+  /*-- delete multi-driver info --*/
+  phash_bucket_t *pb;
+  phash_iter_t pit;
+  phash_iter_init (_multi_driver, &pit);
+  while ((pb = phash_iter_next (_multi_driver, &pit))) {
+    multi_driver_info *x = (multi_driver_info *) pb->v;
+    if (x) {
+      delete x;
+    }
+  }
+  phash_free (_multi_driver);
+  _multi_driver = NULL;
 }
 
 
@@ -1121,7 +1207,6 @@ void ActSimCore::_add_all_inst (Scope *sc)
   myoffset = _curoffset;
   myI = _curI;
 
-
   /* -- increment cur offset after allocating all the items -- */
   if (!_cursi) {
     return;
@@ -1373,6 +1458,8 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	printf ("\n");
 #endif
 
+	// XXX: add multi-driver instances needed for the current process!
+	_add_multidrivers (x, _curoffset.numBools(), _cur_abs_port_bool);
 	_add_language (lev, x->getlang());
 
 	if (lev != ACT_MODEL_DEVICE) {
@@ -1574,9 +1661,16 @@ void ActSimCore::_initSim ()
     warning ("Modeling the entire design at device level is unsupported; use a circuit simulator instead!");
   }
 
+  /*-- compute multi-drivers --*/
+  _computeMultiDrivers (_curproc);
+
+  /*-- create simulation data structures --*/
   _si_stack = list_new ();
   _obj_stack = list_new ();
 
+
+  // create multi-driver objects for the current scope!
+  _add_multidrivers (_curproc, _curoffset.numBools(), _cur_abs_port_bool);
   _add_language (_getlevel(), root_lang);
   _add_all_inst (root_scope);
 
@@ -1614,8 +1708,6 @@ void ActSimCore::_initSim ()
 
      2. Add any top-level initialize block from the global namespace
   */
-
-  
 
   /* at this point, all the fanout tables have been updated */
 #if 0
@@ -2548,3 +2640,262 @@ void ActSimCore::_sdf_clear_errors ()
   _sdf_errs = NULL;
 }
 
+
+
+void ActSimCore::_computeMultiDrivers (Process *p)
+{
+  int offset, type;
+  struct multi_driver_info *my = NULL;
+  phash_bucket_t *b;
+  // multi-driver scenario:
+  //  count drivers in instances
+  //  count drivers locally
+  // save multi-driver record for this process
+  //   record: <bool> is multi-driver, with driver count = k.
+  b = phash_lookup (_multi_driver, p);
+  if (b) return;
+
+  b = phash_add (_multi_driver, p);
+  b->v = NULL;
+
+  // deal with all sub-processes
+  ActUniqProcInstiter i(p ? p->CurScope() : ActNamespace::Global()->CurScope());
+
+  for (i = i.begin(); i != i.end(); i++) {
+    ValueIdx *vx = *i;
+    Process *px = dynamic_cast<Process *>  (vx->t->BaseType());
+    Assert (px, "What?");
+    if (!px->isExpanded()) continue;
+    _computeMultiDrivers (px);
+  }
+
+  // now walk through all local drivers and port drivers, constructing
+  // any multi-driver record.
+  stateinfo_t *si = sp->getStateInfo (p);
+  act_boolean_netlist_t *bnl;
+  Assert (si, "What?");
+
+  bnl = si->bnl;
+
+  if (si->local.numBools()  + si->ports.numBools() == 0) {
+    return;
+  }
+
+
+  // tmpbits is used to record which locally accessible/port variables
+  // are multi-drivers.
+  bitset_t *tmpbits;
+  tmpbits = bitset_new (si->local.numBools() + si->ports.numBools());
+
+  // now walk through the local state table and mark drivers
+  phash_iter_t pit;
+  phash_bucket_t *pb;
+  phash_iter_init (bnl->cH, &pit);
+  while ((pb = phash_iter_next (bnl->cH, &pit))) {
+    act_booleanized_var_t *v = (act_booleanized_var_t *) pb->v;
+
+    if (ActBooleanizePass::isDynamicRef (bnl, v->id)) continue;
+    
+    offset = getLocalOffset ((act_connection *)pb->key, si, &type, NULL);
+    if (type != 0) {
+      continue;
+    }
+
+    // -ve offsets: globals and ports
+    // >=0 offsets: locals
+    if (v->localout) {
+      // ok we have a local driver here!
+      if (v->isport) {
+	Assert (offset < 0, "What?");
+	Assert (sp->isPortOffset (offset), "What?");
+	offset = sp->portIdx (offset);
+      }
+      else if (v->isglobal) {
+	Assert (offset < 0, "Wat?");
+	Assert (sp->isGlobalOffset (offset), "What?");
+	offset = sp->globalIdx (offset);
+      }
+      else {
+	offset += si->ports.numBools();
+	Assert (offset >= 0, "What?");
+      }
+
+      if (v->isglobal) continue;
+      // XXX: we can't handle global multi-drivers?
+      
+      offset += si->ports.numBools();
+
+      Assert (!bitset_tst (tmpbits, offset), "What?");
+      bitset_set (tmpbits, offset);
+    }
+  }
+
+  // now check instances!
+  int instcnt = 0;
+  for (i = i.begin(); i != i.end(); i++) {
+    ValueIdx *vx = *i;
+    Process *px = dynamic_cast<Process *> (vx->t->BaseType());
+    if (!px->isExpanded()) continue;
+    stateinfo_t *subsi;
+    subsi = sp->getStateInfo (px);
+    Assert (subsi, "What?");
+    int ports_exist = 0;
+    for (int j=0; j < A_LEN (subsi->bnl->ports); j++) {
+      if (subsi->bnl->ports[j].omit == 0) {
+	ports_exist = 1;
+	break;
+      }
+    }
+    if (ports_exist) {
+      phash_bucket_t *mb;
+      mb = phash_lookup (_multi_driver, px);
+      multi_driver_info *submd;
+      if (mb) {
+	submd = (multi_driver_info *)mb->v;
+      }
+      else {
+	submd = NULL;
+      }
+      
+      // do something here!
+      int sz;
+      if (vx->t->arrayInfo()) {
+	int count = 0;
+	sz = vx->t->arrayInfo()->size();
+	for (int k=0; k < sz; k++) {
+	  if (vx->isPrimary (k)) {
+	    count++;
+	  }
+	}
+	sz = count;
+      }
+      else {
+	sz = 1;
+      }
+      while (sz > 0) {
+	sz--;
+	for (int j=0; j < A_LEN (subsi->bnl->ports); j++) {
+	  if (subsi->bnl->ports[j].omit) continue;
+	  act_connection *c, *subc;
+
+	  // c is the connection pointer in the current process
+	  c = si->bnl->instports[instcnt];
+	  instcnt++;
+
+	  // csub is the connection pointer in the sub-process
+	  subc = subsi->bnl->ports[j].c;
+
+	  // check subc driver / multi-driver!
+	  int subcoffset, subctype;
+	  int mid;
+	  int subcount;
+
+	  subcoffset = getLocalOffset (subc, subsi, &subctype, NULL);
+	  Assert (subctype == 0, "A bool is not a bool?!");
+
+	  offset = getLocalOffset (c, si, &type, NULL);
+	  Assert (type == 0, "A bool is not a bool?!");
+
+	  subcount = 0;
+	  if (submd) {
+	    subcount = submd->getcount (subcoffset);
+	  }
+	  if (subcount == 0) {
+	    phash_bucket_t *xb;
+	    xb = phash_lookup (subsi->bnl->cH, subc);
+	    Assert (xb, "What?");
+	    act_booleanized_var_t *xv = (act_booleanized_var_t *) xb->v;
+	    if (xv->output) {
+	      // we have a driver!
+	      subcount = 1;
+	    }
+	  }
+	  // now we check the current state of this offset
+
+	  if (subcount > 0) {
+	    // we just increment the multi-driver
+	    if (subcount > 1) {
+	      if (!my) {
+		my = new multi_driver_info;
+	      }
+	      my->addmd (offset, subcount);
+	    }
+	    else if (my && my->getcount (offset) > 0) {
+	      // we've registered the multi-driver already
+	      my->addmd (offset, subcount);
+	    }
+	    else {
+	      // we have 1 driver; perhaps we have a local driver
+	      // too? if so, create the multi-driver instance;
+	      // otherwise this is not yet a multi-driver
+	      int noffset;
+	      if (sp->isPortOffset (offset)) {
+		noffset = sp->portIdx (offset);
+	      }
+	      else {
+		Assert (!sp->isGlobalOffset (offset), "What?");
+		noffset = offset + si->ports.numBools();
+	      }
+	      if (bitset_tst (tmpbits, noffset)) {
+		if (!my) {
+		  my = new multi_driver_info;
+		}
+		/* plus a local driver! */
+		my->addmd (offset, 2);
+	      }
+	      else {
+		// record the first driver
+		bitset_set (tmpbits, noffset);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  if (my) {
+    b->v = my;
+  }
+  
+  bitset_free (tmpbits);
+}
+
+
+
+void ActSimCore::_add_multidrivers (Process *p, int booloffset, int *ports)
+{
+  phash_bucket_t *pmb = phash_lookup (_multi_driver, p);
+  if (pmb) {
+    multi_driver_info *mx = (multi_driver_info *)pmb->v;
+    if (mx) {
+      // create multi-driver instances!
+      ihash_bucket_t *ib;
+      mx->iter_init ();
+      while ((ib = mx->iter_next())) {
+	// XXX: get global id!
+	int gid;
+	int lid = (int)ib->key;
+	Assert (ib->i > 1, "What?");
+	if (lid >= 0) {
+	  gid = lid + booloffset;
+	}
+	else {
+	  lid = -lid;
+	  Assert (lid & 1, "What?");
+	  lid = (lid + 1)/2-1;
+	  gid = ports[lid];
+	}
+	if (!_global_multi) {
+	  _global_multi = ihash_new (4);
+	}
+	ihash_bucket_t *gb;
+	gb = ihash_lookup (_global_multi, gid);
+	if (!gb) {
+	  gb = ihash_add (_global_multi, gid);
+	  gb->v = new MultiPrsSim (ib->i);
+	}
+      }
+    }
+  }
+}

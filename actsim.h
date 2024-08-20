@@ -61,6 +61,7 @@
 
 class ActSimCore;
 class OnePrsSim;
+class MultiPrsSim;
 
 
 #define MAX_LOCAL_PCS SIM_EV_MAX
@@ -602,6 +603,16 @@ class ActSimCore {
     _trname[i] = NULL;
   }
 
+  MultiPrsSim *getMulti (int gid) {
+    if (_global_multi) {
+      ihash_bucket_t *ib = ihash_lookup (_global_multi, gid);
+      if (ib) {
+	return (MultiPrsSim *) ib->v;
+      }
+    }
+    return NULL;
+  }
+
 protected:
   Act *a;
   SDF *_sdf;
@@ -727,6 +738,13 @@ protected:
   void _add_sdf_type_error (Process *p);
   void _sdf_report ();
   void _sdf_clear_errors ();
+
+  struct pHashtable *_multi_driver; /* compute multi-driver state */
+  
+  struct iHashtable *_global_multi; /* multi-driver objects */
+
+  void _computeMultiDrivers (Process *p);
+  void _add_multidrivers (Process *p, int offset, int *ports);
 };
 
 

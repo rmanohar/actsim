@@ -174,7 +174,21 @@ void PrsSim::computeFanout ()
     /* -- create rule -- */
     new (&_sim[count++]) OnePrsSim (this, x);
     OnePrsSim *t = &_sim[count-1];
+
     if (x->type == PRSSIM_RULE) {
+      // XXX: check if this is part of a multi-driver!
+      int gid = myGid (x->vid);
+      MultiPrsSim *mp = _sc->getMulti (gid);
+      if (mp) {
+#if 0
+	printf ("found multi! => ");
+	name->Print (stdout);
+	printf ("/");
+	x->c->Print (stdout);
+	printf ("\n");
+#endif	
+	mp->addOnePrsSim (t);
+      }
       _computeFanout (x->up[0], t);
       _computeFanout (x->up[1], t);
       _computeFanout (x->dn[0], t);
@@ -1776,3 +1790,24 @@ inline gate_delay_info *PrsSim::getInstDelay (OnePrsSim *sim)
   }
   return NULL;
 }
+
+
+int MultiPrsSim::Step (Event *ev)
+{
+  return 1;
+}
+
+void MultiPrsSim::propagate (void *cause)
+{
+}
+
+void MultiPrsSim::sPrintCause (char *buf, int sz)
+{
+
+}
+
+int MultiPrsSim::causeGlobalIdx ()
+{
+  return 0;
+}
+
