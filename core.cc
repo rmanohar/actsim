@@ -397,6 +397,18 @@ ActSimCore::~ActSimCore()
   }
   phash_free (_multi_driver);
   _multi_driver = NULL;
+
+  /*-- delete global multi --*/
+  if (_global_multi) {
+    ihash_iter_init (_global_multi, &it);
+    while ((b = ihash_iter_next (_global_multi, &it))) {
+      MultiPrsSim *mp = (MultiPrsSim *) b->v;
+      if (mp) {
+	delete mp;
+      }
+    }
+    ihash_free (_global_multi);
+  }
 }
 
 
