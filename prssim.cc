@@ -940,54 +940,39 @@ static int _breakpt;
  * Delay lookup:
  *    - if this has an instance-specific delay, use it!
  *    - otherwise get the delay from the instance-agnostic table.
+ *
+ *   ob = object corresponding to firing
+ *   of = object that redcords flags
+ *   These two are the same except for multi-drivers; in
+ *   multi-drivers, the 0th object is used for flag information.
+ *
+ *   nid = node id
+ *   lidc, gird = local / global cause id
+ *
+ *   x = value to be set (0 or 1)
+ *
  */
-#define DO_SET_VAL(nid,lidc,gidc,x)					\
+#define DO_SET_VAL(ob,of,nid,lidc,gidc,x)				\
   do {									\
-    if (_proc->getBool (nid) != (x)) {					\
-      if (flags != (1 + (x))) {						\
+    if ((ob)->_proc->getBool ((ob)->nid) != (x)) {			\
+      if ((of)->flags != (1 + (x))) {					\
 	int ed;								\
 	if (gidc != -1) {						\
 	  /* cause */							\
-	  gate_delay_info *gi = _proc->getInstDelay (this);		\
+	  gate_delay_info *gi = (ob)->_proc->getInstDelay (ob);		\
 	  if (gi) {							\
 	    ed =((x) == 0 ? gi->dn.lookup (lidc, false) : gi->up.lookup (lidc, false));	\
 	  }								\
 	  else {							\
-	    ed = ((x) == 0 ? _me->delayDn (lidc) : _me->delayUp (lidc)); \
+	    ed = ((x) == 0 ? (ob)->_me->delayDn (lidc) : (ob)->_me->delayUp (lidc)); \
 	  }								\
 	}								\
 	else {								\
-	  ed = ((x) == 0 ? _me->delayDn (0) : _me->delayUp (0));	\
+	  ed = ((x) == 0 ? (ob)->_me->delayDn (0) : (ob)->_me->delayUp (0)); \
 	}								\
-	ed = _proc->getDelay (ed);					\
-	flags = (1 + (x));						\
-	_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
-      }									\
-    }									\
-  } while (0)
-
-
-#define DO_SET_VAL0(nid,lidc,gidc,x)					\
-  do {									\
-    if (_objs[0]->_proc->getBool (_objs[0]->nid) != (x)) {					\
-      if (_objs[0]->flags != (1 + (x))) {						\
-	int ed;								\
-	if (gidc != -1) {						\
-	  /* cause */							\
-	  gate_delay_info *gi = _objs[0]->_proc->getInstDelay (_objs[0]); \
-	  if (gi) {							\
-	    ed =((x) == 0 ? gi->dn.lookup (lidc, false) : gi->up.lookup (lidc, false));	\
-	  }								\
-	  else {							\
-	    ed = ((x) == 0 ? _objs[0]->_me->delayDn (lidc) : _objs[0]->_me->delayUp (lidc)); \
-	  }								\
-	}								\
-	else {								\
-	  ed = ((x) == 0 ? _objs[0]->_me->delayDn (0) : _objs[0]->_me->delayUp (0));	\
-	}								\
-	ed = _objs[0]->_proc->getDelay (ed);					\
-	_objs[0]->flags = (1 + (x));						\
-	_objs[0]->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed); \
+	ed = (ob)->_proc->getDelay (ed);				\
+	(of)->flags = (1 + (x));					\
+	(of)->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
       }									\
     }									\
   } while (0)
@@ -1064,22 +1049,22 @@ int OnePrsSim::Step (Event *ev)
       /* copied from propagate() */
       if (u_state == 0) {
 	if (d_state == 1) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 0);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	}
       }
       else if (u_state == 1) {
 	if (d_state == 0) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 1);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	}
 	else if (d_state == 2 && (!u_weak && d_weak)) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 1);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	}
 	else if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, lid, causeid, 0);
+	    DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	  }
 	  else if (!u_weak && d_weak) {
-	    DO_SET_VAL (_me->vid, lid, causeid, 1);
+	    DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	  }
 	}
       }
@@ -1087,7 +1072,7 @@ int OnePrsSim::Step (Event *ev)
 	/* u_state == 2 */
 	if (d_state == 1) {
 	  if (u_weak && !d_weak) {
-	    DO_SET_VAL (_me->vid, lid, causeid, 0);
+	    DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	  }
 	}
       }
@@ -1117,77 +1102,49 @@ int OnePrsSim::matches (int val)
 }
 
 
-#define WARNING_MSG(s,t)			\
-  do {						\
-    _proc->msgPrefix();				\
-    printf ("WARNING: " s " on `");		\
-    _proc->printName (stdout, _me->vid);	\
-    printf (t "'\n");				\
-    if (_proc->onWarning() == 2) {		\
-      exit (1);					\
-    }						\
-    else if (_proc->onWarning() == 1) {		\
-      _breakpt = 1;				\
-    }						\
-  } while (0)
-
-#define WARNING_MSG0(s,t)			\
-  do {						\
-    _objs[0]->_proc->msgPrefix();				\
-    printf ("WARNING: " s " on `");		\
-    _objs[0]->_proc->printName (stdout, _objs[0]->_me->vid);	\
-    printf (t "'\n");				\
-    if (_objs[0]->_proc->onWarning() == 2) {		\
-      exit (1);					\
-    }						\
-    else if (_objs[0]->_proc->onWarning() == 1) {		\
-      _breakpt = 1;				\
-    }						\
+#define WARNING_MSG(ob,s,t)				\
+  do {							\
+    (ob)->_proc->msgPrefix();				\
+    printf ("WARNING: " s " on `");			\
+    (ob)->_proc->printName (stdout, (ob)->_me->vid);	\
+    if (cause) {					\
+      ActSimDES *xx = (ActSimDES *) cause;		\
+      char buf[1024];					\
+      xx->sPrintCause (buf, 1024);			\
+      printf ("'   [by %s]\n", buf);			\
+    }							\
+    else {						\
+      printf (t "'\n");					\
+    }							\
+    if ((ob)->_proc->onWarning() == 2) {		\
+      exit (1);						\
+    }							\
+    else if ((ob)->_proc->onWarning() == 1) {		\
+      _breakpt = 1;					\
+    }							\
   } while (0)
 
 
-#define MAKE_NODE_X(nid)						\
+#define MAKE_NODE_X(obj,nid)						\
   do {									\
-    if (_proc->getBool (nid) != 2) {					\
-      if (flags != PENDING_X) {						\
-	if (_pending) {							\
-	  _pending->Remove ();						\
+    if ((obj)->_proc->getBool ((obj)->nid) != 2) {			\
+      if ((obj)->flags != PENDING_X) {					\
+	if ((obj)->_pending) {						\
+	  (obj)->_pending->Remove ();					\
 	}								\
-	flags = PENDING_X;						\
-	_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);	\
+	(obj)->flags = PENDING_X;					\
+	(obj)->_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause); \
       }									\
     }									\
     else {								\
-      if (flags == PENDING_0 || flags == PENDING_1) {			\
-	flags = 0;							\
-	if (_pending) {							\
-	  _pending->Remove();						\
+      if ((obj)->flags == PENDING_0 || (obj)->flags == PENDING_1) {	\
+	(obj)->flags = 0;						\
+	if ((obj)->_pending) {						\
+	  (obj)->_pending->Remove();					\
 	}								\
       }									\
     }									\
   } while (0)
-
-#define MAKE_NODE_X0(nid)						\
-  do {									\
-    if (_objs[0]->_proc->getBool (_objs[0]->nid) != 2) {					\
-      if (_objs[0]->flags != PENDING_X) {						\
-	if (_objs[0]->_pending) {							\
-	  _objs[0]->_pending->Remove ();						\
-	}								\
-	_objs[0]->flags = PENDING_X;						\
-	_objs[0]->_pending = new Event (this, SIM_EV_MKTYPE (2, 0), 1, cause);	\
-      }									\
-    }									\
-    else {								\
-      if (_objs[0]->flags == PENDING_0 || _objs[0]->flags == PENDING_1) {			\
-	_objs[0]->flags = 0;							\
-	if (_objs[0]->_pending) {							\
-	  _objs[0]->_pending->Remove();						\
-	}								\
-      }									\
-    }									\
-  } while (0)
-
 
 void OnePrsSim::propagate (void *cause)
 {
@@ -1214,17 +1171,17 @@ void OnePrsSim::propagate (void *cause)
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 1 && d_weak != 1) {
-	DO_SET_VAL (_me->t2, -1, -1, 1);
+	DO_SET_VAL (this,this,_me->t2, -1, -1, 1);
       }
       else if (u_weak == 2 && d_weak != 2) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     else if (u_state == 2) {
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 1 && d_weak != 1) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     break;
@@ -1235,17 +1192,17 @@ void OnePrsSim::propagate (void *cause)
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 0 && d_weak != 0) {
-	DO_SET_VAL (_me->t2, -1, -1, 0);
+	DO_SET_VAL (this,this,_me->t2, -1, -1, 0);
       }
       else if (u_weak == 2 && d_weak != 2) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     else if (u_state == 2) {
       u_weak = _proc->getBool (_me->t1);
       d_weak = _proc->getBool (_me->t2);
       if (u_weak == 0 && d_weak != 0) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     break;
@@ -1257,22 +1214,22 @@ void OnePrsSim::propagate (void *cause)
     d_weak = _proc->getBool (_me->t2);
     if (u_weak == 1) {
       if (u_state == 0) {
-	DO_SET_VAL (_me->t2, -1, -1, 1);
+	DO_SET_VAL (this,this,_me->t2, -1, -1, 1);
       }
       else if (u_state == 2) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     else if (u_weak == 0) {
       if (d_state == 1) {
-	DO_SET_VAL (_me->t2, -1, -1, 0);
+	DO_SET_VAL (this,this,_me->t2, -1, -1, 0);
       }
       else if (d_state == 2) {
-	MAKE_NODE_X (_me->t2);
+	MAKE_NODE_X (this,_me->t2);
       }
     }
     else if (u_weak == 2 && (d_state == 1 || u_state == 0)) {
-      MAKE_NODE_X (_me->t2);
+      MAKE_NODE_X (this,_me->t2);
     }
     break;
 
@@ -1302,16 +1259,16 @@ void OnePrsSim::propagate (void *cause)
       if (u_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
 	  if (!_proc->isHazard (_me->vid)) {
-	    WARNING_MSG ("weak-unstable transition", "+");
+	    WARNING_MSG (this,"weak-unstable transition", "+");
 	  }
 	}
       }
       else {
 	if (!_me->unstab) {
-	  WARNING_MSG ("unstable transition", "+");
+	  WARNING_MSG (this,"unstable transition", "+");
 	}
       }
-      MAKE_NODE_X (_me->vid);
+      MAKE_NODE_X (this,_me->vid);
 #if 0
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
@@ -1325,16 +1282,16 @@ void OnePrsSim::propagate (void *cause)
       if (d_state == 2) {
 	if (!_proc->isResetMode() && !_me->unstab) {
 	  if (!_proc->isHazard (_me->vid)) {
-	    WARNING_MSG ("weak-unstable transition", "-");
+	    WARNING_MSG (this,"weak-unstable transition", "-");
 	  }
 	}
       }
       else {
 	if (!_me->unstab && !_proc->isHazard (_me->vid)) {
-	  WARNING_MSG ("unstable transition", "-");
+	  WARNING_MSG (this,"unstable transition", "-");
 	}
       }
-      MAKE_NODE_X (_me->vid);
+      MAKE_NODE_X (this,_me->vid);
 #if 0      
       _pending->Remove();
       if (_proc->getBool (_me->vid) != 2) {
@@ -1352,13 +1309,13 @@ void OnePrsSim::propagate (void *cause)
 
       case 1:
 	/* set to 0 */
-	DO_SET_VAL (_me->vid, lid, causeid, 0);
+	DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	break;
 	
       case 2:
 	if (_proc->getBool (_me->vid) == 1) {
 	  /* u = 0, d = X: if output=1, it is now X */
-	  MAKE_NODE_X (_me->vid);
+	  MAKE_NODE_X (this,_me->vid);
 	}
 	break;
       }
@@ -1367,32 +1324,32 @@ void OnePrsSim::propagate (void *cause)
       switch (d_state) {
       case 0:
 	/* set to 1 */
-	DO_SET_VAL (_me->vid, lid, causeid, 1);
+	DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	break;
 
       case 2:
 	if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 1);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	}
 	else {
 	  if (!_proc->isResetMode()) {
-	    WARNING_MSG ("weak-interference", "");
+	    WARNING_MSG (this,"weak-interference", "");
 	  }
-	  MAKE_NODE_X (_me->vid);
+	  MAKE_NODE_X (this,_me->vid);
 	}
 	break;
 
       case 1:
 	/* interference */
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 0);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	}
 	else if (!u_weak && d_weak) {
-	  DO_SET_VAL (_me->vid, lid, causeid, 1);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
 	}
 	else {
-	  WARNING_MSG ("interference", "");
-	  MAKE_NODE_X (_me->vid);
+	  WARNING_MSG (this, "interference", "");
+	  MAKE_NODE_X (this,_me->vid);
 	}
 	break;
       }
@@ -1402,29 +1359,29 @@ void OnePrsSim::propagate (void *cause)
       switch (d_state) {
       case 0:
 	if (_proc->getBool (_me->vid) == 0) {
-	  MAKE_NODE_X (_me->vid);
+	  MAKE_NODE_X (this,_me->vid);
 	}
 	break;
 
       case 1:
 	if (u_weak && !d_weak) {
 	  /* set to 0 */
-	  DO_SET_VAL (_me->vid, lid, causeid, 0);
+	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	}
 	else {
 	  if (!_proc->isResetMode()) {
-	    WARNING_MSG ("weak-interference", "");
+	    WARNING_MSG (this, "weak-interference", "");
 	  }
-	  MAKE_NODE_X (_me->vid);
+	  MAKE_NODE_X (this,_me->vid);
 	}
 	break;
 
       case 2:
 	/* set to X */
 	if (!_proc->isResetMode()) {
-	  WARNING_MSG ("weak-interference", "");
+	  WARNING_MSG (this, "weak-interference", "");
 	}
-	MAKE_NODE_X (_me->vid);
+	MAKE_NODE_X (this,_me->vid);
 	break;
       }
     }
@@ -1893,18 +1850,26 @@ int MultiPrsSim::Step (Event *ev)
   */
   if (t == 2 /* X */ && _objs[0]->flags == PENDING_NONE) {
     int u_state, d_state, u_weak, d_weak;
+    int u_idx, d_idx;
     // compute u_state, d_state, u_weak, d_weak
 
     u_weak = 0;
     u_state = 0;
+    u_idx = 0;
     for (int i=0; i < _count; i++) {
       u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
-      if (u_state == 1) break;
+      if (u_state == 1) {
+	u_idx = i;
+	break;
+      }
     }
     if (!u_state) {
       for (int i=0; i < _count; i++) {
 	u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
-	if (u_state == 1) break;
+	if (u_state == 1) {
+	  u_idx = i;
+	  break;
+	}
       }
       if (u_state) {
 	u_weak = 1;
@@ -1913,14 +1878,21 @@ int MultiPrsSim::Step (Event *ev)
 
     d_weak = 0;
     d_state = 0;
+    d_idx = 0;
     for (int i=0; i < _count; i++) {
       d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
-      if (d_state == 1) break;
+      if (d_state == 1) {
+	d_idx = i;
+	break;
+      }
     }
     if (!d_state) {
       for (int i=0; i < _count; i++) {
 	d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
-	if (d_state == 1) break;
+	if (d_state == 1) {
+	  d_idx = i;
+	  break;
+	}
       }
       if (d_state) {
 	d_weak = 1;
@@ -1930,22 +1902,22 @@ int MultiPrsSim::Step (Event *ev)
     /* copied from propagate() */
     if (u_state == 0) {
       if (d_state == 1) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+	DO_SET_VAL (_objs[d_idx],_objs[0], _me->vid, lid, causeid, 0);
       }
     }
     else if (u_state == 1) {
       if (d_state == 0) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+	DO_SET_VAL (_objs[u_idx],_objs[0], _me->vid, lid, causeid, 1);
       }
       else if (d_state == 2 && (!u_weak && d_weak)) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+	DO_SET_VAL (_objs[u_idx],_objs[0], _me->vid, lid, causeid, 1);
       }
       else if (d_state == 1) {
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+	  DO_SET_VAL (_objs[d_idx],_objs[0],_me->vid, lid, causeid, 0);
 	}
 	else if (!u_weak && d_weak) {
-	  DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+	  DO_SET_VAL (_objs[u_idx],_objs[0], _me->vid, lid, causeid, 1);
 	}
       }
     }
@@ -1953,7 +1925,7 @@ int MultiPrsSim::Step (Event *ev)
       /* u_state == 2 */
       if (d_state == 1) {
 	if (u_weak && !d_weak) {
-	  DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+	  DO_SET_VAL (_objs[d_idx],_objs[0],_me->vid, lid, causeid, 0);
 	}
       }
     }
@@ -1974,19 +1946,26 @@ void MultiPrsSim::propagate (void *cause)
     causeid = -1;
   }
 
-  int u_state, d_state, u_weak, d_weak;
+  int u_state, d_state, u_weak, d_weak, u_idx, d_idx;
   // compute u_state, d_state, u_weak, d_weak
 
   u_weak = 0;
   u_state = 0;
+  u_idx = 0;
   for (int i=0; i < _count; i++) {
     u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
-    if (u_state == 1) break;
+    if (u_state == 1) {
+      u_idx = i;
+      break;
+    }
   }
   if (!u_state) {
     for (int i=0; i < _count; i++) {
       u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
-      if (u_state == 1) break;
+      if (u_state == 1) {
+	u_idx = i;
+	break;
+      }
     }
     if (u_state) {
       u_weak = 1;
@@ -1995,14 +1974,21 @@ void MultiPrsSim::propagate (void *cause)
 
   d_weak = 0;
   d_state = 0;
+  d_idx = 0;
   for (int i=0; i < _count; i++) {
     d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
-    if (d_state == 1) break;
+    if (d_state == 1) {
+      d_idx = i;
+      break;
+    }
   }
   if (!d_state) {
     for (int i=0; i < _count; i++) {
       d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
-      if (d_state == 1) break;
+      if (d_state == 1) {
+	d_idx = i;
+	break;
+      }
     }
     if (d_state) {
       d_weak = 1;
@@ -2014,31 +2000,31 @@ void MultiPrsSim::propagate (void *cause)
     if (u_state == 2) {
       if (!_objs[0]->_proc->isResetMode() && !_objs[0]->_me->unstab) {
 	if (!_objs[0]->_proc->isHazard (_objs[0]->_me->vid)) {
-	  WARNING_MSG0 ("weak-unstable transition", "+");
+	  WARNING_MSG (_objs[0], "weak-unstable transition", "+");
 	}
       }
     }
     else {
       if (!_objs[0]->_me->unstab) {
-	WARNING_MSG0 ("unstable transition", "+");
+	WARNING_MSG (_objs[0], "unstable transition", "+");
       }
     }
-    MAKE_NODE_X0 (_me->vid);
+    MAKE_NODE_X (_objs[0],_me->vid);
   }
   if (_objs[0]->flags == PENDING_0 && d_state != 1) {
     if (d_state == 2) {
       if (!_objs[0]->_proc->isResetMode() && !_objs[0]->_me->unstab) {
 	if (!_objs[0]->_proc->isHazard (_objs[0]->_me->vid)) {
-	  WARNING_MSG0 ("weak-unstable transition", "-");
+	  WARNING_MSG (_objs[0], "weak-unstable transition", "-");
 	}
       }
     }
     else {
       if (!_objs[0]->_me->unstab && !_objs[0]->_proc->isHazard (_objs[0]->_me->vid)) {
-	WARNING_MSG0 ("unstable transition", "-");
+	WARNING_MSG (_objs[0], "unstable transition", "-");
       }
     }
-    MAKE_NODE_X0 (_me->vid);
+    MAKE_NODE_X (_objs[0],_me->vid);
   }
 
   if (u_state == 0) {
@@ -2049,13 +2035,13 @@ void MultiPrsSim::propagate (void *cause)
 
     case 1:
       /* set to 0 */
-      DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+      DO_SET_VAL (_objs[d_idx],_objs[0], _me->vid, lid, causeid, 0);
       break;
 	
     case 2:
       if (_objs[0]->_proc->getBool (_objs[0]->_me->vid) == 1) {
 	/* u = 0, d = X: if output=1, it is now X */
-	MAKE_NODE_X0 (_me->vid);
+	MAKE_NODE_X (_objs[0],_me->vid);
       }
       break;
     }
@@ -2064,32 +2050,32 @@ void MultiPrsSim::propagate (void *cause)
     switch (d_state) {
     case 0:
       /* set to 1 */
-      DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+      DO_SET_VAL (_objs[u_idx],_objs[0], _me->vid, lid, causeid, 1);
       break;
 
     case 2:
       if (!u_weak && d_weak) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+	DO_SET_VAL (_objs[u_idx],_objs[0], _me->vid, lid, causeid, 1);
       }
       else {
 	if (!_objs[0]->_proc->isResetMode()) {
-	  WARNING_MSG0 ("weak-interference", "");
+	  WARNING_MSG (_objs[0], "weak-interference", "");
 	}
-	MAKE_NODE_X0 (_me->vid);
+	MAKE_NODE_X (_objs[0],_me->vid);
       }
       break;
 
     case 1:
       /* interference */
       if (u_weak && !d_weak) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+	DO_SET_VAL (_objs[d_idx],_objs[0], _me->vid, lid, causeid, 0);
       }
       else if (!u_weak && d_weak) {
-	DO_SET_VAL0 (_me->vid, lid, causeid, 1);
+	DO_SET_VAL (_objs[u_idx], _objs[0], _me->vid, lid, causeid, 1);
       }
       else {
-	WARNING_MSG0 ("interference", "");
-	MAKE_NODE_X0 (_me->vid);
+	WARNING_MSG (_objs[0], "interference", "");
+	MAKE_NODE_X (_objs[0],_me->vid);
       }
       break;
     }
@@ -2099,29 +2085,29 @@ void MultiPrsSim::propagate (void *cause)
     switch (d_state) {
     case 0:
       if (_objs[0]->_proc->getBool (_objs[0]->_me->vid) == 0) {
-	MAKE_NODE_X0 (_me->vid);
+	MAKE_NODE_X (_objs[0],_me->vid);
       }
       break;
 
     case 1:
       if (u_weak && !d_weak) {
 	/* set to 0 */
-	DO_SET_VAL0 (_me->vid, lid, causeid, 0);
+	DO_SET_VAL (_objs[d_idx],_objs[0], _me->vid, lid, causeid, 0);
       }
       else {
 	if (!_objs[0]->_proc->isResetMode()) {
-	  WARNING_MSG0 ("weak-interference", "");
+	  WARNING_MSG (_objs[0], "weak-interference", "");
 	}
-	MAKE_NODE_X0 (_me->vid);
+	MAKE_NODE_X (_objs[0],_me->vid);
       }
       break;
 
     case 2:
       /* set to X */
       if (!_objs[0]->_proc->isResetMode()) {
-	WARNING_MSG0 ("weak-interference", "");
+	WARNING_MSG (_objs[0], "weak-interference", "");
       }
-      MAKE_NODE_X0 (_me->vid);
+      MAKE_NODE_X (_objs[0],_me->vid);
       break;
     }
   }
