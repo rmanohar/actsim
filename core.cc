@@ -2734,8 +2734,6 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 
       if (v->isglobal) continue;
       // XXX: we can't handle global multi-drivers?
-      
-      offset += si->ports.numBools();
 
       Assert (!bitset_tst (tmpbits, offset), "What?");
       bitset_set (tmpbits, offset);
