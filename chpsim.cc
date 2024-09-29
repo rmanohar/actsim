@@ -2717,16 +2717,24 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_NOT:
   case E_COMPLEMENT:
     l = exprEval (e->u.e.l);
-    if (l.getWidth() < ((long)e->u.e.r)) {
-      l.setWidth ((long)e->u.e.r);
+    {
+      phash_bucket_t *b;
+      b = _sc->exprWidth (e->u.e.l);
+      if (b) {
+	l.setWidth (b->i);
+      }
     }
     l = ~l;
     break;
     
   case E_UMINUS:
     l = exprEval (e->u.e.l);
-    if (l.getWidth() < ((long)e->u.e.r)) {
-      l.setWidth ((long)e->u.e.r);
+    {
+      phash_bucket_t *b;
+      b = _sc->exprWidth (e->u.e.l);
+      if (b) {
+	l.setWidth (b->i);
+      }
     }
     l = -l;
     l.toUnsigned ();
@@ -2756,7 +2764,13 @@ BigInt ChpSim::exprEval (Expr *e)
     {
       int first = 1;
       do {
+	int width;
+	phash_bucket_t *b;
 	r = exprEval (e->u.e.l);
+	b = _sc->exprWidth (e->u.e.l);
+	if (b) {
+	  r.setWidth (b->i);
+	}
 	if (first) {
 	  l = r;
 	  first = 0;

@@ -587,9 +587,11 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
   case E_COMPLEMENT:
     ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
     {
+      phash_bucket_t *b;
       int width;
       act_type_expr (s->CurScope(), e->u.e.l, &width, 2);
-      ret->u.e.r = (Expr *) (long)width;
+      b = s->exprAddWidth (ret->u.e.l);
+      b->i = width;
     }
     break;
 
@@ -608,10 +610,21 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
   case E_CONCAT:
     {
+      /* this is interesting; we convert it to expr, bitwidth, expr,
+	 bitwidth, ... pairs!
+      */
       Expr *tmp;
       tmp = ret;
       do {
+	phash_bucket_t *b;
 	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
+	b = s->exprWidth (tmp->u.e.l);
+	if (!b) {
+	  int width;
+	  b = s->exprAddWidth (tmp->u.e.l);
+	  act_type_expr (s->CurScope(), e->u.e.l, &width, 2);
+	  b->i = width;
+	}
 	if (e->u.e.r) {
 	  NEW (tmp->u.e.r, Expr);
 	  tmp->u.e.r->type = e->u.e.r->type;
