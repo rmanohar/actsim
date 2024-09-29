@@ -541,6 +541,184 @@ static void _free_chp_expr (Expr *e)
 }
 
 /*
+ * Record static bitwidths for -, ~, and concat for  function
+ * expressions. 
+ */
+static void fn_expr_bitwidth (Scope *sc, Expr *e, ActSimCore *s)
+{
+  if (!e) return;
+  switch (e->type) {
+    /* binary */
+  case E_AND:
+  case E_OR:
+  case E_PLUS:
+  case E_MINUS:
+  case E_MULT:
+  case E_DIV:
+  case E_MOD:
+  case E_LSL:
+  case E_LSR:
+  case E_ASR:
+  case E_XOR:
+  case E_LT:
+  case E_GT:
+  case E_LE:
+  case E_GE:
+  case E_EQ:
+  case E_NE:
+    fn_expr_bitwidth (sc, e->u.e.l, s);
+    fn_expr_bitwidth (sc, e->u.e.r, s);
+    if (e->type == E_MINUS) {
+      phash_bucket_t *b = s->exprWidth (e);
+      if (!b) {
+	int width;
+	b = s->exprAddWidth (e);
+	act_type_expr (sc, e, &width, 2);
+	b->i = width;
+      }
+    }
+    break;
+    
+  case E_NOT:
+  case E_UMINUS:
+  case E_COMPLEMENT:
+    fn_expr_bitwidth (sc, e->u.e.l, s);
+    {
+      phash_bucket_t *b;
+      int width;
+      act_type_expr (sc, e->u.e.l, &width, 2);
+      b = s->exprWidth (e->u.e.l);
+      if (!b) {
+	b = s->exprAddWidth (e->u.e.l);
+	b->i = width;
+      }
+    }
+    break;
+
+  case E_QUERY:
+    fn_expr_bitwidth (sc, e->u.e.l, s);
+    fn_expr_bitwidth (sc, e->u.e.r->u.e.l, s);
+    fn_expr_bitwidth (sc, e->u.e.r->u.e.r, s);
+    break;
+
+  case E_COLON:
+  case E_COMMA:
+    fatal_error ("Should have been handled elsewhere");
+    break;
+
+  case E_CONCAT:
+    do {
+      phash_bucket_t *b;
+      fn_expr_bitwidth (sc, e->u.e.l, s);
+      b = s->exprWidth (e->u.e.l);
+      if (!b) {
+	int width;
+	b = s->exprAddWidth (e->u.e.l);
+	act_type_expr (sc, e->u.e.l, &width, 2);
+	b->i = width;
+      }
+      e = e->u.e.r;
+    } while (e);
+    break;
+
+  case E_BITFIELD:
+  case E_TRUE:
+  case E_FALSE:
+  case E_INT:
+  case E_REAL:
+  case E_VAR:
+  case E_PROBE:
+    break;
+    
+  case E_FUNCTION:
+    {
+      e = e->u.fn.r;
+      while (e) {
+	fn_expr_bitwidth (sc, e->u.e.l, s);
+	e = e->u.e.r;
+      }
+    }
+    break;
+
+  case E_BUILTIN_INT:
+  case E_BUILTIN_BOOL:
+    fn_expr_bitwidth (sc, e->u.e.l, s);
+    fn_expr_bitwidth (sc, e->u.e.r, s);
+    break;
+
+  case E_SELF:
+  case E_SELF_ACK:
+  default:
+    fatal_error ("Unknown expression type %d\n", e->type);
+    break;
+  }
+}
+
+static void process_func_body_exprs (Function *f, act_chp_lang_t *c, ActSimCore *s)
+{
+  act_chp_gc_t *gc;
+  
+  if (!c) return;
+
+  switch (c->type) {
+  case ACT_CHP_SEMI:
+  case ACT_CHP_COMMA:
+    for (listitem_t *li = list_first (c->u.semi_comma.cmd); li; li = list_next (li)) {
+      process_func_body_exprs (f, (act_chp_lang_t *) list_value (li), s);
+    }
+    break;
+
+  case ACT_CHP_SELECT:
+  case ACT_CHP_SELECT_NONDET:
+  case ACT_CHP_LOOP:
+  case ACT_CHP_DOLOOP:
+    gc = c->u.gc;
+    if (gc->id) {
+      fatal_error ("No replication in functions!");
+    }
+    while (gc) {
+      fn_expr_bitwidth (f->CurScope(), gc->g, s);
+      process_func_body_exprs (f, gc->s, s);
+      gc = gc->next;
+    }
+    break;
+    
+  case ACT_CHP_SKIP:
+    break;
+    
+  case ACT_CHP_SEND:
+  case ACT_CHP_RECV:
+    fatal_error ("Functions cannot use send/receive");
+    break;
+    
+  case ACT_CHP_FUNC:
+    if (strcmp (string_char (c->u.func.name), "log") == 0 ||
+	strcmp (string_char (c->u.func.name), "log_p") == 0 ||
+	strcmp (string_char (c->u.func.name), "warn") == 0 ||
+	strcmp (string_char (c->u.func.name), "assert") == 0) {
+      listitem_t *li;
+      for (li = list_first (c->u.func.rhs); li; li = list_next (li)) {
+	act_func_arguments_t *tmp = (act_func_arguments_t *)list_value (li);
+	if (!tmp->isstring) {
+	  fn_expr_bitwidth (f->CurScope(), tmp->u.e, s);
+	}
+      }
+    }
+    break;
+    
+  case ACT_CHP_ASSIGN:
+    fn_expr_bitwidth (f->CurScope(), c->u.assign.e, s);
+    break;
+
+  default:
+    fatal_error ("Unknown chp type %d\n", c->type);
+    break;
+  }
+}
+
+
+
+/*
  * flags: 0x1 set if probe exists
  *        0x2 set if shared variable exists
  */
@@ -610,9 +788,6 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
   case E_CONCAT:
     {
-      /* this is interesting; we convert it to expr, bitwidth, expr,
-	 bitwidth, ... pairs!
-      */
       Expr *tmp;
       tmp = ret;
       do {
@@ -816,6 +991,11 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	tmp->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
 	e = e->u.e.r;
       }
+      Function *f = (Function *)ret->u.fn.s;
+      if (f->getlang() && f->getlang()->getchp()) {
+	act_chp *chp = f->getlang()->getchp ();
+	process_func_body_exprs (f, chp->c, s);
+      }
     }
     break;
 
@@ -833,6 +1013,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
   }
   return ret;
 }
+
 
 static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
 {

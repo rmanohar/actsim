@@ -1,0 +1,23 @@
+function concat (int<6> i, j) : int<12> 
+{
+  chp {
+    self := {i,j+1}
+  }
+}
+
+defproc test()
+{
+   int<6> i, j;
+
+   int<12> k;
+
+   chp {
+     i := 1;
+     j := 7;
+     k := {j,i};
+     log ("%b got ", k);
+     k := concat(j,i);
+     log ("%b got ", k);
+     skip
+   }
+}
