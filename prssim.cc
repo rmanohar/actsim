@@ -53,6 +53,14 @@ PrsSim::~PrsSim()
   _nobjs = 0;
 }
 
+
+void PrsSim::initState ()
+{
+  for (int i=0; i < _nobjs; i++) {
+    _sim[i].propagate(NULL);
+  }
+}
+
 int PrsSim::Step (Event */*ev*/)
 {
   fatal_error ("This should never be called!");

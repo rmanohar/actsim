@@ -1,0 +1,10 @@
+defproc test()
+{
+  bool x, y;
+
+  prs {
+   true -> x-
+   ~x -> y-
+   true -> y+
+  }
+}

@@ -128,6 +128,26 @@ bool _match_hseprs (Event *e)
   return false;
 }
 
+static void _init_prs_objects (ActInstTable *I)
+{
+  hash_bucket_t *b;
+  hash_iter_t hi;
+  if (!I) return;
+
+  if (I->obj) {
+    PrsSim *x = dynamic_cast<PrsSim *> (I->obj);
+    x->initState ();
+  }
+
+  if (I->H) {
+    hash_iter_init (I->H, &hi);
+    while ((b = hash_iter_next (I->H, &hi))) {
+      ActInstTable *x = (ActInstTable *)b->v;
+      _init_prs_objects (x);
+    }
+  }
+}
+
 void ActSim::runInit ()
 {
   ActNamespace *g = ActNamespace::Global();
@@ -153,6 +173,9 @@ void ActSim::runInit ()
       }
     }
   }
+
+  /*-- XXX: initially true production rules --*/
+  _init_prs_objects (&I);
   
   /*-- reset channels that are fragmented --*/
   for (int i=0; i < state->numChans(); i++) {

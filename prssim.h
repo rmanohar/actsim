@@ -344,6 +344,8 @@ class PrsSim : public ActSimObj {
 
   void computeFanout ();
 
+  void initState ();
+
   int getBool (int lid, int *gid = NULL) {
     int off = getGlobalOffset (lid, 0);
     if (gid) {
