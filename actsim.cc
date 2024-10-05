@@ -136,7 +136,7 @@ static void _init_prs_objects (ActInstTable *I)
 
   if (I->obj) {
     PrsSim *x = dynamic_cast<PrsSim *> (I->obj);
-    x->initState ();
+    if (x) { x->initState (); }
   }
 
   if (I->H) {
