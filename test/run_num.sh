@@ -61,6 +61,10 @@ do
 	   myecho ".[0$bname]"
         else
 	   myecho ".[$bname]"
+           if [ $bname -ge 100 ]
+           then
+             lim=8
+           fi
         fi
 	$ACTTOOL -cnf=sim.conf $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 cycle
