@@ -1319,7 +1319,7 @@ int ChpSim::Step (Event *ev)
 	    }
 	  }
 	  else {
-	    if (!_structure_assign (stmt->u.sendrecv.d, &vs)) {
+	    if (!_structure_assign (stmt->u.sendrecv.d, &vs, true)) {
 	      _breakpt = 1;
 	    }
 	  }
@@ -3879,7 +3879,8 @@ static void _add_deref_struct2 (Data *d,
 }
 
 
-int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
+int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v,
+			       bool skip_check)
 {
   Assert (d && v, "Hmm");
   int *struct_info;
@@ -3936,6 +3937,11 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v)
 			       1 : struct_info[3*i+1]);
     if (struct_info[3*i+1] == 1) {
       /* int */
+      if (skip_check) {
+	if (v->v[i].getWidth() != struct_info[3*i+2]) {
+	  v->v[i].setWidth (struct_info[3*i+2]);
+	}
+      }
       Assert (v->v[i].getWidth() == struct_info[3*i+2], "What?");
       _sc->setInt (off, v->v[i]);
       intProp (off);
