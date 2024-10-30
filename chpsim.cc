@@ -4307,7 +4307,12 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
   case CHPSIM_ASSIGN:
     /* ok now get the int! */
     if (g->stmt->u.assign.is_struct) {
+      Expr *e = g->stmt->u.assign.e;
       _zeroStructure (&g->stmt->u.assign.d);
+      if (e &&
+	  (e->type == E_CHP_VARSTRUCT || e->type == E_CHP_VARSTRUCT_DEREF)) {
+	_zeroStructure ((struct chpsimderef *)e->u.e.l);
+      }
     }
     else {
       if (g->stmt->u.assign.isint != 0) {
