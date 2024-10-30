@@ -1,0 +1,17 @@
+deftype foo 
+(
+  int x;
+  int y;
+  int z
+){}
+
+defproc test ()
+{
+  foo f1[20], f2[20];
+  int i;
+
+  chp {
+      i := 10;
+    *[ i > 0 -> f1[i] := f2[i]; log ("works now!"); i := i - 1 ]
+  }
+}
