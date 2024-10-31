@@ -262,7 +262,8 @@ class ChpSim : public ActSimObj {
   expr_multires funcStruct (Function *, int, void **);
   expr_multires varStruct (struct chpsimderef *);
 
-  int _structure_assign (struct chpsimderef *, expr_multires *, bool skip_check = false);
+  int _structure_assign (struct chpsimderef *, expr_multires *, void *cause,
+			 bool skip_check = false);
   
   void _run_chp (Function *fn, act_chp_lang_t *);
   /* type == 3 : probe */

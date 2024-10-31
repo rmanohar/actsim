@@ -1051,7 +1051,7 @@ int ChpSim::Step (Event *ev)
     pc = _updatepc (pc);
     if (stmt->u.assign.is_struct) {
       vs = exprStruct (stmt->u.assign.e);
-      if (!_structure_assign (&stmt->u.assign.d, &vs)) {
+      if (!_structure_assign (&stmt->u.assign.d, &vs, ev->getCause())) {
 	_breakpt = 1;
       }
     }
@@ -1205,7 +1205,7 @@ int ChpSim::Step (Event *ev)
 	      }
 	    }
 	    else {
-	      if (!_structure_assign (stmt->u.sendrecv.d, &xchg)) {
+	      if (!_structure_assign (stmt->u.sendrecv.d, &xchg, ev->getCause())) {
 		_breakpt = 1;
 	      }
 	    }
@@ -1319,7 +1319,7 @@ int ChpSim::Step (Event *ev)
 	    }
 	  }
 	  else {
-	    if (!_structure_assign (stmt->u.sendrecv.d, &vs, true)) {
+	    if (!_structure_assign (stmt->u.sendrecv.d, &vs, ev->getCause(), true)) {
 	      _breakpt = 1;
 	    }
 	  }
@@ -3879,7 +3879,7 @@ static void _add_deref_struct2 (Data *d,
 }
 
 
-int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v,
+int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v, void *cause,
 			       bool skip_check)
 {
   Assert (d && v, "Hmm");
@@ -3943,8 +3943,12 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v,
 	}
       }
       Assert (v->v[i].getWidth() == struct_info[3*i+2], "What?");
+      if (chkWatchBreakPt (1, struct_info[3*i+1], off, v->v[i], cause)) {
+	ret = 0;
+      }
       _sc->setInt (off, v->v[i]);
       intProp (off);
+      
     }
     else if (struct_info[3*i+1] == 2) {
       /* enum */
@@ -3954,11 +3958,17 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v,
 	_enum_error (_proc, v->v[i], struct_info[3*i+2]);
 	ret = 0;
       }
+      if (chkWatchBreakPt (1, struct_info[3*i+1], off, v->v[i], cause)) {
+	ret = 0;
+      }
       _sc->setInt (off, v->v[i]);
       intProp (off);
     }
     else {
       Assert (struct_info[3*i+1] == 0, "What?");
+      if (chkWatchBreakPt (0, struct_info[3*i+1], off, v->v[i], cause)) {
+	ret = 0;
+      }
       _sc->setBool (off, v->v[i].getVal (0));
       boolProp (off);
     }
