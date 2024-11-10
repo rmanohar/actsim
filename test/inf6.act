@@ -1,0 +1,38 @@
+pint XLEN = 32;
+pint VA_SIZE = 3;
+
+deftype debug_token(int<64> v_0, v_1, v_2, v_3, v_4, v_5, v_6, v_7,
+                            v_8, v_9, v_10, v_11, v_12, v_13, v_14, v_15,
+                            v_16, v_17, v_18, v_19, v_20, v_21, v_22
+)
+{}
+
+deftype f_res_token
+(
+   int<XLEN> cause_num, cause_data
+  ;int<1> cause_ex
+  ;int<32> instr
+  ;int<VA_SIZE> valid_again
+  ;debug_token dt
+){}
+
+pint FULL_3 = 3;
+
+defproc test ()
+{
+
+  f_res_token frt, dct_frt;
+  int<32> next_instr;
+
+  chp {
+  *[
+    [ frt.instr{1..0} = FULL_3 ->
+      frt.instr := {next_instr{15..0},frt.instr{15..0}}
+    []else -> skip
+    ];
+    dct_frt := frt
+  ]
+  }
+}
+
+test t;
