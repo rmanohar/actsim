@@ -4250,7 +4250,6 @@ void ChpSim::_zeroStructure (struct chpsimderef *d)
     struct_info = d->idx;
   }
   struct_len = 3*(ts.numInts() + ts.numBools());
-
   while (sz > 0) {
     for (int i=0; i < struct_len/3; i++) {
       int off = getGlobalOffset (struct_info[3*i],
@@ -4297,13 +4296,19 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
 {
   int cnt;
   /* set bitwidths for integers */
-  if (!g || !g->stmt) {
+  if (!g || (!g->stmt && !g->next)) {
     return;
   }
   if (_addhash (g)) {
     return;
   }
-  
+  while (g && !g->stmt) {
+    g = g->next;
+  }
+  if (!g) {
+    return;
+  }
+
   switch (g->stmt->type) {
   case CHPSIM_FORK:
     for (int i=0; i < g->stmt->u.fork; i++) {
