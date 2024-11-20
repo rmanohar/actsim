@@ -56,6 +56,7 @@ static void usage (char *name)
   fprintf (stderr, "Usage: %s [-n] [-S <sdf>] <actfile> <process>\n", name);
   fprintf (stderr, "       %s [-n] [-S <sdf>] -p <process> <actfile>\n", name);
   fprintf (stderr, "\n");
+  fprintf (stderr, " -t <tm>   : set simulation time scale to <tm> seconds\n");
   fprintf (stderr, " -n        : turn off name unmangling.\n");
   fprintf (stderr, " -S <sdf>  : use delay from the specified SDF file.\n");
   fprintf (stderr, " -p <proc> : set <proc> as the top-level for simulation.\n");
@@ -1684,10 +1685,24 @@ int main (int argc, char **argv)
 
   int ch;
   char *procname = NULL;
-  while ((ch = getopt (argc, argv, "S:p:n")) != -1) {
+  double d;
+  int do_inline = 0;
+  while ((ch = getopt (argc, argv, "S:p:nit:")) != -1) {
     switch (ch) {
+    case 't':
+      d = atof (optarg);
+      if (d <= 0) {
+	d = 10e-12;
+      }
+      config_set_real ("sim.device.timescale", d);
+      break;
+
     case 'n':
       config_set_int ("sim.sdf_mangled_names", 0);
+      break;
+
+    case 'i':
+      do_inline = 1;
       break;
 
     case 'S':
@@ -1756,6 +1771,12 @@ int main (int argc, char **argv)
     fatal_error ("Process `%s' is not expanded.", procname);
   }
 
+  /* inline if specified */
+  if (do_inline) {
+    ActCHPFuncInline *ip = new ActCHPFuncInline (glob_act);
+    ip->run (p);
+  }
+  
   glob_top = p;
 
   /* do stuff here */

@@ -12,7 +12,7 @@ OS=`$ACT_HOME/scripts/getos`
 EXT=${ARCH}_${OS}
 if [ ! x$ACT_TEST_INSTALL = x ] || [ ! -f ../actsim.$EXT ]; then
   ACTTOOL=$ACT_HOME/bin/actsim
-  echo "testing installation"
+  echo "testing installation" 
   echo
 else
   ACTTOOL=../actsim.$EXT
@@ -66,7 +66,7 @@ do
              lim=8
            fi
         fi
-	$ACTTOOL -cnf=sim.conf $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
+	$ACTTOOL "$@" -cnf=sim.conf $i test > runs/$i.t.stdout 2> runs/$i.t.stderr <<EOF
 cycle
 EOF
         grep -v "WARNING: Boolean variable \`enable" runs/$i.t.stdout > runs/$i.tmp; mv runs/$i.tmp runs/$i.t.stdout
