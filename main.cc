@@ -930,6 +930,7 @@ int process_get (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
+  bool is_list = false;
   unsigned long val;
   if (type == 0) {
     val = glob_sim->getBool (offset);
@@ -948,10 +949,31 @@ int process_get (int argc, char **argv)
   }
   else if (type == 1) {
     BigInt *ival = glob_sim->getInt (offset);
-    val = ival->getVal (0);
-    LispSetReturnInt (val);
-    if (argc == 2) {
-      printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);
+    if (!ival) {
+      printf ("%s: couldn't get integer `%s'?\n", argv[0], argv[1]);
+      return LISP_RET_ERROR;
+    }
+    if (ival->getLen() > 1) {
+      is_list = true;
+      LispSetReturnListStart ();
+      for (int i=0; i < ival->getLen(); i++) {
+	LispAppendReturnInt (ival->getVal (i));
+      }
+      LispSetReturnListEnd ();
+      if (argc == 2) {
+	printf ("%s: ", argv[1]);
+	ival->decPrint (stdout);
+	printf ("  (0x");
+	ival->hexPrint (stdout);
+	printf (")\n");
+      }
+    }
+    else {
+      val = ival->getVal (0);
+      LispSetReturnInt (val);
+      if (argc == 2) {
+	printf ("%s: %lu  (0x%lx)\n", argv[1], val, val);
+      }
     }
   }
   else {
@@ -977,7 +999,7 @@ int process_get (int argc, char **argv)
       LispSetReturnInt(0);
     }
   }
-  return LISP_RET_INT;
+  return is_list ? LISP_RET_LIST : LISP_RET_INT;
 }
 
 int process_mget (int argc, char **argv)
