@@ -1,0 +1,33 @@
+defproc test (){
+
+  int<1> channel[10], pio;
+  bool go0, go1;
+
+
+
+  chp{
+    channel[0]:=1;
+    pio :=1;
+
+    //array of int
+    [  channel[0]=0 -> go0:=true
+    [] else -> go0:=false
+    ];
+
+    go1 := (channel[0]=0) ? true : false;
+
+    log("go0: ",go0," go1: ",go1);
+
+
+    //int
+    [  pio=0 -> go0:=true
+    [] else -> go0:=false
+    ];
+
+    go1 := (pio=0) ? true : false; 
+
+    log("go0: ",go0," go1: ",go1)
+
+
+  }
+}
