@@ -773,33 +773,32 @@ int process_set (int argc, char **argv)
   }
   else if (type == 1) {
     BigInt *otmp = glob_sim->getInt (offset);
+    BigInt rd = BigInt::sscan (argv[2]);
     val = atoi (argv[2]);
     if (val < 0) {
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
 
-    BigInt x(64, 0, 0);
-    x = val;
-    x.setWidth (otmp->getWidth());
+    rd.setWidth (otmp->getWidth());
 
     const ActSim::watchpt_bucket *nm;
     if ((nm = glob_sim->chkWatchPt (1, offset))) {
-      if (*otmp != x) {
+      if (*otmp != rd) {
 	BigInt tm = SimDES::CurTime();
 	printf ("[");
 	tm.decPrint (stdout, 20);
 	printf ("] <[env]> ");
 	printf ("%s := ", nm->s);
-	x.decPrint (stdout);
+	rd.decPrint (stdout);
 	printf (" (0x");
-	x.hexPrint (stdout);
+	rd.hexPrint (stdout);
 	printf (")\n");
 
-	glob_sim->recordTrace (nm, type, ACT_CHAN_IDLE, x);
+	glob_sim->recordTrace (nm, type, ACT_CHAN_IDLE, rd);
       }
     }
-    glob_sim->setInt (offset, x);
+    glob_sim->setInt (offset, rd);
   }
   else {
     fatal_error ("Should not be here");
