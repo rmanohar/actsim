@@ -774,8 +774,7 @@ int process_set (int argc, char **argv)
   else if (type == 1) {
     BigInt *otmp = glob_sim->getInt (offset);
     BigInt rd = BigInt::sscan (argv[2]);
-    val = atoi (argv[2]);
-    if (val < 0) {
+    if (rd.isNegative()) {
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
