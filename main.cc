@@ -779,7 +779,12 @@ int process_set (int argc, char **argv)
       return LISP_RET_ERROR;
     }
 
+    BigInt before = rd;
     rd.setWidth (otmp->getWidth());
+    if (before != rd) {
+      fprintf(stderr, "Value does not fit into variable's bitwidth.\n");
+      return LISP_RET_ERROR;
+    }
 
     const ActSim::watchpt_bucket *nm;
     if ((nm = glob_sim->chkWatchPt (1, offset))) {
