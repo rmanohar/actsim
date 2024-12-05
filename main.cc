@@ -30,9 +30,11 @@
 #include <common/config.h>
 #include "actsim.h"
 #include "chpsim.h"
+#include "prssim.h"
 #include <lisp.h>
 #include <lispCli.h>
 #include <ctype.h>
+#include <typeinfo>
 
 static ActId *my_parse_id (const char *s)
 {
@@ -1588,6 +1590,109 @@ int process_pending (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+int process_seu (int argc, char **argv)
+{
+
+  if (argc != 5) {
+    fprintf(stderr, "Usage: %s <name> 0|1|X <start-delay> <dur>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+
+  PrsSim *probj = dynamic_cast <PrsSim *>(obj);
+
+  if (!probj) {
+    fprintf (stderr, "%s: signal specified not PRS node\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  OnePrsSim *rule = probj->findRule (offset);
+
+  int forced_value;
+
+  if (strcmp (argv[2], "1") == 0) {
+    forced_value = 1;
+  }
+  else if (strcmp (argv[2], "0") == 0) {
+    forced_value = 0;
+  }
+  else if (strcmp (argv[2], "X") == 0) {
+    forced_value = 2;
+  }
+  else {
+    fprintf (stderr, "%s: unknown upset value\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int start_delay, duration;
+
+  sscanf (argv[3], "%u", &start_delay);
+  sscanf (argv[4], "%u", &duration);
+
+  if (start_delay < 0) {
+    fprintf (stderr, "%s: zero/negative start-delay?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (duration < 0) {
+    fprintf (stderr, "%s: zero/negative duration?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  rule->registerSEU(start_delay, duration, forced_value);
+  
+  return LISP_RET_TRUE;
+}
+
+int process_sed (int argc, char **argv)
+{
+
+  if (argc != 4) {
+    fprintf(stderr, "Usage: %s <name> <start-delay> <dur>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  ActSimObj *obj;
+
+  if (!id_to_siminfo (argv[1], &type, &offset, &obj)) {
+    return LISP_RET_ERROR;
+  }
+
+  PrsSim *probj = dynamic_cast <PrsSim *>(obj);
+
+  if (!probj) {
+    fprintf (stderr, "%s: signal specified not PRS node\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  OnePrsSim *rule = probj->findRule(offset);
+
+  int start_delay, duration;
+
+  sscanf (argv[2], "%u", &start_delay);
+  sscanf (argv[3], "%u", &duration);
+
+  if (start_delay < 0) {
+    fprintf (stderr, "%s: zero/negative start-delay?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  if (duration < 0) {
+    fprintf (stderr, "%s: zero/negative duration?\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  rule->registerSED(start_delay, duration);
+  
+  return LISP_RET_TRUE;
+}
 
 struct LispCliCommand Cmds[] = {
   { NULL, "Initialization and setup", NULL },
@@ -1669,7 +1774,12 @@ struct LispCliCommand Cmds[] = {
   { "procinfo", "<filename> [<inst-name>] - save the program counter for a process to file (- for stdout)", process_procinfo },
   { "energy", "[-v] <filename> [<inst-name>] - save energy usage to file (- for stdout)", process_getenergy },
   { "coverage", "<filename> [<inst-name>] - report coverage for guards", process_coverage },
-  { "goto", "[<inst-name>] <label> - for a single-threaded state, jump to label", process_goto }
+  { "goto", "[<inst-name>] <label> - for a single-threaded state, jump to label", process_goto },
+
+  { NULL, "Setting/Viewing Nodes and Rules", NULL },
+
+  { "seu", "<name> 0|1|X <start-delay> <dur> - Delayed SEU event on node lasting for <dur> units", process_seu },
+  { "sed", "<name> <start-delay> <dur> - Spontaneous delay change, setting delay for next event on node to <dur> units", process_sed }
 };
 
 /* -- access top-level Act  -- */

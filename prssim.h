@@ -242,6 +242,8 @@ struct prssim_stmt {
   // default inst-independent delays/delay tables
   gate_delay_info delay;
   
+  int delay_override_length; /* The next event has a manually overridden delay */
+
   union {
     struct {
       prssim_expr *up[2], *dn[2];
@@ -366,9 +368,17 @@ class PrsSim : public ActSimObj {
   
   int myGid (int lid) { return getGlobalOffset (lid, 0); }
 
-  /*
-    me, cause are both used for cause tracing
-  */
+  /**
+   * @brief Set the value of the current node to the given value, report the change up the chain for logging, 
+   * and propagate the signal down to all nodes this one fans out to.
+   * 
+   * @param lid ID of the signal we are looking to change.
+   * @param v The target value to change it to.
+   * @param me Part of the cause tracking. Object that is used as the cause in propagation tracking. Forwarded to next.
+   * @param cause Part of the cause tracking. Object which caused this state change.
+   * @return true The state of the node was successfully changed in the state vector.
+   * @return false Changing the state of the node in the global state vector failed.
+   */
   bool setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause = NULL);
 
   void printName (FILE *fp, int lid);
@@ -376,7 +386,10 @@ class PrsSim : public ActSimObj {
 
   void dumpState (FILE *fp);
 
-  inline int getDelay (int delay) { return _sc->getDelay (delay); }
+  inline int getDelay (int lower_bound, int upper_bound) {
+    if (upper_bound == -1) return _sc->getDelay (lower_bound);
+    return _sc->getDelay (lower_bound, upper_bound); 
+  }
   inline int isResetMode() { return _sc->isResetMode (); }
   inline int onWarning() { return _sc->onWarning(); }
 
@@ -411,9 +424,32 @@ private:
 
 public:
   OnePrsSim (PrsSim *p, struct prssim_stmt *x);
+
+
+  /**
+   * @brief Takes an event and parses it. If the event changes the value of the node, do so by calling setBool
+   * 
+   * The method can take separate kinds of events, the lowest two bits set values while upper bits provide more information.
+   * If t & 0b11100 is a value other than 0, a special event is parsed. This is either the begin or of a single event upset
+   * (0b100xx and 0b10100 respectively, where xx indicates the value the node should be forced to), or a single event delay,
+   * (0bxx11100 where the bits above the event type encode the length of the delay).
+   * 
+   * @param ev The event to parse
+   * @return int 
+   */
   int Step (Event *ev);
+
+
+  /**
+   * @brief Propagate an incoming logic change event to all nodes connected to this one.
+   * For this, all incoming rules for these nodes are evaluated and, if a logic level change
+   * is required, an event is scheduled for the change to happen after the node's delay.
+   * 
+   */
   void propagate (void *cause);
+
   void printName ();
+  inline int getMyLocalID () { return _me->vid; };
   int matches (int val);
   void registerExcl ();
   void flushPending ();

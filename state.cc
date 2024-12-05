@@ -23,6 +23,14 @@
 #include "actsim.h"
 #include <common/misc.h>
 
+#define ENTRY_W 6
+#define FLAG_1 0
+#define FLAG_X 1
+#define FLAG_SPECIAL 2
+#define FLAG_MASK 3
+#define FLAG_M1 4
+#define FLAG_MX 5
+
 ActSimState::ActSimState (int bools, int ints, int chantot)
 {
 #if 0
@@ -32,9 +40,9 @@ ActSimState::ActSimState (int bools, int ints, int chantot)
   nbools = bools;
   
   if (bools > 0) {
-    bits = bitset_new (bools*3);
+    bits = bitset_new (bools * ENTRY_W);
     for (int i=0; i < bools; i++) {
-      bitset_set (bits, 3*i+1);
+      bitset_set (bits, ENTRY_W * i + FLAG_X);
     }
   }
   else {
@@ -112,11 +120,11 @@ act_channel_state *ActSimState::getChan (int x)
 
 int ActSimState::getBool (int x)
 {
-  if (bitset_tst (bits, 3*x+1)) {
+  if (bitset_tst (bits, ENTRY_W * x + FLAG_X)) {
     /* X */
     return 2;
   }
-  if (bitset_tst (bits, 3*x)) {
+  if (bitset_tst (bits, ENTRY_W * x + FLAG_1)) {
     return 1;
   }
   else {
@@ -143,17 +151,93 @@ bool ActSimState::setBool (int x, int v)
     }
   }
 
+  // if the value is currently masked by a forced value,
+  // only update the masked value
+  if (isMasked (x)) {
+    if (v == 1) {
+      bitset_set (bits, ENTRY_W * x + FLAG_M1);
+      bitset_clr (bits, ENTRY_W * x + FLAG_MX);
+    }
+    else if (v == 0) {
+      bitset_clr (bits, ENTRY_W * x + FLAG_M1);
+      bitset_clr (bits, ENTRY_W * x + FLAG_MX);
+    }
+    else {
+      bitset_set (bits, ENTRY_W * x + FLAG_MX);
+    }
+    return true;
+  }
+
+  // nothing is masked and all is ok, change the observable value
   if (v == 1) {
-    bitset_set (bits, 3*x);
-    bitset_clr (bits, 3*x+1);
+    bitset_set (bits, ENTRY_W * x + FLAG_1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_X);
   }
   else if (v == 0) {
-    bitset_clr (bits, 3*x);
-    bitset_clr (bits, 3*x+1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_X);
   }
   else {
-    bitset_set (bits, 3*x+1);
+    bitset_set (bits, ENTRY_W * x + FLAG_X);
   }
+  return true;
+}
+
+void ActSimState::setForced (int x, int v) 
+{
+  // if the exhibited value was not already hidden,
+  // read the current value of the node and store it in the hidden value cache
+  if (!isMasked (x)) {
+    if (bitset_tst (bits, ENTRY_W * x + FLAG_X)) {
+      /* X */
+      bitset_set (bits, ENTRY_W * x + FLAG_MX);
+    }
+    if (bitset_tst (bits, ENTRY_W * x + FLAG_1)) {
+      bitset_set (bits, ENTRY_W * x + FLAG_M1);
+    }
+  }
+
+  // set the forced flag for the node
+  bitset_set (bits, ENTRY_W * x + FLAG_MASK);
+
+  // change the presented bit to be the forced value
+  if (v == 1) {
+    bitset_set (bits, ENTRY_W * x + FLAG_1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_X);
+  }
+  else if (v == 0) {
+    bitset_clr (bits, ENTRY_W * x + FLAG_1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_X);
+  }
+  else {
+    bitset_set (bits, ENTRY_W * x + FLAG_X);
+  }
+
+}
+
+bool ActSimState::unmask (int x) {
+  if (!isMasked (x)) return false;
+
+  // restore the exhibited value from the hidden value cache
+  if (bitset_tst (bits, ENTRY_W * x + FLAG_M1)) {
+    bitset_set (bits, ENTRY_W * x + FLAG_1);
+    bitset_clr (bits, ENTRY_W * x + FLAG_M1);
+  }
+  else {
+    bitset_clr (bits, ENTRY_W * x + FLAG_1);
+  }
+
+  if (bitset_tst (bits, ENTRY_W * x + FLAG_MX)) {
+    bitset_set (bits, ENTRY_W * x + FLAG_X);
+    bitset_clr (bits, ENTRY_W * x + FLAG_MX);
+  }
+  else {
+    bitset_clr (bits, ENTRY_W * x + FLAG_X);
+  }
+
+  // clear the masked flag from node
+  bitset_clr (bits, ENTRY_W * x + FLAG_MASK);
+
   return true;
 }
 

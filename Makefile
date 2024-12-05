@@ -30,6 +30,8 @@ OBJS=actsim.o core.o main.o \
 
 SRCS=$(OBJS:.o=.cc)
 
+CPPSTD=c++17
+
 include config.mk
 
 ifdef N_CIR_XyceCInterface_INCLUDE

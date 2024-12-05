@@ -23,7 +23,13 @@
 #include "prssim.h"
 #include <common/qops.h>
 
-//#define DUMP_ALL
+/* 
+ * Special event types for single event upset and single event delay
+ */
+#define PRSSIM_SEU_START_EVENT 16
+#define PRSSIM_SEU_STOP_EVENT 20
+#define PRSSIM_SED_EVENT 28
+
 
 PrsSim::PrsSim (PrsSimGraph *g, ActSimCore *sim, Process *p)
 : ActSimObj (sim, p)
@@ -654,6 +660,7 @@ void PrsSimGraph::_add_one_rule (ActSimCore *sc, act_prs_lang_t *p, sdf_cell *ci
     else {
       s->setDelayDefault ();
     }
+    s->delay_override_length = 0;
     s->up[0] = NULL;
     s->up[1] = NULL;
     s->dn[0] = NULL;
@@ -979,6 +986,10 @@ static int _breakpt;
 	  ed = ((x) == 0 ? (ob)->_me->delayDn (0) : (ob)->_me->delayUp (0)); \
 	}								\
 	ed = (ob)->_proc->getDelay (ed);				\
+        if (_me->delay_override_length != 0) {                          \
+          ed = _me->delay_override_length;                              \
+          _me->delay_override_length = 0;                               \
+        }                                                               \
 	(of)->flags = (1 + (x));					\
 	(of)->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
       }									\
@@ -1010,6 +1021,12 @@ int OnePrsSim::Step (Event *ev)
   case PRSSIM_PASSP:
   case PRSSIM_PASSN:
   case PRSSIM_TGATE:
+
+    // if this is an SEU or delay event, ignore
+    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT || t == PRSSIM_SEU_STOP_EVENT || t == PRSSIM_SED_EVENT) {
+      break;
+    }
+
     if (flags == (1+t)) {
       flags = PENDING_NONE;
     }
@@ -1019,12 +1036,36 @@ int OnePrsSim::Step (Event *ev)
     break;
 
   case PRSSIM_RULE:
+
+    // if this is an SED event, install the delay and continue
+    if ((t & 0b11111) == PRSSIM_SED_EVENT) {
+      _me->delay_override_length = t >> 5;
+      return 1-_breakpt;
+    }
+
+    // if this is an SEU event, force the value immediately
+    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT) {
+      Assert (!_proc->isMasked (_me->vid), "No two SEUs at the same time allowed! Too upsetting...");
+
+      _proc->setForced (_me->vid, t & 0b11);
+      return 1-_breakpt;
+    }
+
+    // return to normal operation once the SEU has ended
+    if (t == PRSSIM_SEU_STOP_EVENT) {
+      
+      _proc->unmask (_me->vid);
+      return 1-_breakpt;
+    }
+
+    // it seems to be a normal value update
     if (flags == (1 + t)) {
       flags = PENDING_NONE;
     }
     if (!_proc->setBool (_me->vid, t, this, (ActSimObj *)ev->getCause())) {
       flags = PENDING_NONE;
     }
+
     /* 
        I just set this node to X and there is nothing pending;
        so check if there should be a X -> 0 or X -> 1 tarnsition
@@ -1032,6 +1073,8 @@ int OnePrsSim::Step (Event *ev)
     */
     if (t == 2 /* X */ && flags == PENDING_NONE) {
       int u_state, d_state, u_weak, d_weak;
+
+      // evaluate the pullup network
       u_weak = 0;
       d_weak = 0;
       u_state = eval (_me->up[PRSSIM_NORM], causeid,
@@ -1044,6 +1087,7 @@ int OnePrsSim::Step (Event *ev)
 	}
       }
 
+      // evaluate the pulldown network
       d_state = eval (_me->dn[PRSSIM_NORM], causeid,
 		      causeid == -1 ? NULL : &lid);
       if (d_state == 0) {
@@ -1055,11 +1099,15 @@ int OnePrsSim::Step (Event *ev)
       }
 
       /* copied from propagate() */
+
+      // we're being pulled down, update to 0
       if (u_state == 0) {
 	if (d_state == 1) {
 	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 0);
 	}
       }
+
+      // something is pulling up
       else if (u_state == 1) {
 	if (d_state == 0) {
 	  DO_SET_VAL (this,this,_me->vid, lid, causeid, 1);
@@ -1446,7 +1494,9 @@ void PrsSim::sPrintName (char *buf, int sz, int lid)
 
 bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
 {
+  // grab the global offset of this node
   int off = getGlobalOffset (lid, 0);
+
   SimDES **arr;
   const ActSimCore::watchpt_bucket *nm;
   const char *nm2;
@@ -1454,15 +1504,22 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
   int oval;
 
   verb = 0;
+
 #ifdef DUMP_ALL
   verb = 1;
-#endif  
+#endif
+
+  // check if this node is watched
   if ((nm = _sc->chkWatchPt (0, off))) {
     verb = 1;
   }
+
+  // check if this node is a break point
   if ((nm2 = _sc->chkBreakPt (0, off))) {
     verb |= 2;
   }
+
+  // if either is true, we need to get the value first
   if (verb) {
     oval = _sc->getBool (off);
   }
@@ -1475,12 +1532,23 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
   }
 #endif  
   
+  // try to set the node to a new value
   if (_sc->setBool (off, v)) {
+    
+    // if the node is being watched in some form, handle that
     if (verb) {
       if (oval != v) {
-	if (verb & 1) {
-	  msgPrefix ();
-	  printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+      	if (verb & 1) {
+      	  msgPrefix ();
+
+          // if the node is masked, because a different value is forced onto it
+          // right now, mark that in the output
+          if (_sc->isMasked (off)) {
+      	    printf ("%s |= %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+          }
+          else {
+      	    printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+          }
 	  if (cause) {
 	    ActSimDES *xx = (ActSimDES *) cause;
 	    char buf[1024];
@@ -1501,13 +1569,23 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
 	}
       }
     }
-    arr = _sc->getFO (off, 0);
+
+    // if the node is not currently masked by a forced value,
+    // propagate the new value to the fanout of the node
+    if (!_sc->isMasked (off)) {
+      
+      // grab the fanout
+      arr = _sc->getFO (off, 0);
+
 #ifdef DUMP_ALL
-    printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+      printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
 #endif
-    for (int i=0; i < _sc->numFanout (off, 0); i++) {
-      ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
-      Assert (p, "What?");
+
+      // for every fanout connection, propagate the new value
+      for (int i=0; i < _sc->numFanout (off, 0); i++) {
+        ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+        Assert (p, "What?");
+
 #ifdef DUMP_ALL
       printf ("   prop: ");
       {
@@ -1533,6 +1611,228 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
   else {
     return false;
   }
+}
+
+void PrsSim::setForced (int lid, int v) 
+{
+  // grab the global ID
+  int off = getGlobalOffset (lid, 0);
+
+  SimDES **arr;
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
+  int verb;
+  int oval;
+
+  verb = 0;
+
+#ifdef DUMP_ALL
+  verb = 1;
+#endif
+
+  // check if this node is watched
+  if ((nm = _sc->chkWatchPt (0, off))) {
+    verb = 1;
+  }
+
+  // check if this node is a break point
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
+    verb |= 2;
+  }
+
+  oval = _sc->getBool (off);
+
+#ifdef DUMP_ALL
+  char buf[100];
+  if (!nm) {
+    snprintf (buf, 100, "nm#%d:g%d", lid, off);
+    nm = buf;
+  }
+#endif  
+  
+  // force the node to the new value
+  _sc->setForced (off, v);
+  
+  // if the node is being watched in some form, handle that
+  if (verb) {
+    if (verb & 1) {
+      msgPrefix ();
+      printf ("%s <= %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+      BigInt tmpv;
+      tmpv = v;
+      _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+
+    }
+
+    if (verb & 2) {
+      msgPrefix ();
+      printf ("*** breakpoint %s\n", nm2);
+      _breakpt = 1;
+    }
+  }
+
+  // if the forced value is different to the old value of the node,
+  // propagate the new value to the fanout of the node
+  if (v != oval) {
+    
+    // grab the fanout
+    arr = _sc->getFO (off, 0);
+
+#ifdef DUMP_ALL
+    printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+#endif
+
+    // for every fanout connection, propagate the new value
+    for (int i=0; i < _sc->numFanout (off, 0); i++) {
+      ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+      Assert (p, "What?");
+
+#ifdef DUMP_ALL
+      printf ("   prop: ");
+      {
+        ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+        if (obj) {
+          if (obj->getName()) {
+            obj->getName()->Print (stdout);
+          }
+          else {
+            printf ("-none-");
+          }
+        }
+        else {
+          printf ("#%p", p);
+        }
+      }
+      printf ("\n");
+#endif
+
+      p->propagate ();
+    }
+  }
+}
+
+bool PrsSim::unmask (int lid)
+{
+  // grab the global ID
+  int off = getGlobalOffset (lid, 0);
+
+  SimDES **arr;
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
+  int verb;
+  int oval;
+
+  verb = 0;
+
+#ifdef DUMP_ALL
+  verb = 1;
+#endif
+
+  // check if this node is watched
+  if ((nm = _sc->chkWatchPt (0, off))) {
+    verb = 1;
+  }
+
+  // check if this node is a break point
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
+    verb |= 2;
+  }
+
+  oval = _sc->getBool (off);
+
+#ifdef DUMP_ALL
+  char buf[100];
+  if (!nm) {
+    snprintf (buf, 100, "nm#%d:g%d", lid, off);
+    nm = buf;
+  }
+#endif  
+  
+  // try to unmask the node
+  if (_sc->unmask (off)) {
+
+    // get the restored value
+    int v = _sc->getBool (off);
+    
+    // if the node is being watched in some form, handle that
+    if (verb) {
+      if (verb & 1) {
+        msgPrefix ();
+        printf ("%s <- %c\n", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+
+        BigInt tmpv;
+        tmpv = v;
+        _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+
+      }
+
+      if (verb & 2) {
+        msgPrefix ();
+        printf ("*** breakpoint %s\n", nm2);
+        _breakpt = 1;
+      }
+    }
+
+    // if the restored value is different than the forced value,
+    // propagate the new value to the fanout of the node
+    if (v != oval) {
+      
+      // grab the fanout
+      arr = _sc->getFO (off, 0);
+
+#ifdef DUMP_ALL
+      printf (" >>> fanout: %d\n", _sc->numFanout (off, 0));
+#endif
+
+      // for every fanout connection, propagate the new value
+      for (int i=0; i < _sc->numFanout (off, 0); i++) {
+        ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
+        Assert (p, "What?");
+
+#ifdef DUMP_ALL
+        printf ("   prop: ");
+        {
+        	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+        	if (obj) {
+        	  if (obj->getName()) {
+        	    obj->getName()->Print (stdout);
+        	  }
+        	  else {
+        	    printf ("-none-");
+        	  }
+        	}
+        	else {
+        	  printf ("#%p", p);
+        	}
+        }
+        printf ("\n");
+#endif
+
+        p->propagate ();
+      }
+    }
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
+OnePrsSim* PrsSim::findRule (int vid) 
+{
+  listitem_t *li;
+
+  // find the node which corresponds to the given global ID
+  for (li = list_first (_sim); li; li = list_next (li)) {
+    OnePrsSim *rule = (OnePrsSim *)list_value (li);
+
+    if (rule->getMyLocalID() == vid) return rule;
+    
+  }
+
+  Assert(0, "Rule not in here despite sim thinks it is");
+  return nullptr;
 }
 
 void PrsSimGraph::checkFragmentation (ActSimCore *sc, PrsSim *ps,
@@ -1643,6 +1943,33 @@ void OnePrsSim::registerExcl ()
       xc = xc->getNext (gid);
     }
   }
+}
+
+
+
+bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_value) {
+  // create the upset start event
+  int start_event = 0b10000 | (force_value & 0b11);
+
+  // we don't really need to do anything beyond creating the events
+  // the constructor automatically inserts them into the event queue
+  new Event (this, SIM_EV_MKTYPE ((start_event), 0), start_delay);
+  new Event (this, SIM_EV_MKTYPE ((0b10100), 0), start_delay + upset_duration);
+
+  return true;
+}
+
+
+
+bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
+  // create the delay event
+  int delay_event = 0b11100 | (delay_duration << 5);
+
+  // we don't really need to do anything beyond creating the events
+  // the constructor automatically inserts them into the event queue
+  new Event (this, SIM_EV_MKTYPE ((delay_event), 0), start_delay);
+
+  return true;
 }
 
 
