@@ -453,7 +453,29 @@ public:
   int matches (int val);
   void registerExcl ();
   void flushPending ();
-  int isPending() { return _pending == NULL ? 0 : 1; }
+  int isPending() { return _pending == NULL ? 0 : 1; };
+
+  /**
+  * @brief Create and register SEU start and end events and put them into the event queue
+  * 
+  * @param start_delay The delay from the start of the simulation to the start of the SEU
+  * @param upset_duration The duration of the SEU
+  * @param force_value The value the SEU forces the node to
+  * @return true Always returned at the moment
+  * @return false Not used currently
+  */
+  bool registerSEU(int start_delay, int upset_duration, int force_value);
+  
+  
+  /**
+   * @brief Create and register an SED event and put it into the event queue
+   * 
+   * @param start_delay The delay from the start of the simulation to the start of the SED
+   * @param delay_duration The duration of the artificial delay
+   * @return true Always returned at the moment
+   * @return false Not used currently
+   */
+  bool registerSED(int start_delay, int delay_duration);
 
   void sPrintCause (char *buf, int sz);
   int causeGlobalIdx ();

@@ -1946,7 +1946,6 @@ void OnePrsSim::registerExcl ()
 }
 
 
-
 bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_value) {
   // create the upset start event
   int start_event = 0b10000 | (force_value & 0b11);
@@ -1960,7 +1959,6 @@ bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_valu
 }
 
 
-
 bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
   // create the delay event
   int delay_event = 0b11100 | (delay_duration << 5);
@@ -1971,8 +1969,6 @@ bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
 
   return true;
 }
-
-
 
 
 void PrsSim::registerExcl ()
