@@ -546,41 +546,6 @@ class ActSimCore {
     return val;
   }
 
-  inline int getDelay (int lower_bound, int upper_bound) {
-    double d;
-    unsigned long val;
-
-    // check if randomness was turned off or both bounds are 0
-    if (_sim_rand == 0 || (lower_bound == 0 && upper_bound == 0)) {
-      return lower_bound;
-    }
-    // if global randomness was selected, select a value from the absolute range
-    else if (_sim_rand == 1) {
-      d = (0.0 + rand_r (&_seed))/RAND_MAX;
-      val = exp(d*LN_MAX_VAL)-1;
-    }
-    // if globally constrained random was selected, select something between the global bounds
-    else if (_sim_rand == 2) {
-      if (_sim_rand_when == 0 || delay < 0) {
-	d = (0.0 + rand_r (&_seed))/RAND_MAX;
-	val = _rand_min + d*(_rand_max - _rand_min);
-      }
-      else {
-	return delay;
-      }
-    }
-    // if locally constrained random was selected, select something between the local bounds
-    else if (_sim_rand == 3) {
-      d = (0.0 + rand_r (&_seed))/RAND_MAX;
-      val = lower_bound + d*(upper_bound - lower_bound);
-    }
-    else {
-      val = 0;
-    }
-    if (val == 0) { val = 1; }
-    return val;
-  }
-
   int infLoopOpt() { return _inf_loop_opt; }
 
   void computeFanout (ActInstTable *inst);

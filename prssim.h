@@ -381,15 +381,56 @@ class PrsSim : public ActSimObj {
    */
   bool setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause = NULL);
 
+  /**
+   * @brief Set the node to a forced logic value
+   * 
+   * This will override any rules that might be in place and propagate the new
+   * forced value the node was set to. Subsequent calls to setBool will not affect the
+   * displayed value of the node.
+   * 
+   * The value of the node before the force call and all calls made to setBool after are
+   * buffered. The latest valid value this node would have had, had the force never occurred,
+   * will be restored by calling unmask
+   * 
+   * @param lid Local ID of the node to force
+   * @param v Value to force the node to
+   */
+  void setForced (int lid, int v);
+
+  /**
+   * @brief Test if the current node is masked by a forced value
+   * 
+   * @param x Local ID of the node to be tested
+   * @return true The true value is hidden
+   * @return false The value displayed is not externally forced
+   */
+  bool isMasked (int lid) { int off = getGlobalOffset (lid, 0); return _sc->isMasked (off); }
+
+  /**
+   * @brief Restore normal operation of the node after value force
+   * 
+   * Restore the value of the node to what it should be displaying, had the value force not happened.
+   * 
+   * @param lid Local ID of the node to force
+   * @return true The actual node value was successfully unmasked
+   * @return false The actual node value was never masked to begin with
+   */
+  bool unmask (int lid);
+
+  /**
+   * @brief Find the PRS rule for a given local ID
+   * 
+   * @param vid Local ID of the node
+   * @return OnePrsSim* 
+   */
+  OnePrsSim* findRule (int vid);
+
   void printName (FILE *fp, int lid);
   void sPrintName (char *buf, int sz, int lid);
 
   void dumpState (FILE *fp);
 
-  inline int getDelay (int lower_bound, int upper_bound) {
-    if (upper_bound == -1) return _sc->getDelay (lower_bound);
-    return _sc->getDelay (lower_bound, upper_bound); 
-  }
+  inline int getDelay (int delay) { return _sc->getDelay (delay); }
   inline int isResetMode() { return _sc->isResetMode (); }
   inline int onWarning() { return _sc->onWarning(); }
 
@@ -430,7 +471,7 @@ public:
    * @brief Takes an event and parses it. If the event changes the value of the node, do so by calling setBool
    * 
    * The method can take separate kinds of events, the lowest two bits set values while upper bits provide more information.
-   * If t & 0b11100 is a value other than 0, a special event is parsed. This is either the begin or of a single event upset
+   * If t & 0b11100 is a value other than 0, a special event is parsed. This is either the begin or of a single event transient
    * (0b100xx and 0b10100 respectively, where xx indicates the value the node should be forced to), or a single event delay,
    * (0bxx11100 where the bits above the event type encode the length of the delay).
    * 
@@ -456,15 +497,15 @@ public:
   int isPending() { return _pending == NULL ? 0 : 1; };
 
   /**
-  * @brief Create and register SEU start and end events and put them into the event queue
+  * @brief Create and register SET (single event transient) start and end events and put them into the event queue
   * 
-  * @param start_delay The delay from the start of the simulation to the start of the SEU
-  * @param upset_duration The duration of the SEU
-  * @param force_value The value the SEU forces the node to
+  * @param start_delay The delay from the start of the simulation to the start of the SET
+  * @param transient_duration The duration of the SET
+  * @param force_value The value the SET forces the node to
   * @return true Always returned at the moment
   * @return false Not used currently
   */
-  bool registerSEU(int start_delay, int upset_duration, int force_value);
+  bool registerSETEvent(int start_delay, int transient_duration, int force_value);
   
   
   /**
@@ -475,7 +516,7 @@ public:
    * @return true Always returned at the moment
    * @return false Not used currently
    */
-  bool registerSED(int start_delay, int delay_duration);
+  bool registerSEDEvent(int start_delay, int delay_duration);
 
   void sPrintCause (char *buf, int sz);
   int causeGlobalIdx ();

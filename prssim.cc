@@ -24,10 +24,10 @@
 #include <common/qops.h>
 
 /* 
- * Special event types for single event upset and single event delay
+ * Special event types for single event transient and single event delay
  */
-#define PRSSIM_SEU_START_EVENT 16
-#define PRSSIM_SEU_STOP_EVENT 20
+#define PRSSIM_SET_START_EVENT 16
+#define PRSSIM_SET_STOP_EVENT 20
 #define PRSSIM_SED_EVENT 28
 
 
@@ -986,9 +986,9 @@ static int _breakpt;
 	  ed = ((x) == 0 ? (ob)->_me->delayDn (0) : (ob)->_me->delayUp (0)); \
 	}								\
 	ed = (ob)->_proc->getDelay (ed);				\
-        if (_me->delay_override_length != 0) {                          \
-          ed = _me->delay_override_length;                              \
-          _me->delay_override_length = 0;                               \
+        if ((ob)->_me->delay_override_length != 0) {                    \
+          ed = (ob)->_me->delay_override_length;                        \
+          (ob)->_me->delay_override_length = 0;                         \
         }                                                               \
 	(of)->flags = (1 + (x));					\
 	(of)->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
@@ -1022,8 +1022,8 @@ int OnePrsSim::Step (Event *ev)
   case PRSSIM_PASSN:
   case PRSSIM_TGATE:
 
-    // if this is an SEU or delay event, ignore
-    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT || t == PRSSIM_SEU_STOP_EVENT || t == PRSSIM_SED_EVENT) {
+    // if this is an SET or delay event, ignore
+    if ((t & 0b11100) == PRSSIM_SET_START_EVENT || t == PRSSIM_SET_STOP_EVENT || t == PRSSIM_SED_EVENT) {
       break;
     }
 
@@ -1043,16 +1043,16 @@ int OnePrsSim::Step (Event *ev)
       return 1-_breakpt;
     }
 
-    // if this is an SEU event, force the value immediately
-    if ((t & 0b11100) == PRSSIM_SEU_START_EVENT) {
-      Assert (!_proc->isMasked (_me->vid), "No two SEUs at the same time allowed! Too upsetting...");
+    // if this is an SET event, force the value immediately
+    if ((t & 0b11100) == PRSSIM_SET_START_EVENT) {
+      Assert (!_proc->isMasked (_me->vid), "No two SETs at the same time allowed! Too upsetting...");
 
       _proc->setForced (_me->vid, t & 0b11);
       return 1-_breakpt;
     }
 
-    // return to normal operation once the SEU has ended
-    if (t == PRSSIM_SEU_STOP_EVENT) {
+    // return to normal operation once the SET has ended
+    if (t == PRSSIM_SET_STOP_EVENT) {
       
       _proc->unmask (_me->vid);
       return 1-_breakpt;
@@ -1587,24 +1587,25 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
         Assert (p, "What?");
 
 #ifdef DUMP_ALL
-      printf ("   prop: ");
-      {
-	ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
-	if (obj) {
-	  if (obj->getName()) {
-	    obj->getName()->Print (stdout);
+        printf ("   prop: ");
+        {
+	  ActSimObj *obj = dynamic_cast<ActSimObj *>(p);
+	  if (obj) {
+	    if (obj->getName()) {
+	      obj->getName()->Print (stdout);
+	    }
+	    else {
+	      printf ("-none-");
+	    }
 	  }
 	  else {
-	    printf ("-none-");
+	    printf ("#%p", p);
 	  }
-	}
-	else {
-	  printf ("#%p", p);
-	}
-      }
-      printf ("\n");
+        }
+        printf ("\n");
 #endif      
-      p->propagate (me);
+        p->propagate (me);
+      }
     }
     return true;
   }
@@ -1707,7 +1708,7 @@ void PrsSim::setForced (int lid, int v)
       printf ("\n");
 #endif
 
-      p->propagate ();
+      p->propagate (nullptr);
     }
   }
 }
@@ -1809,7 +1810,7 @@ bool PrsSim::unmask (int lid)
         printf ("\n");
 #endif
 
-        p->propagate ();
+        p->propagate (nullptr);
       }
     }
     return true;
@@ -1824,11 +1825,8 @@ OnePrsSim* PrsSim::findRule (int vid)
   listitem_t *li;
 
   // find the node which corresponds to the given global ID
-  for (li = list_first (_sim); li; li = list_next (li)) {
-    OnePrsSim *rule = (OnePrsSim *)list_value (li);
-
-    if (rule->getMyLocalID() == vid) return rule;
-    
+  for (int i=0; i < _nobjs; i++) {
+    if (_sim[i].getMyLocalID() == vid) return _sim + i;
   }
 
   Assert(0, "Rule not in here despite sim thinks it is");
@@ -1946,20 +1944,20 @@ void OnePrsSim::registerExcl ()
 }
 
 
-bool OnePrsSim::registerSEU (int start_delay, int upset_duration, int force_value) {
-  // create the upset start event
+bool OnePrsSim::registerSETEvent (int start_delay, int transient_duration, int force_value) {
+  // create the transient start event
   int start_event = 0b10000 | (force_value & 0b11);
 
   // we don't really need to do anything beyond creating the events
   // the constructor automatically inserts them into the event queue
   new Event (this, SIM_EV_MKTYPE ((start_event), 0), start_delay);
-  new Event (this, SIM_EV_MKTYPE ((0b10100), 0), start_delay + upset_duration);
+  new Event (this, SIM_EV_MKTYPE ((0b10100), 0), start_delay + transient_duration);
 
   return true;
 }
 
 
-bool OnePrsSim::registerSED (int start_delay, int delay_duration) {
+bool OnePrsSim::registerSEDEvent (int start_delay, int delay_duration) {
   // create the delay event
   int delay_event = 0b11100 | (delay_duration << 5);
 

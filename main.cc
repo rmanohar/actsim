@@ -1590,7 +1590,7 @@ int process_pending (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_seu (int argc, char **argv)
+int process_set_insert (int argc, char **argv)
 {
 
   if (argc != 5) {
@@ -1626,7 +1626,7 @@ int process_seu (int argc, char **argv)
     forced_value = 2;
   }
   else {
-    fprintf (stderr, "%s: unknown upset value\n", argv[0]);
+    fprintf (stderr, "%s: unknown transient value\n", argv[0]);
     return LISP_RET_ERROR;
   }
 
@@ -1645,12 +1645,12 @@ int process_seu (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  rule->registerSEU(start_delay, duration, forced_value);
+  rule->registerSETEvent(start_delay, duration, forced_value);
   
   return LISP_RET_TRUE;
 }
 
-int process_sed (int argc, char **argv)
+int process_sed_insert (int argc, char **argv)
 {
 
   if (argc != 4) {
@@ -1689,7 +1689,7 @@ int process_sed (int argc, char **argv)
     return LISP_RET_ERROR;
   }
 
-  rule->registerSED(start_delay, duration);
+  rule->registerSEDEvent(start_delay, duration);
   
   return LISP_RET_TRUE;
 }
@@ -1778,8 +1778,8 @@ struct LispCliCommand Cmds[] = {
 
   { NULL, "Setting/Viewing Nodes and Rules", NULL },
 
-  { "seu", "<name> 0|1|X <start-delay> <dur> - Delayed SEU event on node lasting for <dur> units", process_seu },
-  { "sed", "<name> <start-delay> <dur> - Spontaneous delay change, setting delay for next event on node to <dur> units", process_sed }
+  { "insert_set", "<name> 0|1|X <start-delay> <dur> - Delayed single event transient (SET) event on node lasting for <dur> units", process_set_insert },
+  { "insert_sed", "<name> <start-delay> <dur> - Spontaneous delay change, setting delay for next event on node to <dur> units", process_sed_insert }
 };
 
 /* -- access top-level Act  -- */
