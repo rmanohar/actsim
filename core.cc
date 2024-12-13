@@ -2455,8 +2455,16 @@ void ActSimCore::_check_fragmentation (XyceSim *x)
     if (!si) { continue; }
 
     ActId *un = tmp->unFragment (bnl->cur);
-    int type;
-    int loff = getLocalOffset (un, si, &type);
+    int type, loff;
+
+    if (hasLocalOffset (un, si)) {
+      loff = getLocalOffset (un, si, &type);
+    }
+    else {
+      delete un;
+      delete tmp;
+      continue;
+    }
 
     if (type == 2 || type == 3) {
       loff = x->getGlobalOffset (loff, 2);
