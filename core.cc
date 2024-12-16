@@ -1346,7 +1346,9 @@ void ActSimCore::_add_all_inst (Scope *sc)
 	    act_connection *c = mynl->instports[iportbool];
 
 	    if (bnl->ports[i].used) {
-	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->ports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi,
+				  bnl->ports[i].bidir ? 0 :
+				  bnl->ports[i].input);
 	    }
 
 	    int off = getLocalOffset (c, mysi, NULL);
@@ -2469,7 +2471,10 @@ void ActSimCore::_check_fragmentation (XyceSim *x)
     if (type == 2 || type == 3) {
       loff = x->getGlobalOffset (loff, 2);
       act_channel_state *ch = getChan (loff);
-
+#if 0
+      printf ("chan: "); un->Print (stdout); printf ("\n");
+      printf ("   pre-frag: %d\n", ch->fragmented);
+#endif
       if (type == 2) {
 	/* input */
 	ch->fragmented |= 1;
@@ -2478,6 +2483,9 @@ void ActSimCore::_check_fragmentation (XyceSim *x)
 	ch->fragmented |= 2;
 	/* output */
       }
+#if 0
+      printf ("   post-frag: %d\n", ch->fragmented);
+#endif
       sim_recordChannel (this, x, un);
       registerFragmented (ch->ct);
       ch->cm = getFragmented (ch->ct);
@@ -2541,6 +2549,11 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
     else {
       id = c->toid();
     }
+#if 0
+    printf (" --> check ");
+    id->Print (stdout);
+    printf ("\n");
+#endif
 
     if (id->isFragmented (si->bnl->cur)) {
       ActId *tmp = id->unFragment (si->bnl->cur);
@@ -2583,9 +2596,14 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
 
 	  InstType *chit = ch->ct->CurScope()->FullLookup (tail, NULL);
 	  Assert (chit, "Channel didn't have pieces?");
+#if 0
+	  printf ("  -> pre-fragment flag: %d\n", ch->fragmented);
+	  printf ("  -> dir: %d\n", chit->getDir());
+#endif
 	  if (chit->getDir() == Type::INOUT) {
 	    if (read_only) {
-	      ch->fragmented |= 1;
+	      //we don't necessarily know
+	      //ch->fragmented |= 1;
 	    }
 	    else {
 	      ch->fragmented |= 2;
@@ -2593,7 +2611,8 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
 	  }
 	  else if (chit->getDir() == Type::OUTIN) {
 	    if (read_only) {
-	      ch->fragmented |= 2;
+	      //we don't necessarily know?
+	      //ch->fragmented |= 2;
 	    }
 	    else {
 	      ch->fragmented |= 1;
@@ -2610,6 +2629,9 @@ void ActSimCore::checkFragmentation (act_connection *idc, ActId *rid, ActSimObj 
 	      ch->fragmented |= 2;
 	    }
 	  }
+#if 0
+	  printf ("  -> fragment flag: %d\n", ch->fragmented);
+#endif
 	}
       }
       delete tmp;
