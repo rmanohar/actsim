@@ -26,7 +26,9 @@ TARGETINCS=actsim_ext.h
 TARGETINCSUBDIR=act
 
 OBJS=actsim.o core.o main.o \
+	constraints.o \
 	chpsim.o chpgraph.o prssim.o state.o channel.o xycesim.o
+
 
 SRCS=$(OBJS:.o=.cc)
 

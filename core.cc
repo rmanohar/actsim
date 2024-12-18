@@ -682,6 +682,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
   ActId *p_tl;
   int type;
   A_DECL (int, idx);
+  A_DECL (act_connection *, cidx);
   
   if (!s) return;
 
@@ -698,6 +699,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 
   Scope *sc = si->bnl->cur;
   A_INIT (idx);
+  A_INIT (cidx);
   
   while (s) {
     if (ACT_SPEC_ISTIMINGFORK (s)) {
@@ -868,7 +870,9 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
       /* check for other directives that impact simulation */
       const char *tmp = act_spec_string (s->type);
       if (strcmp (tmp, "mk_exclhi") == 0 || strcmp (tmp, "mk_excllo") == 0 ||
-	  strcmp (tmp, "rand_init") == 0 || strcmp (tmp, "hazard") == 0) {
+	  strcmp (tmp, "rand_init") == 0 || strcmp (tmp, "hazard") == 0 ||
+	  (ActExclMonitor::enable &&
+	   (strcmp (tmp, "exclhi") == 0 || strcmp (tmp, "excllo") == 0))) {
 
 	/* helper function to add the ID to the list */
 	auto add_id_to_idx = [&] (ActId *id_val, ValueIdx *myvx)
@@ -906,6 +910,9 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	      A_NEW (idx, int);
 	      A_NEXT (idx) = off;
 	      A_INC (idx);
+	      A_NEW (cidx, act_connection *);
+	      A_NEXT (cidx) = cx;
+	      A_INC (cidx);
 	    }
 	  }
 	  else {
@@ -923,6 +930,9 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 		  A_NEW (idx, int);
 		  A_NEXT (idx) = off;
 		  A_INC (idx);
+		  A_NEW (cidx, act_connection *);
+		  A_NEXT (cidx) = cx;
+		  A_INC (cidx);
 		}
 		tl->setArray (NULL);
 		delete a;
@@ -958,6 +968,12 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	else if (strcmp (tmp, "mk_excllo") == 0) {
 	  _add_excl (0, idx, A_LEN (idx));
 	}
+	if (strcmp (tmp, "exclhi") == 0) {
+	  _add_monitor_excl (obj, 1, idx, cidx, A_LEN (idx));
+	}
+	else if (strcmp (tmp, "excllo") == 0) {
+	  _add_monitor_excl (obj, 0, idx, cidx, A_LEN (idx));
+	}
 	else if (strcmp (tmp, "rand_init") == 0) {
 	  _add_rand_init (idx, A_LEN (idx));
 	}
@@ -965,6 +981,7 @@ void ActSimCore::_add_spec (ActSimObj *obj, act_spec *s)
 	  _add_hazard (idx, A_LEN (idx));
 	}
 	A_LEN_RAW (idx) = 0;
+	A_LEN_RAW (cidx) = 0;
       }
     }
     s = s->next;
@@ -2058,6 +2075,32 @@ void ActSimCore::_add_excl (int type, int *ids, int sz)
   }
   for (int i=0; i < sz; i++) {
     state->mkSpecialBool (ids[i]);
+  }
+  return;
+}
+
+/*
+  ids is a list of global state ids 
+*/
+void ActSimCore::_add_monitor_excl (ActSimObj *obj,
+				    int type, int *ids,
+				    act_connection **cids,
+				    int sz)
+{
+  if (!ActExclMonitor::enable) return;
+
+  ActExclMonitor *ec = new ActExclMonitor (obj, ids, sz, type);
+  if (ec->illegal()) {
+    delete ec;
+    ec = NULL;
+  }
+  for (int i=0; i < sz; i++) {
+    state->mkSpecialBool (ids[i]);
+  }
+  if (ec) {
+    for (int i=0; i < sz; i++) {
+      ec->set_conn (i, cids[i]);
+    }
   }
   return;
 }

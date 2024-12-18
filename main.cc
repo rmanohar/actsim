@@ -60,6 +60,7 @@ static void usage (char *name)
   fprintf (stderr, " -n        : turn off name unmangling.\n");
   fprintf (stderr, " -S <sdf>  : use delay from the specified SDF file.\n");
   fprintf (stderr, " -p <proc> : set <proc> as the top-level for simulation.\n");
+  fprintf (stderr, " -m        : monitor exclusive high/low spec constraints.\n");
   exit (1);
 }
 
@@ -1712,8 +1713,12 @@ int main (int argc, char **argv)
   char *procname = NULL;
   double d;
   int do_inline = 0;
-  while ((ch = getopt (argc, argv, "S:p:nit:")) != -1) {
+  int monitors = 0;
+  while ((ch = getopt (argc, argv, "mS:p:nit:")) != -1) {
     switch (ch) {
+    case 'm':
+      monitors = 1;
+      break;
     case 't':
       d = atof (optarg);
       if (d <= 0) {
@@ -1820,10 +1825,18 @@ int main (int argc, char **argv)
     }
   }
   
+  if (monitors) {
+    ActExclMonitor::enable = true;
+  }
+  else {
+    ActExclMonitor::enable = false;
+  }
+
   glob_sim = new ActSim (p, sdf_data);
   glob_dummy = new DummyObject ();
   glob_sim->runInit ();
   ActExclConstraint::_sc = glob_sim;
+
 
   signal (SIGINT, signal_handler);
 
