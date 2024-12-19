@@ -297,6 +297,37 @@ public:
 
 };
 
+
+class ActExclMonitor {
+private:
+  int sz;
+  int *n;			// nodes
+  act_connection **c;		// connection names
+  ActExclMonitor **nxt;
+  ActSimObj *obj;
+
+  static iHashtable *eHashHi, *eHashLo;	// map from bool id to root of
+					// the constraint list
+
+public:
+  ActExclMonitor (ActSimObj *obj, int *nodes, int sz, int dir);  
+
+  int illegal () { return sz > 0 ? 0 : 1; }
+
+  void addObject (int id, OnePrsSim *obj);
+
+  ActExclMonitor *getNext (int nid);
+
+  void set_conn (int pos, act_connection *_c) { c[pos] = _c; }
+
+  static void Init ();
+  static ActExclMonitor *findHi (int n);
+  static ActExclMonitor *findLo (int n);
+  static int safeChange (ActSimState *, int n, int v);
+  static bool enable;
+};
+
+
 #define ACT_TIMING_INACTIVE     0x0
 #define ACT_TIMING_START        0x1
 #define ACT_TIMING_PENDING      0x2
@@ -825,6 +856,8 @@ protected:
   void _add_excl (int type, int *ids, int sz);
   void _add_rand_init (int *ids, int sz);
   void _add_hazard (int *ids, int sz);
+  void _add_monitor_excl (ActSimObj *obj, int type, int *ids,
+			  act_connection **cids, int sz);
 
   void _register_prssim_with_excl (ActInstTable *);
 

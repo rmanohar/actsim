@@ -149,6 +149,10 @@ bool ActSimState::setBool (int x, int v)
       tc->update (x, v);
       tc = tc->getNext (x);
     }
+
+    if (ActExclMonitor::enable) {
+      ActExclMonitor::safeChange (this, x, v);
+    }
   }
 
   // if the value is currently masked by a forced value,
