@@ -1800,7 +1800,7 @@ int process_pending (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_set_insert (int argc, char **argv)
+int process_inject_set (int argc, char **argv)
 {
 
   if (argc != 5) {
@@ -1860,7 +1860,7 @@ int process_set_insert (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_sed_insert (int argc, char **argv)
+int process_inject_sed (int argc, char **argv)
 {
 
   if (argc != 4) {
@@ -1989,8 +1989,8 @@ struct LispCliCommand Cmds[] = {
 
   { NULL, "Setting/Viewing Nodes and Rules", NULL },
 
-  { "insert_set", "<name> 0|1|X <start-delay> <dur> - Delayed single event transient (SET) event on node lasting for <dur> units", process_set_insert },
-  { "insert_sed", "<name> <start-delay> <dur> - Spontaneous delay change, setting delay for next event on node to <dur> units", process_sed_insert }
+  { "inject_set", "<name> 0|1|X <start-delay> <dur> - Inject a single event transient (SET) event in <start-delay> time steps on node lasting for <dur> units", process_inject_set },
+  { "inject_sed", "<name> <start-delay> <dur> - Inject a spontaneous delay change, setting delay for next event after <start-delay> time steps on node to <dur> units", process_inject_sed }
 };
 
 /* -- access top-level Act  -- */
