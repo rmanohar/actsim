@@ -28,6 +28,7 @@
 #include <act/act.h>
 #include <act/passes.h>
 #include <common/config.h>
+#include "act/act_id.h"
 #include "actsim.h"
 #include "chpsim.h"
 #include "prssim.h"
@@ -344,23 +345,31 @@ ActSimObj *find_object (ActId **id, ActInstTable *x)
   char buf[1024];
   hash_bucket_t *b;
   
+  // if the ID pointer is empty, return the simulation object in the instance table
   if (!(*id)) { return x->obj; }
+  // if the instance table doesn't have sub-instances, return the simulation object
   if (!x->H) { return x->obj; }
 
+  // if the ID given is a namespace, return the simulation object
   if ((*id)->isNamespace()) {
     return x->obj;
   }
 
+  // extract the top level identifier from the ID and save it to buf
   ActId *tmp = (*id)->Rest();
   (*id)->prune();
   (*id)->sPrint (buf, 1024);
   (*id)->Append (tmp);
 
+  // find the top level object
   b = hash_lookup (x->H, buf);
+
+  // if the object was not found, return the original simulation object
   if (!b) {
     return x->obj;
   }
   else {
+    // looks like we're not on the bottom yet, traverse down
     (*id) = (*id)->Rest();
     return find_object (id, (ActInstTable *)b->v);
   }
@@ -583,96 +592,128 @@ int process_goto (int argc, char **argv)
   }
 }
 
+static int obj_to_siminfo (ActId *id, ActSimObj *obj, int *ptype, int *poffset) {
+
+  stateinfo_t *si;
+  int offset, type;
+  int res;
+  act_connection *c;
+
+  char s[1024];
+  id->sPrint(s, 1024);
+  
+  // make sure our object actually exists
+  if (!obj) {
+    fprintf (stderr, "Could not find `%s' in simulation\n", s);
+    return 0;
+  }
+
+  // now convert tmp into a local offset
+
+  // get the state information for the containing process
+  si = glob_sp->getStateInfo (obj->getProc ());
+  if (!si) {
+    fprintf (stderr, "Could not find info for process `%s'\n", obj->getProc()->getName());
+    return 0;
+  }
+
+  // make sure the unit we're trying to watch is in the process. also filters out sub-processes
+  if (!si->bnl->cur->FullLookup (id, NULL)) {
+    fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+             s, obj->getProc()->getName());
+    return 0;
+  }
+
+  // check if any array index is invalid (missing or out of bounds)
+  if (!id->validateDeref (si->bnl->cur)) {
+    fprintf (stderr, "Array index is missing/out of bounds in `%s'!\n", s);
+    return 0;
+  }
+
+  // get the canonical root identifier
+  c = id->Canonical (si->bnl->cur);
+  Assert (c, "What?");
+
+  // and infer the type offset in the state tables
+  res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+  
+  if (!res) {
+    // it is possible that it is an array reference
+    Array *ta = NULL;
+
+    // find the last ID component
+    while (id->Rest()) {
+      id = id->Rest();
+    }
+
+    // is there array info available?
+    ta = id->arrayInfo();
+    if (ta) {
+
+      // remove the array specifier
+      id->setArray (NULL);
+
+      // try again without the array specifier
+      if (!si->bnl->cur->FullLookup (id, NULL)) {
+	fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+		 s, obj->getProc()->getName());
+	delete id;
+	return 0;
+      }
+      c = id->Canonical (si->bnl->cur);
+      Assert (c, "Hmm...");
+      res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+
+      // did we find anything now?
+      if (res) {
+        // looks like it!
+        InstType *it = si->bnl->cur->FullLookup (id, NULL);
+        Assert (it->arrayInfo(), "What?");
+        
+        // since we're an array element, get the offset
+        offset += it->arrayInfo()->Offset (ta);
+      }
+
+      // restore the array specifier
+      id->setArray (ta);
+    }
+
+    // check if we have found something now
+    if (!res) {
+      fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
+                s, obj->getProc()->getName());
+      return 0;
+    }
+  }
+
+  // write all the data we gathered to the parameter pointers
+  *ptype = type;
+  *poffset = offset;
+
+  return 1;
+}
 
 static int id_to_siminfo_raw (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
+  // parse the ID string
   ActId *id = my_parse_id (s);
   if (!id) {
     fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
     return 0;
   }
 
-  /* -- find object / id combo -- */
-  ActId *tmp = id;
-  ActSimObj *obj = find_object (&tmp, glob_sim->getInstTable());
-  stateinfo_t *si;
-  int offset, type;
-  int res;
-  act_connection *c;
-  
-  if (!obj) {
-    fprintf (stderr, "Could not find `%s' in simulation\n", s);
-    delete id;
-    return 0;
-  }
+  // find object / id combo
+  ActSimObj *obj = find_object (&id, glob_sim->getInstTable());
 
-  /* -- now convert tmp into a local offset -- */
-
-  si = glob_sp->getStateInfo (obj->getProc ());
-  if (!si) {
-    fprintf (stderr, "Could not find info for process `%s'\n", obj->getProc()->getName());
-    delete id;
-    return 0;
-  }
-
-  if (!si->bnl->cur->FullLookup (tmp, NULL)) {
-    fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-	     s, obj->getProc()->getName());
-    delete id;
-    return 0;
-  }
-
-  if (!tmp->validateDeref (si->bnl->cur)) {
-    fprintf (stderr, "Array index is missing/out of bounds in `%s'!\n", s);
-    return 0;
-  }
-
-  c = tmp->Canonical (si->bnl->cur);
-  Assert (c, "What?");
-
-  res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
-  if (!res) {
-    /* it is possible that it is an array reference */
-    Array *ta = NULL;
-    while (tmp->Rest()) {
-      tmp = tmp->Rest();
-    }
-    ta = tmp->arrayInfo();
-    if (ta) {
-      tmp->setArray (NULL);
-      if (!si->bnl->cur->FullLookup (tmp, NULL)) {
-	fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-		 s, obj->getProc()->getName());
-	delete id;
-	return 0;
-      }
-      c = tmp->Canonical (si->bnl->cur);
-      Assert (c, "Hmm...");
-      res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
-      if (res) {
-	InstType *it = si->bnl->cur->FullLookup (tmp, NULL);
-	Assert (it->arrayInfo(), "What?");
-	offset += it->arrayInfo()->Offset (ta);
-      }
-      tmp->setArray (ta);
-    }
-    if (!res) {
-      fprintf (stderr, "Could not find identifier `%s' within process `%s'\n",
-	       s, obj->getProc()->getName());
-      delete id;
-      return 0;
-    }
-  }
-
-  *ptype = type;
-  *poffset = offset;
-  if (pobj) {
+  // convert the object to state array offset information
+  if (obj_to_siminfo(id, obj, ptype, poffset) && pobj) {
     *pobj = obj;
   }
+
   delete id;
   return 1;
-}
 
+}
 
 static int id_to_siminfo (char *s, int *ptype, int *poffset, ActSimObj **pobj)
 {
@@ -720,6 +761,143 @@ static int id_to_siminfo_glob_raw (char *s,
   *poffset = myobj->getGlobalOffset (*poffset, (*ptype == 3 ? 2 : *ptype));
   return 1;
 }
+
+static int watch_all_sub (ActId* id) {
+  ActSimObj *obj;
+  ActId *tail;
+  bool root = false;
+
+  // check if we're watching the root process
+  if (!id) {
+    obj = glob_sim->getInstTable()->obj;
+    root = true;
+  } else {
+    // find object
+    ActId *tmp = id;
+    obj = find_object(&tmp, glob_sim->getInstTable());
+
+    // find the last object in the ActId chain
+    tail = id->Tail();
+  }
+
+  const int name_buf_size = 1024;
+  char name_buf[name_buf_size];
+
+  // add watch points to all ports
+  for (auto port_id : obj->getProc()->CurScope()->getPorts()) {
+    ActId *name = new ActId(port_id->getName());
+
+    // if we have an id expand it, otherwise init
+    if (root) {
+      id = name;
+    } else {
+      tail->Append(name);
+    }
+
+    // find the port
+    ActId *tmp = id;
+    ActSimObj *port = find_object(&tmp, glob_sim->getInstTable());
+
+    int type, offset;
+
+    // See if the object exists or was optimized away
+    if (!obj_to_siminfo(tmp, port, &type, & offset)) {
+      printf("Port does not exist in simulation and was probably optimized away.\n");
+
+      if (!root) {
+        // clean up the id
+        tail->prune();
+      }
+
+      delete name;
+      continue;
+    }
+
+    if (type == 3) type = 2;
+    id->sPrint(name_buf, name_buf_size);
+
+    // watch the port
+    port->addWatchPoint(type, offset, name_buf);
+
+    if (!root) {
+      // clean up the id
+      tail->prune();
+    }
+
+    delete name;
+  }
+
+  // add watch points to all primitive types
+  for (auto prim_id : obj->getProc()->CurScope()->getPrimitiveInst()) {
+    ActId *name = new ActId(prim_id->getName());
+
+    // if we have an id expand it, otherwise init
+    if (root) {
+      id = name;
+    } else {
+      tail->Append(name);
+    }
+
+    // find the primitive
+    ActId *tmp = id;
+    ActSimObj *prim = find_object(&tmp, glob_sim->getInstTable());
+
+    int type, offset;
+    
+    // See if the object exists or was optimized away
+    if (!obj_to_siminfo(tmp, prim, &type, & offset)) {
+      printf("Primitive does not exist in simulation and was probably optimized away.\n");
+
+      if (!root) {
+        // clean up the id
+        tail->prune();
+      }
+
+      delete name;
+      continue;
+    }
+
+    if (type == 3) type = 2;
+    id->sPrint(name_buf, name_buf_size);
+
+    // watch the primitive
+    prim->addWatchPoint(type, offset, name_buf);
+
+    if (!root) {
+      // clean up the id
+      tail->prune();
+    }
+
+    delete name;
+  }
+
+  // call this function on all user defs
+  for (auto userdef_id : obj->getProc()->CurScope()->getUserDefInst()) {
+    // add the name to the id
+    ActId *name = new ActId(userdef_id->getName());
+
+    // if we have an id expand it, otherwise init
+    if (root) {
+      id = name;
+    } else {
+      tail->Append(name);
+    }
+    id->sPrint(name_buf, name_buf_size);
+
+    // traverse down
+    watch_all_sub(id);
+
+    if (!root) {
+      // clean up the id
+      tail->prune();
+    }
+
+    delete name;
+  }
+
+  return 1;
+}
+
 
 
 int process_set (int argc, char **argv)
@@ -1065,6 +1243,37 @@ int process_watch (int argc, char **argv)
       return LISP_RET_ERROR;
     } 
     obj->addWatchPoint (type, offset, argv[i]);
+  }
+
+  return LISP_RET_TRUE;
+}
+
+int process_watch_proc (int argc, char **argv)
+{
+  if (argc < 2) {
+    if (!watch_all_sub(NULL)) {
+      fprintf(stderr, "Could not watch all elements of root process.\n");
+      return LISP_RET_ERROR;
+    }
+  } else {
+    ActId *id;
+    char *s = argv[1];
+    
+    // parse the ID string
+    id = my_parse_id (s);
+    if (!id) {
+      fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
+      delete id;
+      return LISP_RET_ERROR;
+    }
+
+    if (!watch_all_sub(id)) {
+      fprintf(stderr, "Could not watch all elements of process '%s'.\n", s);
+      delete id;
+      return LISP_RET_ERROR;
+    }
+
+    delete id;
   }
 
   return LISP_RET_TRUE;
@@ -1732,6 +1941,7 @@ struct LispCliCommand Cmds[] = {
   { "chcount", "<name> [#f] - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "watch_proc", "<p1> <p2> ... - add watchpoint for <p1> and all associated signals, all without arguments to watch top process", process_watch_proc },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
