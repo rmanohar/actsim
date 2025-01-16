@@ -404,6 +404,8 @@ XyceActInterface::XyceActInterface()
 
   _case_for_sim = config_get_int ("sim.device.case_for_sim");
 
+  _measure_statements = config_get_string ("sim.device.measure_statements");
+
   _dump_all = config_get_int ("sim.device.dump_all");
 
   _output_fmt = config_get_string ("sim.device.output_format");
@@ -876,6 +878,8 @@ void XyceActInterface::initXyce ()
     }
   }
   fprintf (sfp, "\n");
+
+  if (_measure_statements) fprintf(sfp, _measure_statements);
 
   fprintf (sfp, ".end\n");
   fclose (sfp);

@@ -110,6 +110,8 @@ private:
 
   const char *_output_fmt;	// output format
 
+  const char *_measure_statements; // string of printf formated measure statements to be added to spice
+
   struct iHashtable *_to_xyce;	// global bool ID to Xyce DAC (xycefanout)
   struct Hashtable *_from_xyce; // Xyce ADC output to global bool ID
 
