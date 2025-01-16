@@ -799,7 +799,7 @@ void XyceActInterface::initXyce ()
 
 
   A_FREE (xyce_glob);
-  fprintf (sfp, ".tran 0 1\n");
+  fprintf (sfp, ".tran 0 1 NOOP\n");
 
   // parse output format string: colon-separated list of formats
   // it can include ONE Xyce-internal format and any number of
