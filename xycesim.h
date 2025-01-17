@@ -110,7 +110,7 @@ private:
 
   const char *_output_fmt;	// output format
 
-  const char **_measure_statements; // array of strings of measure statements to be added to spice
+  char **_measure_statements; // array of strings of measure statements to be added to spice
   int _measure_statements_number; // number of measure statements to be added to spice
 
   struct iHashtable *_to_xyce;	// global bool ID to Xyce DAC (xycefanout)
