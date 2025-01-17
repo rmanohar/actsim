@@ -383,6 +383,7 @@ XyceActInterface::XyceActInterface()
   config_set_default_string ("sim.device.output_format", "raw");
   config_set_default_string ("sim.device.outfile", "xyce_out");
   config_set_default_real ("sim.device.stop_time", 1e-6);
+  config_set_default_string ("sim.device.measure_statements", "");
 
   _Vdd = config_get_real ("lint.Vdd");
 
