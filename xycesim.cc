@@ -383,7 +383,6 @@ XyceActInterface::XyceActInterface()
   config_set_default_string ("sim.device.output_format", "raw");
   config_set_default_string ("sim.device.outfile", "xyce_out");
   config_set_default_real ("sim.device.stop_time", 1e-6);
-  config_set_default_string ("sim.device.measure_statements", "");
 
   _Vdd = config_get_real ("lint.Vdd");
 
@@ -405,7 +404,14 @@ XyceActInterface::XyceActInterface()
 
   _case_for_sim = config_get_int ("sim.device.case_for_sim");
 
-  _measure_statements = config_get_string ("sim.device.measure_statements");
+  if (config_exists ("sim.device.measure_statements")) { 
+    _measure_statements = config_get_table_string ("sim.device.measure_statements");
+    _measure_statements_number = config_get_table_size ("sim.device.measure_statements");
+  }
+  else {
+    _measure_statements = NULL;
+    _measure_statements_number = 0;
+  }
 
   _dump_all = config_get_int ("sim.device.dump_all");
 
@@ -879,8 +885,11 @@ void XyceActInterface::initXyce ()
     }
   }
   fprintf (sfp, "\n");
-
-  if (_measure_statements) fprintf(sfp, "%s\n", _measure_statements);
+  int itrid;
+  for (itrid=0; itrid < _measure_statements_number; itrid++){
+    fprintf(sfp, "%s\n", _measure_statements[itrid]);
+  }
+   
 
   fprintf (sfp, ".end\n");
   fclose (sfp);
