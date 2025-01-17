@@ -879,7 +879,7 @@ void XyceActInterface::initXyce ()
   }
   fprintf (sfp, "\n");
 
-  if (_measure_statements) fprintf(sfp, _measure_statements);
+  if (_measure_statements) fprintf(sfp, "%s\n", _measure_statements);
 
   fprintf (sfp, ".end\n");
   fclose (sfp);
