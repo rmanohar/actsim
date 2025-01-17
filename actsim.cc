@@ -262,7 +262,8 @@ void ActSim::runInit ()
 
 	list_append (_init_simobjs, sim_init);
 	list_append (_init_simobjs, ci->g);
-	
+
+	ci->g = NULL;
 	delete ci;
 	  
 	lia[i] = list_next (lia[i]);
@@ -295,7 +296,8 @@ void ActSim::runInit ()
 
       list_append (_init_simobjs, sim_init);
       list_append (_init_simobjs, ci->g);
-      
+
+      ci->g = NULL;
       delete ci;
 	  
       lia[i] = list_next (lia[i]);

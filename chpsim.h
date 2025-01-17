@@ -119,7 +119,7 @@ struct chpsimgraph_info {
   chpsimgraph_info() {
     g = NULL; labels = NULL; e = NULL; max_count = 0; max_stats = 0;
   }
-  ~chpsimgraph_info() { }
+  ~chpsimgraph_info();
   ChpSimGraph *g;
   Expr *e;			/* for probes, if needed */
   int max_count;

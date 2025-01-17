@@ -300,12 +300,10 @@ ActSimCore::~ActSimCore()
       for (ihash_bucket_t *b = map->head[i]; b; b = b->next) {
 	process_info *pgi = (process_info *)b->v;
 	if (pgi->chp) {
-	  delete pgi->chp->g;
-	  FREE (pgi->chp);
+	  delete pgi->chp;
 	}
 	if (pgi->hse) {
-	  delete pgi->hse->g;
-	  FREE (pgi->hse);
+	  delete pgi->hse;
 	}
 	if (pgi->prs) {
 	  delete pgi->prs;

@@ -2156,3 +2156,7 @@ ChpSimGraph::~ChpSimGraph ()
   next = NULL;
 }
 
+chpsimgraph_info::~chpsimgraph_info()
+{
+  if (g) { delete g; }
+}
