@@ -1,0 +1,4 @@
+[                  10] <snk>  C: recv-blocked
+[                  30] <>  C : send value: 18 (0x12)
+[                  30] <snk>  C: recv-wakeup value: 18 (0x12)   [by ]
+[                  40] <snk>  C: recv-blocked

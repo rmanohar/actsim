@@ -1,0 +1,20 @@
+deftype struct (int a, b) { }
+
+function foo (int x) : struct
+{ 
+  chp {
+    self.a := x;
+    self.b := ~x
+  }
+}
+
+defproc test()
+{
+  int y, z;
+
+  chp {
+    y := foo (3).a;
+    z := foo (3).b;
+    log ("%bgot ", y, "%b and ", z)
+  }
+}

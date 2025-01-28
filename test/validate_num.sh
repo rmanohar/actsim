@@ -25,7 +25,12 @@ fi
 
 for i in $list
 do
+	if [ -f $i.scr ]
+	then
+	$ACTTOOL -cnf=sim.conf $i test > runs/$i.stdout 2> runs/$i.stderr < $i.scr
+	else
 	$ACTTOOL -cnf=sim.conf $i test > runs/$i.stdout 2> runs/$i.stderr <<EOF
 cycle
 EOF
+	fi
 done

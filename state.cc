@@ -367,3 +367,21 @@ expr_multires expr_multires::getStruct (ActId *x)
 
   return m;
 }
+
+BigInt expr_multires::allbits () const
+{
+  BigInt res;
+  if (nvals == 0) {
+    return res;
+  }
+  res = v[0];
+  for (int i=1; i < nvals; i++) {
+    BigInt sval;
+    sval.setWidth (32);
+    sval.setVal (0, v[i].getWidth());
+    res.toDynamic();
+    res <<= sval;
+    res |= v[i];
+  }
+  return res;
+}

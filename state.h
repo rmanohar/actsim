@@ -124,6 +124,8 @@ class expr_multires {
   BigInt *v;
   int nvals;
 
+  BigInt allbits () const;
+
 private:
   void _delete_objects () {
     if (nvals > 0) {

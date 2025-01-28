@@ -276,7 +276,11 @@ class ChpSim : public ActSimObj {
 	       int *skipwrite);
 
   int chkWatchBreakPt (int type, int loff, int goff, const BigInt &v, void *cause, int flag = 0);
-  
+  int chkWatchBreakPt (int type, int loff, int goff, const expr_multires &v, void *cause, int flag = 0);
+
+
+  int _chkWatchBreakPt (int verb, const ActSim::watchpt_bucket *nm,
+			const char *nm2, int type, int loff, int goff, const BigInt &v, void *cause, int flag = 0);
 
   int _updatepc (int pc);
   int _add_waitcond (chpsimcond *gc, int pc, int undo = 0);

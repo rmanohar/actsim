@@ -1506,7 +1506,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
 
 	    if (bnl->ports[i].used) {
 	      //_prop_used_flags (mysi->bnl, c);
-	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->ports[i].input);
+	      checkFragmentation (c, NULL, myI->obj, mysi, bnl->ports[i].bidir ? 0 : bnl->ports[i].input);
 	    }
 	    iportbool++;
 	  }
