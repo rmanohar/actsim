@@ -1499,7 +1499,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	ret->stmt->u.sendrecv.width = TypeFactory::bitWidth (ch);
       }
       else {
-	ret->stmt->u.sendrecv.width = -1;
+	ret->stmt->u.sendrecv.width = TypeFactory::totBitWidth (ch);
       }
       ret->stmt->u.sendrecv.e = NULL;
       ret->stmt->u.sendrecv.d = NULL;
@@ -1592,7 +1592,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret->stmt->type = CHPSIM_RECV;
       if (ch_struct) {
 	ret->stmt->u.sendrecv.is_struct = 1;
-	ret->stmt->u.sendrecv.width = -1;
+	ret->stmt->u.sendrecv.width = TypeFactory::totBitWidth (ch);
       }
       else {
 	ret->stmt->u.sendrecv.is_struct = 0;
