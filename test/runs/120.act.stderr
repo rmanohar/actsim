@@ -1,0 +1,6 @@
+WARNING: test<>: substituting chp model (requested prs, not found)
+Operation only works for a circuit object, not parameter `N'
+Execution aborted.
+Stack trace:
+	called from: get
+	called from: -top-level-
