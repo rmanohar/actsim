@@ -603,7 +603,8 @@ static int id_obj_to_siminfo (ActSimObj *obj,
     return 0;
   }
 
-  if (!si->bnl->cur->FullLookup (id, NULL)) {
+  InstType *it;
+  if (!(it = si->bnl->cur->FullLookup (id, NULL))) {
     fprintf (stderr, "Could not find identifier `");
     id->Print (stderr);
     fprintf (stderr, "' within process `%s'\n", obj->getProc()->getName());
@@ -614,6 +615,13 @@ static int id_obj_to_siminfo (ActSimObj *obj,
     fprintf (stderr, "Array index is missing/out of bounds in `");
     id->Print (stderr);
     fprintf (stderr, "'!\n");
+    return 0;
+  }
+
+  if (TypeFactory::isParamType (it)) {
+    fprintf (stderr, "Operation only works for a circuit object, not parameter `");
+    id->Print (stderr);
+    fprintf (stderr, "'\n");
     return 0;
   }
 
