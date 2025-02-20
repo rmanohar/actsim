@@ -1,0 +1,22 @@
+namespace pfloat {
+    function f(int<4> x) : int<3> {
+        chp {
+            self := int(x{0}, 3)
+        }
+    }
+
+    export
+    defproc test() {
+        int<15> x;
+        chp {
+            x := 123;
+            log(f(x));
+            log(int(7, 3) - f(x))
+        }
+    }
+}
+
+defproc test()
+{
+  pfloat::test t;
+}
