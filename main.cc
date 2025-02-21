@@ -957,6 +957,115 @@ int process_skipcomm (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
+/*
+ assert is like get but compares the value to a target instead of returning it
+ ported from prsim
+*/
+int process_assert (int argc, char **argv)
+{
+   if (argc != 3 ) {
+    fprintf (stderr, "Usage: %s <name> <value>\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+
+  int type, offset;
+  bool assert_false = false;
+
+  if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
+    return LISP_RET_ERROR;
+  }
+
+  bool is_list = false;
+  unsigned long val;
+  unsigned long exspected_val = std::stoul(argv[2]);
+  if (type == 0) {
+    val = glob_sim->getBool (offset);
+    // @TODO How to handle X?
+    if (val == exspected_val) assert_false = false;
+    else {
+      printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, exspected_val);
+      assert_false = true;
+    }
+  }
+  else if (type == 1) {
+    BigInt *ival = glob_sim->getInt (offset);
+    if (!ival) {
+      printf ("%s: couldn't get integer `%s'?\n", argv[0], argv[1]);
+      return LISP_RET_ERROR;
+    }
+    if (ival->getLen() > 1) {
+      //     is_list = true;
+      //     LispSetReturnListStart ();
+      //     for (int i=0; i < ival->getLen(); i++) {
+	    // LispAppendReturnInt (ival->getVal (i));
+      //     }
+      //     LispSetReturnListEnd ();
+      //     if (argc == 2) {
+	    // printf ("%s: ", argv[1]);
+	    // ival->decPrint (stdout);
+	    // printf ("  (0x");
+	    // ival->hexPrint (stdout);
+	    // printf (")\n");
+      //     }
+      printf("Error: long bigint asserts are not supported yet.");
+      return LISP_RET_ERROR;
+    }
+    else {
+      val = ival->getVal (0);
+      if (val == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, exspected_val);
+        assert_false = true;
+      }
+    }
+  }
+  else {
+    act_channel_state *c = glob_sim->getChan (offset);
+    if (WAITING_SENDER (c)) {
+      if (1 == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %c (waiting sender) and not %c.\n", argv[1], 1, argv[2]);
+        assert_false = true;
+      }
+    }
+    else if (WAITING_SEND_PROBE (c)) {
+      if (2 == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender probe) and not %d.\n", argv[1], 2, exspected_val);
+        assert_false = true;
+        }
+    }
+    else if (WAITING_RECEIVER(c)) {
+      if (3 == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver) and not %d.\n", argv[1], 3, exspected_val);
+        assert_false = true;
+      }
+    }
+    else if (WAITING_RECV_PROBE(c)) {
+      if (4 == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver probe) and not %d.\n", argv[1], 4, exspected_val);
+        assert_false = true;
+      }
+    }
+    else {
+      if (0 == exspected_val) assert_false = false;
+      else {
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (idle) and not %d.\n", argv[1], 0, exspected_val);
+        assert_false = true;
+      }
+    }
+  }
+
+  //treat asserts as warnings and exit when flag is activated => unit tests
+  if (assert_false) {
+    if (glob_sim->onWarning() == 2) exit(2);
+    else return LISP_RET_FALSE;
+  }
+  else return LISP_RET_TRUE;
+}
+
 int process_get (int argc, char **argv)
 {
   if (argc != 2 && argc != 3) {
@@ -1665,6 +1774,7 @@ struct LispCliCommand Cmds[] = {
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
+  { "assert", "<name> <value> - compares the value of a variable or the channel status to a wanted value - exists sim if exit-on-warn is set", process_assert },
 
   { "break-on-warn", "- stop simulation on warning", process_break_on_warn },
   { "exit-on-warn", "- like break-on-warn, but exit", process_exit_on_warn },
