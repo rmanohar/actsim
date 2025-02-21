@@ -977,13 +977,14 @@ int process_assert (int argc, char **argv)
 
   bool is_list = false;
   unsigned long val;
-  unsigned long exspected_val = std::stoul(argv[2]);
+  BigInt expected_val = BigInt::sscan(argv[2]);
+  unsigned long expected_int = expected_val.getVal(0);
   if (type == 0) {
     val = glob_sim->getBool (offset);
     // @TODO How to handle X?
-    if (val == exspected_val) assert_false = false;
+    if (val == expected_int) assert_false = false;
     else {
-      printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, exspected_val);
+      printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, expected_int);
       assert_false = true;
     }
   }
@@ -993,66 +994,50 @@ int process_assert (int argc, char **argv)
       printf ("%s: couldn't get integer `%s'?\n", argv[0], argv[1]);
       return LISP_RET_ERROR;
     }
-    if (ival->getLen() > 1) {
-      //     is_list = true;
-      //     LispSetReturnListStart ();
-      //     for (int i=0; i < ival->getLen(); i++) {
-	    // LispAppendReturnInt (ival->getVal (i));
-      //     }
-      //     LispSetReturnListEnd ();
-      //     if (argc == 2) {
-	    // printf ("%s: ", argv[1]);
-	    // ival->decPrint (stdout);
-	    // printf ("  (0x");
-	    // ival->hexPrint (stdout);
-	    // printf (")\n");
-      //     }
-      printf("Error: long bigint asserts are not supported yet.");
-      return LISP_RET_ERROR;
-    }
+    if (*ival == expected_val) assert_false = false;
     else {
-      val = ival->getVal (0);
-      if (val == exspected_val) assert_false = false;
-      else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, exspected_val);
-        assert_false = true;
-      }
+      printf("Warning: WRONG ASSERT:\t\"%s\" has value ", argv[1]);
+      ival->decPrint (stdout);
+      printf("and not");
+      expected_val.decPrint (stdout);
+      printf("\n");
+      assert_false = true;
     }
   }
   else {
     act_channel_state *c = glob_sim->getChan (offset);
     if (WAITING_SENDER (c)) {
-      if (1 == exspected_val) assert_false = false;
+      if (1 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %c (waiting sender) and not %c.\n", argv[1], 1, argv[2]);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender) and not %d.\n", argv[1], 1, expected_int);
         assert_false = true;
       }
     }
     else if (WAITING_SEND_PROBE (c)) {
-      if (2 == exspected_val) assert_false = false;
+      if (2 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender probe) and not %d.\n", argv[1], 2, exspected_val);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender probe) and not %d.\n", argv[1], 2, expected_int);
         assert_false = true;
         }
     }
     else if (WAITING_RECEIVER(c)) {
-      if (3 == exspected_val) assert_false = false;
+      if (3 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver) and not %d.\n", argv[1], 3, exspected_val);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver) and not %d.\n", argv[1], 3, expected_int);
         assert_false = true;
       }
     }
     else if (WAITING_RECV_PROBE(c)) {
-      if (4 == exspected_val) assert_false = false;
+      if (4 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver probe) and not %d.\n", argv[1], 4, exspected_val);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver probe) and not %d.\n", argv[1], 4, expected_int);
         assert_false = true;
       }
     }
     else {
-      if (0 == exspected_val) assert_false = false;
+      if (0 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (idle) and not %d.\n", argv[1], 0, exspected_val);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (idle) and not %d.\n", argv[1], 0, expected_int);
         assert_false = true;
       }
     }
