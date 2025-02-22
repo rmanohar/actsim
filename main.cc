@@ -1009,35 +1009,35 @@ int process_assert (int argc, char **argv)
     if (WAITING_SENDER (c)) {
       if (1 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender) and not %d.\n", argv[1], 1, expected_int);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender) and not %d.\n", argv[1], 1, (int)expected_int);
         assert_false = true;
       }
     }
     else if (WAITING_SEND_PROBE (c)) {
       if (2 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender probe) and not %d.\n", argv[1], 2, expected_int);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting sender probe) and not %d.\n", argv[1], 2, (int)expected_int);
         assert_false = true;
         }
     }
     else if (WAITING_RECEIVER(c)) {
       if (3 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver) and not %d.\n", argv[1], 3, expected_int);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver) and not %d.\n", argv[1], 3, (int)expected_int);
         assert_false = true;
       }
     }
     else if (WAITING_RECV_PROBE(c)) {
       if (4 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver probe) and not %d.\n", argv[1], 4, expected_int);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (waiting receiver probe) and not %d.\n", argv[1], 4, (int)expected_int);
         assert_false = true;
       }
     }
     else {
       if (0 == expected_int) assert_false = false;
       else {
-        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (idle) and not %d.\n", argv[1], 0, expected_int);
+        printf("Warning: WRONG ASSERT:\t\"%s\" has state %d (idle) and not %d.\n", argv[1], 0, (int)expected_int);
         assert_false = true;
       }
     }
