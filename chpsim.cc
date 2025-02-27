@@ -1386,6 +1386,8 @@ int ChpSim::Step (Event *ev)
           }
 
           warning ("%s", stream.str().c_str());
+          if (glob_sim->onWarning() == 1) { _breakpt = 1; }
+          else if (glob_sim->onWarning() == 2) { exit(2); };
         }
       }
       else if (strcmp (stmt->u.fn.name, "assert") == 0) {
@@ -1426,7 +1428,8 @@ int ChpSim::Step (Event *ev)
         if (!condition) {
           actsim_log ("\n");
           actsim_log_flush ();
-          _breakpt = 1;
+          if (glob_sim->onWarning() == 0 || glob_sim->onWarning() == 1) { _breakpt = 1; }
+          else if (glob_sim->onWarning() == 2) { exit(2); };
         }
       }
       else if (strcmp (stmt->u.fn.name, "log_nl") == 0) {
