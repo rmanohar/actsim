@@ -208,13 +208,16 @@ void ActSim::runInit ()
   if (!g->getlang() || !g->getlang()->getinit()) {
     if (fragmented_set) {
       int count = 0;
-      while (SimDES::matchPendingEvent (_match_hseprs) && count < 100) {
+      int max_count = 0;
+      config_set_default_int ("sim.reset_rounds", 100);
+      max_count = config_get_int ("sim.reset_rounds");
+      while (SimDES::matchPendingEvent (_match_hseprs) && count < max_count) {
 	count++;
 	if (SimDES::AdvanceTime (10) != NULL) {
 	  warning ("breakpoint?");
 	}
       }
-      if (count == 100) {
+      if (count == max_count) {
 	warning ("Pending production rule events during reset phase?");
       }
     }
