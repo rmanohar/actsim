@@ -373,11 +373,12 @@ static bool _match_count (Event *e)
   return false;
 }
 
-static bool _match_verbose (Event *e)
+static bool _match_verbose (Event *e, unsigned long tm)
 {
   ActSimObj *obj = dynamic_cast<ActSimObj *> (e->getObj());
   OnePrsSim *pobj = NULL;
   MultiPrsSim *mpobj = NULL;
+  unsigned long now = SimDES::CurTimeLo();
   if (!obj) {
     pobj = dynamic_cast<OnePrsSim *> (e->getObj());
     if (!pobj) {
@@ -386,6 +387,7 @@ static bool _match_verbose (Event *e)
   }
   Assert (obj || pobj || mpobj, "non-sim-obj in queue?");
 
+  printf ("%10lu ", (tm - now));
   if (obj && dynamic_cast<ChpSim *> (obj)) {
     printf ("[chp] ");
   }
@@ -454,7 +456,9 @@ void runPending (bool verbose)
   _pend_count = 0;
   _pend_prs = 0;
   SimDES::matchPendingEvent (_match_count);
-  printf ("Pending events: %d", _pend_count);
+  printf ("Current time: ");
+  SimDES::CurTime().decPrint (stdout);
+  printf ("\nPending events: %d", _pend_count);
   if (_pend_prs > 0) {
     printf ("; prs events: %d", _pend_prs);
   }
