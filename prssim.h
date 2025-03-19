@@ -421,6 +421,8 @@ public:
 
   void sPrintCause (char *buf, int sz);
   int causeGlobalIdx ();
+  PrsSim *getPrsSim() { return _proc; }
+  int getPending();
 
   friend class MultiPrsSim;
 };
@@ -447,6 +449,14 @@ public:
   void addOnePrsSim (OnePrsSim *x) {
     Assert (_count < _nobjs, "What?");
     _objs[_count++] = x;
+  }
+
+  int getNumDrivers() {
+    return _count;
+  }
+
+  OnePrsSim *getOneDriver (int drv) {
+    return _objs[drv];
   }
 
   /*-- virtual methods --*/

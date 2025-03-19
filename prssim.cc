@@ -893,6 +893,14 @@ static const int _or_table[3][3] = { { 0, 1, 2 },
 #define PENDING_1    (1+1)
 #define PENDING_X    (1+2)
 
+int OnePrsSim::getPending()
+{
+  if (flags == PENDING_NONE) {
+    return -1;
+  }
+  return flags - 1;
+}
+
 int OnePrsSim::eval (prssim_expr *x, int cause, int *lid)
 {
   int a, b;

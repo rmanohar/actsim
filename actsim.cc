@@ -375,14 +375,77 @@ static bool _match_count (Event *e)
 
 static bool _match_verbose (Event *e)
 {
-  OnePrsSim *op = dynamic_cast<OnePrsSim *> (e->getObj());
-  if (op) {
-    return false;
+  ActSimObj *obj = dynamic_cast<ActSimObj *> (e->getObj());
+  OnePrsSim *pobj = NULL;
+  MultiPrsSim *mpobj = NULL;
+  if (!obj) {
+    pobj = dynamic_cast<OnePrsSim *> (e->getObj());
+    if (!pobj) {
+      mpobj = dynamic_cast<MultiPrsSim *> (e->getObj());
+    }
   }
-  ChpSim *ch = dynamic_cast<ChpSim *> (e->getObj());
-  if (ch) {
-    return false;
+  Assert (obj || pobj || mpobj, "non-sim-obj in queue?");
+
+  if (obj && dynamic_cast<ChpSim *> (obj)) {
+    printf ("[chp] ");
   }
+  else if (pobj || mpobj) {
+    printf ("[prs] ");
+  }
+  else if (dynamic_cast<XyceSim *> (obj)) {
+    printf ("-xyce- ");
+  }
+  else {
+    printf ("????? ");
+  }
+  if (obj && obj->getProc() || (pobj && pobj->getPrsSim()->getProc())) {
+    char *tmp = (obj && obj->getProc()) ? obj->getProc()->getFullName() :
+      pobj->getPrsSim()->getProc()->getFullName();
+    printf ("%s / ", tmp);
+    FREE (tmp);
+  }
+  else if (mpobj) {
+    printf ("multi-drv(%d) ", mpobj->getNumDrivers());
+    if (mpobj->getOneDriver(0)->getPrsSim()->getProc()) {
+      char *tmp = mpobj->getOneDriver(0)->getPrsSim()->getProc()->getFullName();
+      printf ("%s ", tmp);
+      FREE (tmp);
+    }
+    printf ("/ ");
+  }
+
+  /* names */
+  if (obj && obj->getName()) {
+    obj->getName()->Print (stdout);
+  }
+  else if (pobj || mpobj) {
+    if (mpobj) {
+      pobj = mpobj->getOneDriver (0);
+    }
+    Assert (pobj,  "What?");
+    if (pobj->getPrsSim()->getName()) {
+      pobj->getPrsSim()->getName()->Print (stdout);
+      printf (".");
+      pobj->printName();
+      int f = pobj->getPending();
+      if (f == -1) {
+	printf (" := ???");
+      }
+      else if (f == 0) {
+	printf (" := 0");
+      }
+      else if (f == 1) {
+	printf (" := 1");
+      }
+      else if (f == 2) {
+	printf (" := X");
+      }
+      else {
+	printf (" ?? %d", f);
+      }
+    }
+  }
+  printf ("\n");
   return false;
 }
 
@@ -396,11 +459,9 @@ void runPending (bool verbose)
     printf ("; prs events: %d", _pend_prs);
   }
   printf ("\n");
-#if 0  
   if (verbose) {
     SimDES::matchPendingEvent (_match_verbose);
   }
-#endif  
 }
 
 
