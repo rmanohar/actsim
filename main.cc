@@ -980,11 +980,18 @@ int process_assert (int argc, char **argv)
   BigInt expected_val = BigInt::sscan(argv[2]);
   unsigned long expected_int = expected_val.getVal(0);
   if (type == 0) {
+    if (expected_val.getVal(0) > 2 || expected_val.getLen() > 1) {
+      printf ("ERROR: A Boolean value should only be asserted to be 0 (F), 1 (T), or 2 (X)\n");
+      return LISP_RET_ERROR;
+    }
     val = glob_sim->getBool (offset);
     // @TODO How to handle X?
     if (val == expected_int) assert_false = false;
     else {
-      printf("Warning: WRONG ASSERT:\t\"%s\" has value %lu and not %lu.\n", argv[1], val, expected_int);
+      printf("Warning: WRONG ASSERT:\t\"%s\" has value %c and not %c.\n",
+	     argv[1],
+	     (val == 0 ? '0' : (val == 1 ? '1' : 'X')),
+	     (expected_int == 0  ? '0' : (expected_int == 1 ? '1' : 'X')));
       assert_false = true;
     }
   }
