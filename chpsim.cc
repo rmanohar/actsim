@@ -739,11 +739,15 @@ int ChpSim::_add_waitcond (chpsimcond *gc, int pc, int undo)
   return ret;
 }
 
+/*
+ * Warning: This cannot be called for an arrayed identifier
+ */
 int ChpSim::computeOffset (const struct chpsimderef *d)
 {
   if (!d->range) {
     return d->offset;
   }
+  Assert (d->chp_idx, "What?");
   for (int i=0; i < d->range->nDims(); i++) {
     BigInt res = exprEval (d->chp_idx[i]);
     d->idx[i] = res.getVal(0);
@@ -764,6 +768,7 @@ int ChpSim::computeOffset (const struct chpsimderef *d)
     fprintf (stderr, "\n");
     fatal_error ("Array out of bounds!");
   }
+
   return d->offset + x*d->stride;
 }
 
@@ -2324,19 +2329,56 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
       fatal_error ("Variable `%s' not found?!", c->u.assign.id->getName());
     }
     xit = f->CurScope()->Lookup (c->u.assign.id->getName());
-    if (TypeFactory::isStructure (xit)) {
+    if (TypeFactory::isStructure (xit) || xit->arrayInfo()) {
       /* this is either a structure or a part of structure assignment */
       xm = (expr_multires *)b->v;
+
+      int off = -1;
+
+      if (xit->arrayInfo()) {
+	int *idx;
+	Array *a = c->u.assign.id->Tail()->arrayInfo();
+	Assert (a && a->isDeref(), "No array de-reference for ID?");
+	MALLOC (idx, int, xit->arrayInfo()->nDims());
+	for (int i=0; i < xit->arrayInfo()->nDims(); i++) {
+	  BigInt tmp = exprEval (a->getDeref (i));
+	  idx[i] = tmp.getVal (0);
+	}
+	off = xit->arrayInfo()->Offset (idx);
+	if (off == -1) {
+	  fprintf (stderr, "\nArray access in function `%s' is out of bounds!\n", f->getName());
+	  fprintf (stderr, "Type: ");
+	  xit->Print (stderr);
+	  fprintf (stderr, "\nIndex: ");
+	  for (int i=0; i < xit->arrayInfo()->nDims(); i++) {
+	    fprintf (stderr, "[%d]", idx[i]);
+	  }
+	  fprintf (stderr, "\n");
+	  fatal_error ("Cannot proceed.");
+	  off = 0;
+	}
+	FREE (idx);
+      }
 
       /* check if this is a structure! */
       xit = f->CurScope()->FullLookup (c->u.assign.id, NULL);
       if (TypeFactory::isStructure (xit)) {
 	resm = exprStruct (c->u.assign.e);
-	xm->setField (c->u.assign.id->Rest(), &resm);
+	if (off >= 0) {
+	  xm->setField (off, &resm);
+	}
+	else {
+	  xm->setField (c->u.assign.id->Rest(), &resm);
+	}
       }
       else {
 	res = exprEval (c->u.assign.e);
-	xm->setField (c->u.assign.id->Rest(), &res);
+	if (off >= 0) {
+	  xm->setField (off, &res);
+	}
+	else {
+	  xm->setField (c->u.assign.id->Rest(), &res);
+	}
       }
       delete xit;
     }
@@ -2358,6 +2400,9 @@ void ChpSim::_run_chp (Function *f, act_chp_lang_t *c)
 typedef expr_res (*EXTFUNC) (int nargs, expr_res *args);
 struct ExtLibs *_chp_ext = NULL;
 
+/**
+ * Function that returns a simple value
+ */
 BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
 {
   struct Hashtable *lstate;
@@ -2375,18 +2420,18 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;
 
-    if (vx->t->arrayInfo()) {
-      warning ("Ignoring arrays for now...");
-    }
-
     b = hash_add (lstate, vx->getName());
 
-    if (TypeFactory::isStructure (vx->t)) {
+    if (TypeFactory::isStructure (vx->t) || vx->t->arrayInfo()) {
       expr_multires *x2;
+      int arrsz = vx->t->arrayInfo() ? vx->t->arrayInfo()->size() : 1;
       Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
       NEW (x2, expr_multires);
-      new (x2) expr_multires (xd);
+      new (x2) expr_multires (xd, arrsz);
       b->v = x2;
+      if (!xd) {
+	x2->setAllWidths (TypeFactory::bitWidth (vx->t));
+      }
     }
     else {
       NEW (x, BigInt);
@@ -2406,7 +2451,8 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
 
-    if (TypeFactory::isStructure (f->getPortType (i))) {
+    if (TypeFactory::isStructure (f->getPortType (i)) ||
+	f->getPortType (i)->arrayInfo()) {
       xm = (expr_multires *)b->v;
       *xm = *((expr_multires *)vargs[i]);
     }
@@ -2442,6 +2488,9 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
       for (int i=0; i < nargs; i++) {
 	if (TypeFactory::isStructure (f->getPortType (i))) {
 	  fatal_error ("External function calls cannot have structure arguments");
+	}
+	if (f->getPortType (i)->arrayInfo()) {
+	  fatal_error ("External function calls cannot have array arguments");
 	}
 	extargs[i].width = ((BigInt *)vargs[i])->getWidth ();
 	extargs[i].v = ((BigInt *)vargs[i])->getVal (0);
@@ -2489,7 +2538,7 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
   while ((b = hash_iter_next (lstate, &iter))) {
     ValueIdx *vx = f->CurScope()->LookupVal (b->key);
     Assert (vx, "How is this possible?");
-    if (TypeFactory::isStructure (vx->t)) {
+    if (TypeFactory::isStructure (vx->t) || vx->t->arrayInfo()) {
       ((expr_multires *)b->v)->~expr_multires();
     }
     else {
@@ -2519,7 +2568,7 @@ static int _ceil_log2 (int w)
   }
   return i;
 }
-  
+
 BigInt ChpSim::exprEval (Expr *e)
 {
   BigInt l, r;
@@ -2863,9 +2912,39 @@ BigInt ChpSim::exprEval (Expr *e)
 	Assert (b, "what?");
 	Assert (_cureval, "What?");
 	InstType *xit = _cureval->Lookup (xid->getName());
-	if (TypeFactory::isStructure (xit)) {
+	if (TypeFactory::isStructure (xit) || xit->arrayInfo()) {
+	  int off = -1;
+	  if (xit->arrayInfo()) {
+	    int *idx;
+	    Array *a = xid->arrayInfo();
+	    Assert (a && a->isDeref(), "No array de-reference for ID?");
+	    MALLOC (idx, int, xit->arrayInfo()->nDims());
+	    for (int i=0; i < xit->arrayInfo()->nDims(); i++) {
+	      BigInt tmp = exprEval (a->getDeref (i));
+	      idx[i] = tmp.getVal (0);
+	    }
+	    off = xit->arrayInfo()->Offset (idx);
+	    if (off == -1) {
+	      fprintf (stderr, "\nArray access in function is out of bounds!\n");
+	      fprintf (stderr, "Type: ");
+	      xit->Print (stderr);
+	      fprintf (stderr, "\nIndex: ");
+	      for (int i=0; i < xit->arrayInfo()->nDims(); i++) {
+		fprintf (stderr, "[%d]", idx[i]);
+	      }
+	      fprintf (stderr, "\n");
+	      fatal_error ("Cannot proceed.");
+	      off = 0;
+	    }
+	    FREE (idx);	
+	  }
 	  expr_multires *x2 = (expr_multires *)b->v;
-	  l = *(x2->getField (xid->Rest()));
+	  if (off >= 0) {
+	    l = *(x2->getField (off, xid->Rest()));
+	  }
+	  else {
+	    l = *(x2->getField (xid->Rest()));
+	  }
 	}
 	else {
 	  l = *((BigInt *)b->v);
@@ -2997,53 +3076,12 @@ BigInt ChpSim::exprEval (Expr *e)
   case E_FUNCTION:
     /* function is e->u.fn.s */
     {
-      Expr *tmp = NULL;
-      int nargs = 0;
-      int i;
+      int nargs;
       void **args;
-      Function *fx = (Function *)e->u.fn.s;
-
-      /* first: evaluate arguments */
-      tmp = e->u.fn.r;
-      while (tmp) {
-	nargs++;
-	tmp = tmp->u.e.r;
-      }
-      if (nargs > 0) {
-	MALLOC (args, void *, nargs);
-      }
-      for (i=0; i < nargs; i++) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  args[i] = new expr_multires;
-	}
-	else {
-	  args[i] = new BigInt;
-	}
-      }
-      tmp = e->u.fn.r;
-      i = 0;
-      while (tmp) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  *((expr_multires *)args[i]) = exprStruct (tmp->u.e.l);
-	}
-	else {
-	  *((BigInt *)args[i]) = exprEval (tmp->u.e.l);
-	}
-	i++;
-	tmp = tmp->u.e.r;
-      }
+      
+      construct_fn_args (e, &nargs, &args);
       l = funcEval ((Function *)e->u.fn.s, nargs, args);
-      for (i=0; i < nargs; i++) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  delete ((expr_multires *)args[i]);
-	}
-	else {
-	  delete ((BigInt *)args[i]);
-	}
-      }
-      if (nargs > 0) {
-	FREE (args);
-      }
+      free_fn_args (e, &nargs, &args);
     }
     break;
 
@@ -3091,14 +3129,21 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
     /*-- structure deref --*/
     state_counts sc;
     ActStatePass::getStructCount (d->d, &sc);
-    int off = computeOffset (d) - d->offset;
+
+    /* d->offset is used differently in this context; take it out.
+       The remaining off is just the stride * index calculation */
+    int off = computeOffset (d) - d->offset; 
     int off_i = d->offset + off*sc.numInts();
     int off_b = d->width + off*sc.numBools();
-    res.fillValue (d->d, _sc, off_i, off_b);
+    res.fillValue (_sc, off_i, off_b);
   }
   return res;
 }
 
+
+/**
+ * Function that returns either a structure or an array
+ */
 expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
 {
   struct Hashtable *lstate;
@@ -3113,6 +3158,7 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
   Assert (TypeFactory::isStructure (ret_type), "What?");
   d = dynamic_cast<Data *> (ret_type->BaseType());
   Assert (d, "What?");
+  
   /*-- allocate state and bindings --*/
   lstate = hash_new (4);
 
@@ -3120,18 +3166,16 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;
 
-    if (vx->t->arrayInfo()) {
-      warning ("Ignoring arrays for now...");
-    }
-    
     b = hash_add (lstate, vx->getName());
-    if (TypeFactory::isStructure (vx->t)) {
+    if (TypeFactory::isStructure (vx->t) || vx->t->arrayInfo()) {
       expr_multires *x2;
+      int arrsz = vx->t->arrayInfo() ? vx->t->arrayInfo()->size() : 1;
       Data *xd = dynamic_cast<Data *> (vx->t->BaseType());
-      x2 = new expr_multires (xd);
+      x2 = new expr_multires (xd, arrsz);
       b->v = x2;
-      //printf ("allocated struct (%s), nvals = %d, ptr = %p\n",
-      //vx->getName(), x2->nvals, x2->v);
+      if (!xd) {
+	x2->setAllWidths (TypeFactory::bitWidth (vx->t));
+      }
     }
     else {
       NEW (x, BigInt);
@@ -3152,7 +3196,8 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
     b = hash_lookup (lstate, f->getPortName (i));
     Assert (b, "What?");
 
-    if (TypeFactory::isStructure (f->getPortType (i))) {
+    if (TypeFactory::isStructure (f->getPortType (i)) ||
+	f->getPortType (i)->arrayInfo()) {
       xm = (expr_multires *)b->v;
       *xm = *((expr_multires *)vargs[i]);
     }
@@ -3188,12 +3233,8 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;
 
-    if (vx->t->arrayInfo()) {
-      warning ("Ignoring arrays for now...");
-    }
-    
     b = hash_lookup (lstate, vx->getName());
-    if (TypeFactory::isStructure (vx->t)) {
+    if (TypeFactory::isStructure (vx->t) || vx->t->arrayInfo()) {
       expr_multires *x2 = (expr_multires *)b->v;
       delete x2;
     }
@@ -3206,6 +3247,145 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
   return ret;
 }
 
+void ChpSim::construct_fn_args (Expr *e, int *nargs, void ***args)
+{
+  Assert (e->type == E_FUNCTION, "What?");
+
+  Function *fx = (Function *)e->u.fn.s;
+  Expr *tmp = NULL;
+  int i;
+  
+  *nargs = 0;
+
+  /* first: evaluate arguments */
+  tmp = e->u.fn.r;
+  while (tmp) {
+    *nargs = *nargs + 1;
+    tmp = tmp->u.e.r;
+  }
+  if (*nargs > 0) {
+    MALLOC (*args, void *, *nargs);
+  }
+  for (i=0; i < *nargs; i++) {
+    if (TypeFactory::isStructure (fx->getPortType (i))) {
+      (*args)[i] = new expr_multires;
+    }
+    else if (fx->getPortType (i)->arrayInfo()) {
+      (*args)[i] = new expr_multires;
+    }
+    else {
+      (*args)[i] = new BigInt;
+    }
+  }
+  tmp = e->u.fn.r;
+  i = 0;
+  while (tmp) {
+    if (TypeFactory::isStructure (fx->getPortType (i))) {
+      *((expr_multires *)(*args)[i]) = exprStruct (tmp->u.e.l);
+    }
+    else if (fx->getPortType(i)->arrayInfo()) {
+      *((expr_multires *)(*args)[i]) = exprArray (tmp->u.e.l);
+    }
+    else {
+      *((BigInt *)(*args)[i]) = exprEval (tmp->u.e.l);
+    }
+    i++;
+    tmp = tmp->u.e.r;
+  }
+}
+
+void ChpSim::free_fn_args (Expr *e, int *nargs, void ***args)
+{
+  Assert (e->type == E_FUNCTION, "What?");
+
+  Function *fx = (Function *)e->u.fn.s;
+  Expr *tmp = NULL;
+  int i;
+
+  for (i=0; i < *nargs; i++) {
+    if (TypeFactory::isStructure (fx->getPortType (i))) {
+      delete ((expr_multires *)(*args)[i]);
+    }
+    else if (fx->getPortType(i)->arrayInfo()) {
+      delete ((expr_multires *)(*args)[i]);
+    }
+    else {
+      delete ((BigInt *)(*args)[i]);
+    }
+  }
+  if (*nargs > 0) {
+    FREE (*args);
+  }
+}
+
+
+expr_multires ChpSim::exprArray (Expr *e)
+{
+  expr_multires res;
+  Assert (e, "What?");
+
+  switch (e->type) {
+  case E_CHP_VARARRAY:
+    {
+      struct chpsimderef *d = (struct chpsimderef *)e->u.e.l;
+      Assert (d->range, "Hmm");
+      expr_multires ret(d->d, d->range->size());
+      if (d->d) {
+	int off = 0;
+	int ti, tb;
+	// XXX: dynamic arrays
+	d->d->getStructCount (&tb, &ti);
+	int count = tb + ti;
+	for (int i=0; i < d->range->size(); i++) {
+	  for (int j=0; j < count; j++) {
+	    BigInt res = varEval (d->idx[off],
+				  d->idx[off+1] == 2 ? 1 : d->idx[off+1]);
+	    ret.setField (i*count + j, &res);
+	    off += 3;
+	  }
+	}
+      }
+      else {
+	if (d->isbool) {
+	  ret.setAllWidths (1);
+	}
+	else {
+	  ret.setAllWidths (d->width);
+	}
+	for (int i=0; i < d->range->size(); i++) {
+	  BigInt res;
+	  if (d->isbool) {
+	    res = varEval (d->idx[i], 0);
+	  }
+	  else {
+	    res = varEval (d->idx[i], 1);
+	  }
+	  ret.setField (i, &res);
+	}
+	return ret;
+      }
+    }
+    break;
+
+  case E_FUNCTION:
+    /* function is e->u.fn.s */
+    {
+      int nargs;
+      void **args;
+      Function *fx = (Function *)e->u.fn.s;
+      Assert (fx->getRetType()->arrayInfo(), "array expr without array fn?");
+      construct_fn_args (e, &nargs, &args);
+      res = funcStruct (fx, nargs, args);
+      free_fn_args (e, &nargs, &args);
+    }
+    break;
+    
+  default:
+    fatal_error ("exprArray(): unknown type %d\n", e->type);
+    break;
+  }
+  return res;
+}
 
 
 expr_multires ChpSim::exprStruct (Expr *e)
@@ -3242,53 +3422,12 @@ expr_multires ChpSim::exprStruct (Expr *e)
   case E_FUNCTION:
     /* function is e->u.fn.s */
     {
-      Expr *tmp = NULL;
-      int nargs = 0;
-      int i;
+      int nargs;
       void **args;
-      Function *fx = (Function *)e->u.fn.s;
 
-      /* first: evaluate arguments */
-      tmp = e->u.fn.r;
-      while (tmp) {
-	nargs++;
-	tmp = tmp->u.e.r;
-      }
-      if (nargs > 0) {
-	MALLOC (args, void *, nargs);
-      }
-      for (i=0; i < nargs; i++) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  args[i] = new expr_multires;
-	}
-	else {
-	  args[i] = new BigInt;
-	}
-      }
-      tmp = e->u.fn.r;
-      i = 0;
-      while (tmp) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  *((expr_multires *)args[i]) = exprStruct (tmp->u.e.l);
-	}
-	else {
-	  *((BigInt *)args[i]) = exprEval (tmp->u.e.l);
-	}
-	i++;
-	tmp = tmp->u.e.r;
-      }
-      res = funcStruct (fx, nargs, args);
-      for (i=0; i < nargs; i++) {
-	if (TypeFactory::isStructure (fx->getPortType (i))) {
-	  delete ((expr_multires *)args[i]);
-	}
-	else {
-	  delete ((BigInt *)args[i]);
-	}
-      }
-      if (nargs > 0) {
-	FREE (args);
-      }
+      construct_fn_args (e, &nargs, &args);
+      res = funcStruct ((Function *)e->u.fn.s, nargs, args);
+      free_fn_args (e, &nargs, &args);
     }
     break;
 

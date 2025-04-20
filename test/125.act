@@ -1,0 +1,20 @@
+function testme (int a) : int
+{
+  int b[3]; 
+  chp {
+    b[a] := a;
+    self := a
+  }
+}
+
+defproc test()
+{
+  int x[4], y[3];
+
+  chp {
+    (;i:3: y[i] := i);
+    (;i:4: x[i] := 2*i);
+    x[2] := 2;
+    log ("got: ", testme (x[2]))
+  }
+}

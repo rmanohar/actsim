@@ -44,14 +44,29 @@ struct chpsimcond {
 #define CHPSIM_NOP    7  /* dummy needed for turning off simulator opt */
 #define CHPSIM_CONDARB 8
 
+
+/**
+ * This is used to hold the information necessray for a de-reference
+ */
 struct chpsimderef {
-  Array *range;			// if NULL, then offset is the id
-  Expr **chp_idx;
+  /*
+    If this is an array de-reference a[r1][r2]...[rN], then range is the
+    dimensions of the array and chp_idx is the expression for the
+    index de-reference for each dimension of the array.
+
+    These are only used for dynamic de-references; any static de-ref
+    has its complete offset pre-computed.
+  */
+  Array *range;			// this is used to contain array dimensions
+
+  Expr **chp_idx;		// this contains the array de-reference
+  
   int *idx;			// for structures, we use this
 				// array. Length is 3x the # of items
 				// in the struct. Format: offset,
 				// width, type
-  Data *d;			// used for structures
+  
+  Data *d;			// used for structures to record the type
 
   int offset;			// offset / offseti for struct
   int stride;			// stride for struct arrays
@@ -59,7 +74,8 @@ struct chpsimderef {
   unsigned int isenum:1;	// is this an enumeration?
   int enum_sz;			// used for enumerations
   int width;
-  act_connection *cx;
+  
+  act_connection *cx;		// for printing/debugging
 };
 
 struct chpsimstmt {
@@ -261,6 +277,11 @@ class ChpSim : public ActSimObj {
   expr_multires exprStruct (Expr *e);
   expr_multires funcStruct (Function *, int, void **);
   expr_multires varStruct (struct chpsimderef *);
+  expr_multires exprArray (Expr *e);
+
+  // construct arguments for a function expression call at runtime
+  void construct_fn_args (Expr *e, int *nargs, void ***args);
+  void free_fn_args (Expr *e, int *nargs, void ***args);
 
   int _structure_assign (struct chpsimderef *, expr_multires *, void *cause,
 			 bool skip_check = false);

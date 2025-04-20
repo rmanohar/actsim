@@ -177,10 +177,13 @@ static void _free_chp_expr (Expr *e);
 static void _free_deref (struct chpsimderef *d)
 {
   if (d->range) {
-    for (int i=0; i < d->range->nDims(); i++) {
-      _free_chp_expr (d->chp_idx[i]);
+    /* chp_idx is NULL if this is an actual array */
+    if (d->chp_idx) {
+      for (int i=0; i < d->range->nDims(); i++) {
+	_free_chp_expr (d->chp_idx[i]);
+      }
+      FREE (d->chp_idx);
     }
-    FREE (d->chp_idx);
     FREE (d->idx);
   }
   else {
@@ -327,15 +330,11 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
 
 static void _add_deref_struct (ActSimCore *sc,
 			       ActId *id, Data *d,
-			       struct chpsimderef *ds
-			       )
+			       struct chpsimderef *ds)
 {
   ActId *tmp, *tail;
 	    
-  tail = id;
-  while (tail->Rest()) {
-    tail = tail->Rest();
-  }
+  tail = id->Tail();
   for (int i=0; i < d->getNumPorts(); i++) {
     InstType *it = d->getPortType (i);
     tmp = new ActId (d->getPortName(i));
@@ -390,14 +389,22 @@ static void _add_deref_struct (ActSimCore *sc,
 }
 
 static struct chpsimderef *
-_mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
+_mk_std_deref_struct (ActId *id, InstType *it, ActSimCore *s)
 {
   struct chpsimderef *ds = NULL;
+  bool is_array = false;
   Scope *sc = s->cursi()->bnl->cur;
+  Data *d = dynamic_cast <Data *> (it->BaseType());
+  Assert (d, "Hmm");
+
+  if (it->arrayInfo() && !id->Tail()->isDeref()) {
+    is_array = true;
+  }
 
   NEW (ds, struct chpsimderef);
   ds->stride = 1;
   ds->range = NULL;
+  ds->chp_idx = NULL;
   ds->idx = NULL;
   ds->d = d;
   ds->isbool = 0;
@@ -406,16 +413,103 @@ _mk_std_deref_struct (ActId *id, Data *d, ActSimCore *s)
   state_counts ts;
   ActStatePass::getStructCount (d, &ts);
 
-  ds->offset = 0;
-  MALLOC (ds->idx, int, 3*(ts.numInts() + ts.numBools()));
-  _add_deref_struct (s, id, d, ds);
+  int array_sz;
 
-  Assert (ds->offset == 3*(ts.numInts() + ts.numBools()), "What?");
+  if (is_array) {
+    array_sz = it->arrayInfo()->size();
+  }
+  else {
+    array_sz = 1;
+  }
+
+  ds->offset = 0;
+  MALLOC (ds->idx, int, 3*array_sz*(ts.numInts() + ts.numBools()));
+
+  if (!is_array) {
+    _add_deref_struct (s, id, d, ds);
+  }
+  else {
+    ActId *tail = id->Tail ();
+    Assert (tail->arrayInfo() == NULL, "What?");
+    for (int i=0; i < array_sz; i++) {
+      Array *a = it->arrayInfo()->unOffset (i);
+      tail->setArray (a);
+      _add_deref_struct (s, id, d, ds);
+      delete a;
+    }
+    tail->setArray (NULL);
+  }
+
+  Assert (ds->offset == 3*array_sz*(ts.numInts() + ts.numBools()), "What?");
   
   ds->cx = id->Canonical (sc);
   return ds;
 }
 
+static struct chpsimderef *
+_mk_std_deref (ActId *id, InstType *it, ActSimCore *s)
+{
+  struct chpsimderef *d = NULL;
+  Scope *sc = s->cursi()->bnl->cur;
+  bool is_array = false;
+
+  if (!it) {
+    it = sc->FullLookup (id, NULL);
+  }
+  Assert (it, "Hmm");
+
+  if (it->arrayInfo() && !id->Tail()->isDeref()) {
+    is_array = true;
+  }
+
+  NEW (d, struct chpsimderef);
+  d->stride = 1;
+  d->range = NULL;
+  d->chp_idx = NULL;
+  d->idx = NULL;
+  d->d = NULL;
+  d->isbool = 0;
+  d->isenum = 0;
+
+  int type;
+  if (is_array) {
+    d->range = it->arrayInfo();
+    MALLOC (d->idx, int, d->range->size());
+    ActId *tmp = id->Tail ();
+    Assert (!tmp->arrayInfo(), "What?");
+    for (int i=0; i < d->range->size(); i++) {
+      Array *a = d->range->unOffset (i);
+      int t, width;
+      tmp->setArray (a);
+      d->idx[i] = s->getLocalOffset (id, s->cursi(), &t, &width);
+      if (i == 0) {
+	d->width = width;
+	type = t;
+      }
+      else {
+	Assert (t == type && width == d->width, "What?");
+      }
+      delete a;
+    }
+    tmp->setArray (NULL);
+    d->offset = 0;
+  }
+  else {
+    d->offset = s->getLocalOffset (id, s->cursi(), &type, &d->width);
+  }
+  if (type == 1) {
+    if (TypeFactory::isEnum (it)) {
+      d->isenum = 1;
+      d->enum_sz = TypeFactory::enumNum (it);
+    }
+  }
+  else {
+    Assert (type == 0, "What?");
+    d->isbool = 1;
+  }
+  d->cx = id->Canonical (sc);
+  return d;
+}
 
 /*------------------------------------------------------------------------
  * The CHP simulation graph
@@ -824,16 +918,10 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	d = _mk_deref ((ActId *)e->u.e.l, s, &type);
       }
       else {
-	NEW (d, struct chpsimderef);
-	d->stride = 1;
-	d->range = NULL;
-	d->idx = NULL;
-	d->offset = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type,
-				       &d->width);
-	d->cx = ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
-	d->isbool = 0;
-	d->isenum = 0;
-	d->d = NULL;
+	InstType *xit;
+	act_type_var (s->cursi()->bnl->cur, (ActId *)e->u.e.l, &xit);
+	Assert (xit, "Hmm");
+	d = _mk_std_deref ((ActId *)e->u.e.l, xit, s);
       }
       
       ret->u.e.l = (Expr *) d;
@@ -864,6 +952,12 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
       
       if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
 					   ((ActId *)e->u.e.l))) {
+
+	// XXX: check for arrays here!!!
+	if (it->arrayInfo() && !((ActId *)e->u.e.l)->isDeref()) {
+	  Assert (0, "entire array that is dynamic!");
+	}
+	
 	if (TypeFactory::isStructure (it)) {
 	  struct chpsimderef *ds = _mk_deref_struct ((ActId *)e->u.e.l, s);
 	  ret->u.e.l = (Expr *) ds;
@@ -921,15 +1015,19 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	}
 	
 	if (TypeFactory::isStructure (it)) {
-	  struct chpsimderef *ds;
-
-	  Data *d = dynamic_cast<Data *>(it->BaseType());
-	  Assert (d, "Hmm");
-	  ds = _mk_std_deref_struct ((ActId *)e->u.e.l, d, s);
+	  struct chpsimderef *ds =
+	    _mk_std_deref_struct ((ActId *)e->u.e.l, it, s);
 
 	  ret->u.e.l = (Expr *)ds;
 	  ret->u.e.r = (Expr *)ds->cx;
 	  ret->type = E_CHP_VARSTRUCT;
+	}
+	else if (it->arrayInfo() && !((ActId *)e->u.e.l)->Tail()->isDeref()) {
+	  struct chpsimderef *d =
+	    _mk_std_deref ((ActId *)e->u.e.l, it, s);
+	  ret->u.e.l = (Expr *) d;
+	  ret->u.e.r = (Expr *) d->cx;
+	  ret->type = E_CHP_VARARRAY;
 	}
 	else {
 	  ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
@@ -1521,9 +1619,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    type = 1;
 	  }
 	  else {
-	    Data *x = dynamic_cast<Data *> (ch->acktype()->BaseType());
-	    Assert (x, "What!");
-	    d = _mk_std_deref_struct (id, x, sc);
+	    d = _mk_std_deref_struct (id, ch->acktype(), sc);
 	    type = 1;
 	  }
 	}
@@ -1539,16 +1635,17 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    d = _mk_deref (id, sc, &type);
 	  }
 	  else {
-	    NEW (d, struct chpsimderef);
-	    d->stride = 1;
-	    d->d = NULL;
-	    d->range = NULL;
-	    d->idx = NULL;
-	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
-	    d->width = width;
-	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
-	    d->isbool = 0;
-	    d->isenum = 0;
+	    InstType *xit;
+	    act_type_var (sc->cursi()->bnl->cur, id, &xit);
+	    Assert (xit, "Typechecking");
+	    d = _mk_std_deref (id, xit, sc);
+	    if (d->isbool) {
+	      type = 0;
+	    }
+	    else {
+	      type = 1;
+	    }
+	    width = d->width;
 	  }
 	}
 	if (type == 3) {
@@ -1625,9 +1722,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    d = _mk_deref_struct (id, sc);
 	  }
 	  else {
-	    Data *x = dynamic_cast<Data *> (ch->datatype()->BaseType());
-	    Assert (x, "Hmm");
-	    d = _mk_std_deref_struct (id, x, sc);
+	    d = _mk_std_deref_struct (id, ch->datatype(), sc);
 	  }
 	  type = 1;
 	}
@@ -1642,16 +1737,17 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	    d = _mk_deref (id, sc, &type);
 	  }
 	  else {
-	    NEW (d, struct chpsimderef);
-	    d->stride = 1;
-	    d->d = NULL;
-	    d->range = NULL;
-	    d->idx = NULL;
-	    d->offset = sc->getLocalOffset (id, sc->cursi(), &type, &width);
-	    d->width = width;
-	    d->cx = id->Canonical (sc->cursi()->bnl->cur);
-	    d->isbool = 0;
-	    d->isenum = 0;
+	    InstType *xit;
+	    act_type_var (sc->cursi()->bnl->cur, id, &xit);
+	    Assert (xit, "Hmm");
+	    d = _mk_std_deref (id, xit, sc);
+	    width = d->width;
+	    if (d->isbool) {
+	      type = 0;
+	    }
+	    else {
+	      type = 1;
+	    }
 	  }
 	}
 	if (type == 3) {
@@ -1781,11 +1877,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  FREE (d);
 	}
 	else {
-	  struct chpsimderef *d;
-	  Data *x = dynamic_cast<Data *>(it->BaseType());
-	  Assert (x, "Hmm");
-
-	  d = _mk_std_deref_struct (c->u.assign.id, x, sc);
+	  struct chpsimderef *d =
+	    _mk_std_deref_struct (c->u.assign.id, it, sc);
 	  ret->stmt->u.assign.d = *d;
 	  FREE (d);
 	}

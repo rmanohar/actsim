@@ -229,18 +229,28 @@ void expr_multires::_init_helper (Data *d, int *pos)
   }
 }
 
-void expr_multires::_init (Data *d)
+void expr_multires::_init (Data *d, int obj_count)
 {
-  if (!d) return;
+  if (!d && obj_count == 1) return;
   _d = d;
-  nvals = _count (d);
+  if (d) {
+    nvals = _count (d)*obj_count;
+  }
+  else {
+    nvals = obj_count;
+  }
+  Assert (d || nvals > 1, "Why am I here?");
   MALLOC (v, BigInt, nvals);
   for (int i=0; i < nvals; i++) {
     new (&v[i]) BigInt;
   }
-  int pos = 0;
-  _init_helper (d, &pos);
-  Assert (pos == nvals, "What?");
+  if (d) {
+    int pos = 0;
+    for (int i=0; i < obj_count; i++) {
+      _init_helper (d, &pos);
+    }
+    Assert (pos == nvals, "What?");
+  }
 }
 
 void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob)
@@ -283,10 +293,9 @@ void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, in
   }
 }
 
-void expr_multires::fillValue (Data *d, ActSimCore *sc, int off_i, int off_b)
+void expr_multires::fillValue (ActSimCore *sc, int off_i, int off_b, int pos)
 {
-  int pos = 0;
-  _fill_helper (d, sc, &pos, &off_i, &off_b);
+  _fill_helper (_d, sc, &pos, &off_i, &off_b);
 }
 
 
@@ -294,6 +303,25 @@ BigInt *expr_multires::getField (ActId *x)
 {
   Assert (x, "setField with scalar called with NULL ID value");
   int off = _d->getStructOffset (x, NULL);
+  Assert (0 <= off && off < nvals, "Hmm");
+  return &v[off];
+}
+
+BigInt *expr_multires::getField (int off, ActId *x)
+{
+  if (off > 0) {
+    if (_d) {
+      int count = _count (_d);
+      off = off * count;
+    }
+    else {
+      // off is the actual offset already
+    }
+  }
+  if (x) {
+    Assert (_d, "Hmm");
+    off += _d->getStructOffset (x, NULL);
+  }
   Assert (0 <= off && off < nvals, "Hmm");
   return &v[off];
 }
@@ -308,6 +336,33 @@ void expr_multires::setField (ActId *x, BigInt *val)
 
   v[off] = *val;
   v[off].setWidth (w);
+}
+
+void expr_multires::setField (int idx, BigInt *val)
+{
+  Assert (0 <= idx && idx < nvals, "Hmm");
+  int width = v[idx].getWidth();
+  v[idx] = *val;
+  v[idx].setWidth (width);
+}
+
+void expr_multires::setAllWidths (int width)
+{
+  for (int i=0; i < nvals; i++) {
+    v[i].setWidth (width);
+    v[i].toStatic ();
+  }
+}
+
+void expr_multires::setField (int idx, expr_multires *val)
+{
+  Assert (_d, "Hmm");
+  Assert (_d == val->_d, "Hmm");
+  Assert (_count(_d) == val->nvals, "Hmm");
+  idx = idx * val->nvals;
+  for (int i=0; i < val->nvals; i++) {
+    v[idx + i] = val->v[i];
+  }
 }
 
 void expr_multires::setField (ActId *x, expr_multires *m)

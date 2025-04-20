@@ -53,6 +53,8 @@
 #define E_CHP_VARSTRUCT_DEREF (E_NEWEND + 10)
 #define E_CHP_VARSTRUCT       (E_NEWEND + 11)
 
+#define E_CHP_VARARRAY (E_NEWEND + 12)
+
 /*
  *
  * Core simulation library

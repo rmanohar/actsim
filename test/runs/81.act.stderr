@@ -1,1 +1,3 @@
-WARNING: test<>: substituting chp model (requested prs, not found)
+Typechecking failed on CHP assignment
+  stmt: x := x{0..1}
+	Bitfield range is empty {0..1}

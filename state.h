@@ -28,11 +28,11 @@ class ActSimCore;
 
 class expr_multires {
  public:
-  expr_multires(Data *d = NULL) {
+  expr_multires(Data *d = NULL, int obj_count = 1) {
     _d = NULL;
     nvals = 0;
     v = NULL;
-    _init (d);
+    _init (d, obj_count);
   }
   ~expr_multires() {
     _delete_objects ();
@@ -114,12 +114,24 @@ class expr_multires {
     return *this;
   }
 
-  void fillValue (Data *d, ActSimCore *sc, int off_i, int off_b);
+  /* this can only be used to fill one structure */
+  void fillValue (ActSimCore *sc, int off_i, int off_b, int pos = 0);
 
+  // field write to a structure
   void setField (ActId *field, BigInt *v);
   void setField (ActId *field, expr_multires *v);
+
+  // indexed write to a structure array
+  void setField (int idx, expr_multires *v);
+  
+  // indexed write to a int/bool array
+  void setField (int idx, BigInt *v);
+
   BigInt *getField (ActId *x);
   expr_multires getStruct (ActId *x);
+  BigInt *getField (int off, ActId *x);
+
+  void setAllWidths (int width);
 
   BigInt *v;
   int nvals;
@@ -139,7 +151,7 @@ private:
   }
   int _count (Data *d);
   void _init_helper (Data *d, int *pos);
-  void _init (Data *d);
+  void _init (Data *d, int obj_count);
   void _fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, int *ob);
   Data *_d;
 };
