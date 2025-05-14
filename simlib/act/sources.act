@@ -46,9 +46,10 @@ export template<pbool INCLUDE_ENABLE; pint D_WIDTH, VALUE, SOURCE_ID; pbool LOG>
 defproc gen_source_static_en (chan!(int<D_WIDTH>) O; bool enable)
 {
     chp {
+         [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         *[
             // wait on enable flag
-	    [~INCLUDE_ENABLE|enable];
+	    [enable];
 
             O!VALUE;
 
@@ -85,10 +86,11 @@ export template<pbool INCLUDE_ENABLE; pint D_WIDTH, OUT_CHANNELS, VALUE, SOURCE_
 defproc gen_source_static_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enable)
 {
     chp {
+        [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         (, i : OUT_CHANNELS : 
             *[
                 // wait on enable flag
-  	        [~INCLUDE_ENABLE|enable];
+  	        [enable];
 
                 O[i]!VALUE;
 
@@ -133,6 +135,7 @@ defproc gen_source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
     int<D_WIDTH> buf;
 
     chp {
+         [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         *[
             i := 0; 
             *[ i < N -> 
@@ -140,7 +143,7 @@ defproc gen_source_sequence_en (chan!(int<D_WIDTH>) O; bool enable)
                 [([]k:N: i=k -> buf := DATA[k])];
 
                 // wait on enable flag
-	        [~INCLUDE_ENABLE|enable];
+	        [enable];
 
                 // and send it
                 O!buf;
@@ -195,6 +198,7 @@ defproc gen_source_sequence_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool 
     int<D_WIDTH> buf;
 
     chp {
+         [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         *[
             i := 0;
 
@@ -204,7 +208,7 @@ defproc gen_source_sequence_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool 
                 [([]k:N: i=k -> buf := DATA[k])];
 
                 // wait on enable flag
-	        [~INCLUDE_ENABLE|enable];
+	        [enable];
                 
                 // and send it to every channel
                 (, j : OUT_CHANNELS :
@@ -271,6 +275,7 @@ defproc gen_source_file_en (chan!(int<D_WIDTH>) O; bool enable)
     bool success;
 
     chp {
+         [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         // if we are set to loop, loop forever
         *[
 
@@ -281,7 +286,7 @@ defproc gen_source_file_en (chan!(int<D_WIDTH>) O; bool enable)
             // read until the file reports EOF and send it to the output channel
             *[
                 // wait on enable flag
-	        [~INCLUDE_ENABLE|enable];
+	        [enable];
 
                 // read, then send the value
                 buf := file_private::read(reader_id);
@@ -344,6 +349,7 @@ defproc gen_source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enab
 
     chp {
         // if we are set to loop, loop forever
+         [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         *[
 
             // open the file and get a reader ID
@@ -353,7 +359,7 @@ defproc gen_source_file_multi_en (chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enab
             // read until the file reports EOF and send it to the output channel
             *[
                 // wait on enable flag
-	        [~INCLUDE_ENABLE|enable];
+	        [enable];
 
                 buf := file_private::read(reader_id);
                 
