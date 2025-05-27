@@ -2872,61 +2872,65 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 	  int subcount;
 
 	  subcoffset = getLocalOffset (subc, subsi, &subctype, NULL);
-	  Assert (subctype == 0, "A bool is not a bool?!");
 
-	  offset = getLocalOffset (c, si, &type, NULL);
-	  Assert (type == 0, "A bool is not a bool?!");
+	  if (subctype == 0) {
+	    // bool: we actually handle prs multi-drivers properly
+	    // Assert (subctype == 0, "A bool is not a bool?!");
 
-	  subcount = 0;
-	  if (submd) {
-	    subcount = submd->getcount (subcoffset);
-	  }
-	  if (subcount == 0) {
-	    phash_bucket_t *xb;
-	    xb = phash_lookup (subsi->bnl->cH, subc);
-	    Assert (xb, "What?");
-	    act_booleanized_var_t *xv = (act_booleanized_var_t *) xb->v;
-	    if (xv->output) {
-	      // we have a driver!
-	      subcount = 1;
-	    }
-	  }
-	  // now we check the current state of this offset
+	    offset = getLocalOffset (c, si, &type, NULL);
+	    Assert (type == 0, "A bool is not a bool?!");
 
-	  if (subcount > 0) {
-	    // we just increment the multi-driver
-	    if (subcount > 1) {
-	      if (!my) {
-		my = new multi_driver_info;
-	      }
-	      my->addmd (offset, subcount);
+	    subcount = 0;
+	    if (submd) {
+	      subcount = submd->getcount (subcoffset);
 	    }
-	    else if (my && my->getcount (offset) > 0) {
-	      // we've registered the multi-driver already
-	      my->addmd (offset, subcount);
+	    if (subcount == 0) {
+	      phash_bucket_t *xb;
+	      xb = phash_lookup (subsi->bnl->cH, subc);
+	      Assert (xb, "What?");
+	      act_booleanized_var_t *xv = (act_booleanized_var_t *) xb->v;
+	      if (xv->output) {
+		// we have a driver!
+		subcount = 1;
+	      }
 	    }
-	    else {
-	      // we have 1 driver; perhaps we have a local driver
-	      // too? if so, create the multi-driver instance;
-	      // otherwise this is not yet a multi-driver
-	      int noffset;
-	      if (sp->isPortOffset (offset)) {
-		noffset = sp->portIdx (offset);
-	      }
-	      else {
-		Assert (!sp->isGlobalOffset (offset), "What?");
-		noffset = offset + si->ports.numBools();
-	      }
-	      if (bitset_tst (tmpbits, noffset)) {
+	    // now we check the current state of this offset
+
+	    if (subcount > 0) {
+	      // we just increment the multi-driver
+	      if (subcount > 1) {
 		if (!my) {
 		  my = new multi_driver_info;
 		}
-		/* plus a local driver! */
-		my->addmd (offset, 2);
+		my->addmd (offset, subcount);
+	      }
+	      else if (my && my->getcount (offset) > 0) {
+		// we've registered the multi-driver already
+		my->addmd (offset, subcount);
 	      }
 	      else {
-		// record the first driver
-		bitset_set (tmpbits, noffset);
+		// we have 1 driver; perhaps we have a local driver
+		// too? if so, create the multi-driver instance;
+		// otherwise this is not yet a multi-driver
+		int noffset;
+		if (sp->isPortOffset (offset)) {
+		  noffset = sp->portIdx (offset);
+		}
+		else {
+		  Assert (!sp->isGlobalOffset (offset), "What?");
+		  noffset = offset + si->ports.numBools();
+		}
+		if (bitset_tst (tmpbits, noffset)) {
+		  if (!my) {
+		    my = new multi_driver_info;
+		  }
+		  /* plus a local driver! */
+		  my->addmd (offset, 2);
+		}
+		else {
+		  // record the first driver
+		  bitset_set (tmpbits, noffset);
+		}
 	      }
 	    }
 	  }
