@@ -1122,6 +1122,9 @@ void ActSimCore::_check_add_spec (const char *name, InstType *it,
 				  ActSimObj *obj) 
 {
   UserDef *u;
+  if (TypeFactory::isParamType (it)) {
+    return;
+  }
   if (!TypeFactory::isUserType (it)) {
     return;
   }
