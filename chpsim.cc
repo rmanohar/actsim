@@ -2960,16 +2960,26 @@ BigInt ChpSim::exprEval (Expr *e)
 	  c = xid->Canonical (_frag_ch->ct->CurScope());
 	  b = ihash_lookup (_frag_ch->fH, (long)c);
 	  Assert (b, "Error during channel registration");
-	  l.setWidth (1);
-	  l.setVal (0, _sc->getBool (b->i));
-	  if (_sc->getBool (b->i) == 2) {
-	    ActId *tid;
-	    msgPrefix ();
+	  if (b->i < 0) {
+	    msgPrefix();
 	    printf ("CHP model: Boolean variable `");
-	    tid = c->toid();
-	    tid->Print (stdout);
-	    delete tid;
-	    printf ("' is X\n");
+	    xid->Print (stdout);
+	    printf ("' was optimized out; treating as 0.\n");
+	    l.setWidth (1);
+	    l.setVal (0, 0);
+	  }
+	  else {
+	    l.setWidth (1);
+	    l.setVal (0, _sc->getBool (b->i));
+	    if (_sc->getBool (b->i) == 2) {
+	      ActId *tid;
+	      msgPrefix ();
+	      printf ("CHP model: Boolean variable `");
+	      tid = c->toid();
+	      tid->Print (stdout);
+	      delete tid;
+	      printf ("' is X\n");
+	    }
 	  }
 	}
       }

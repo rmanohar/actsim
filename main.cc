@@ -625,7 +625,14 @@ static int id_obj_to_siminfo (ActSimObj *obj,
     return 0;
   }
 
-  c = id->Canonical (si->bnl->cur);
+  // validate the ID first,  then call canonical pointer
+  c = id->Canonical (si->bnl->cur, true);
+  if (!c) {
+    fprintf (stderr, "Identifier `");
+    id->Print (stderr);
+    fprintf (stderr, "' not found in the design.\n");
+    return 0;
+  }
   Assert (c, "What?");
 
   int type, offset;
@@ -814,7 +821,6 @@ int process_set (int argc, char **argv)
       fprintf (stderr, "Integers are unsigned.\n");
       return LISP_RET_ERROR;
     }
-
     BigInt before = rd;
     rd.setWidth (otmp->getWidth());
     if (before != rd) {

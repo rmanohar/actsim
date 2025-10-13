@@ -1825,7 +1825,8 @@ int ActSimCore::getLocalOffset (act_connection *c, stateinfo_t *si, int *type,
 
 int ActSimCore::hasLocalOffset (ActId *id, stateinfo_t *si)
 {
-  act_connection *c = id->Canonical (si->bnl->cur);
+  act_connection *c = id->Canonical (si->bnl->cur, true);
+  if (!c) return 0;
   return hasLocalOffset (c, si);
 }
 
@@ -1882,7 +1883,14 @@ int ActSimCore::getLocalOffset (ActId *id, stateinfo_t *si, int *type, int *widt
   act_connection *c;
   Scope *sc = si->bnl->cur;
 
-  c = id->Canonical (sc);
+  c = id->Canonical (sc, true);
+  if (!c) {
+    act_error_ctxt (stderr);
+    fprintf (stderr, "Identifier `");
+    id->Print (stderr);
+    fprintf (stderr, "' used, but not used in the design hierarchy selected.\n");
+    fatal_error ("Error in initializer block?");
+  }
   return getLocalOffset (c, si, type, width);
 }
 

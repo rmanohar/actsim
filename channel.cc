@@ -40,6 +40,7 @@ static void _hse_record_ids (act_channel_state *ch,
   if (!b) {
     int off;
     int type;
+    bool found;
     
     b = ihash_add (ch->fH, (long)ac);
 
@@ -73,9 +74,15 @@ static void _hse_record_ids (act_channel_state *ch,
       ntmp = newtmp;
     }
 
-    off = sc->getLocalOffset (ntmp, mysi, &type);
-    Assert (type == 0, "HSE in channel has non-boolean ops?");
-    if (myc != c && (off < 0 && ((-off) & 1))) {
+    if (sc->hasLocalOffset (ntmp, mysi)) {
+      off = sc->getLocalOffset (ntmp, mysi, &type);
+      found = true;
+    }
+    else {
+      found = false;
+    }
+    Assert (!found || type == 0, "HSE in channel has non-boolean ops?");
+    if (found && (myc != c && (off < 0 && ((-off) & 1)))) {
       stateinfo_t *saved = sc->cursi();
       sc->setsi (mysi);
       off = myc->getGlobalOffset (off, 0);
@@ -83,8 +90,13 @@ static void _hse_record_ids (act_channel_state *ch,
       sc->setsi (saved);
     }
     else {
-      off = myc->getGlobalOffset (off, 0);
-      b->i = off;
+      if (found) {
+	off = myc->getGlobalOffset (off, 0);
+	b->i = off;
+      }
+      else {
+	b->i = -1;
+      }
     }
 
     if (ntmp != ch_name) {
@@ -448,36 +460,38 @@ int ChanMethods::runMethod (ActSimCore *sim,
 	fatal_error ("%s: Internal error running method %d", ch->ct->getName(),
 		     idx);
       }
-      v = ch->_dummy->getBool (b->i);
-      if (_ops[idx].op[from].type == CHAN_OP_BOOL_T) {
-	if (v != 1) {
+      if (b->i != -1) {
+	v = ch->_dummy->getBool (b->i);
+	if (_ops[idx].op[from].type == CHAN_OP_BOOL_T) {
+	  if (v != 1) {
 #ifdef DUMP_ALL
-	  printf ("nm:g#%d := 1\n", b->i);
-#endif	  
-	  ch->_dummy->setBool (b->i, 1);
-	  v = -1;
+	    printf ("nm:g#%d := 1\n", b->i);
+#endif
+	    ch->_dummy->setBool (b->i, 1);
+	    v = -1;
+	  }
 	}
-      }
-      else {
-	if (v != 0) {
-	  ch->_dummy->setBool (b->i, 0);
+	else {
+	  if (v != 0) {
+	    ch->_dummy->setBool (b->i, 0);
 #ifdef DUMP_ALL
-	  printf ("nm:g#%d := 0\n", b->i);
+	    printf ("nm:g#%d := 0\n", b->i);
 #endif	  
-	  v = -1;
+	    v = -1;
+	  }
 	}
-      }
-      if (v == -1) {
-	const ActSim::watchpt_bucket *nm;
-	if ((nm = sim->chkWatchPt (0, b->i))) {
-          BigInt tmpv;
-	  ch->_dummy->msgPrefix ();
-	  printf (" %s := %c\n", nm->s, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
-		  '1' : '0');
-          tmpv = (_ops[idx].op[from].type == CHAN_OP_BOOL_T ? 1 : 0);
-          sim->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+	if (v == -1) {
+	  const ActSim::watchpt_bucket *nm;
+	  if ((nm = sim->chkWatchPt (0, b->i))) {
+	    BigInt tmpv;
+	    ch->_dummy->msgPrefix ();
+	    printf (" %s := %c\n", nm->s, _ops[idx].op[from].type == CHAN_OP_BOOL_T ?
+		    '1' : '0');
+	    tmpv = (_ops[idx].op[from].type == CHAN_OP_BOOL_T ? 1 : 0);
+	    sim->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+	  }
+	  ch->_dummy->boolProp (b->i);
 	}
-	ch->_dummy->boolProp (b->i);
       }
       from++;
       break;
