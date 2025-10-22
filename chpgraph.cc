@@ -1112,8 +1112,42 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
   return ret;
 }
 
+static double _get_detailed_costs (int &pos, const stateinfo_t *si) 
+{
+  char buf[10240];
+  char *nsname = NULL;
+  if (si->bnl->p->getns() != ActNamespace::Global()) {
+    nsname = si->bnl->p->getns()->Name();
+  }
+  if (nsname) {
+    snprintf (buf, 10240, "sim.chp.%s::%s.delays", nsname+2, si->bnl->p->getName());
+    FREE (nsname);
+    nsname = NULL;
+  }
+  else {
+    snprintf (buf, 10240, "sim.chp.%s.delays", si->bnl->p->getName());
+  }
+  Assert (config_exists(buf), "Detailed annotation not found");
+  double *dda_table = config_get_table_real (buf);
+  Assert (pos>=0, "huh?!");
+  // Assert (pos<config_get_table_size(buf), "huh?!");
+  if (!(pos<config_get_table_size(buf))) {
+    fprintf(stdout, "\npos : %d", pos);
+    fprintf(stdout, "\ntable size : %d\n\n", config_get_table_size(buf));
+    fflush(stdout);
+    Assert (false, "huh?!");
+  }
+  return dda_table[pos++];
+}
 
-static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
+static void _get_detailed_costs (int &pos, const stateinfo_t *si, chpsimstmt *stmt)
+{
+  stmt->bw_cost = 0;
+  stmt->energy_cost = 0;
+  stmt->delay_cost = _get_detailed_costs (pos, si);
+}
+
+static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s, const int annotate_mode, int &dda_pos)
 {
   chpsimcond *tmp;
   chpsimstmt *ret;
@@ -1124,7 +1158,8 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s)
 
   NEW (ret, chpsimstmt);
   ret->type = CHPSIM_COND;
-  ret->delay_cost = 0;
+  fprintf(stdout, "\n\ngc! : %d\n\n", dda_pos);
+  ret->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, s->cursi()) : 0;
   ret->energy_cost = 0;
   ret->bw_cost = 0;
   tmp = NULL;
@@ -1172,8 +1207,10 @@ chpsimgraph_info *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
   if (!c) return NULL;
 
   gi = new chpsimgraph_info;
+  int annotate_mode = config_get_int ("sim.chp.detailed_delay_annotation");
 
   if (c->type == ACT_HSE_FRAGMENTS) {
+    if (annotate_mode!=0) { fatal_error("Detailed annotation not supported for HSE fragments"); }
     int len = 0;
     int i;
     act_chp_lang_t *ch;
@@ -1192,7 +1229,8 @@ chpsimgraph_info *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     for (ch = c; ch; ch = ch->u.frag.next) {
       b = hash_add (fH, ch->label);
       b->i = i;
-      frags[i] = _buildChpSimGraph (sc, ch->u.frag.body, &nstop[i]);
+      int dummy = 0;
+      frags[i] = _buildChpSimGraph (sc, ch->u.frag.body, &nstop[i], annotate_mode, dummy);
       i++;
     }
 
@@ -1288,7 +1326,8 @@ chpsimgraph_info *ChpSimGraph::buildChpSimGraph (ActSimCore *sc,
     return gi;
   }
   stop = new ChpSimGraph (sc);
-  gi->g = _buildChpSimGraph (sc, c, &stop);
+  int dda_pos = 0;
+  gi->g = _buildChpSimGraph (sc, c, &stop, annotate_mode, dda_pos);
   gi->max_count = max_pending_count;
   gi->max_stats = max_stats;
   gi->e = NULL;
@@ -1393,7 +1432,7 @@ static void _get_costs (stateinfo_t *si, ActId *id, chpsimstmt *stmt)
 
 ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 					    act_chp_lang_t *c,
-					    ChpSimGraph **stop)
+					    ChpSimGraph **stop, const int annotate_mode, int &dda_pos)
 {
   ChpSimGraph *ret = NULL;
   ChpSimGraph *tmp2;
@@ -1412,7 +1451,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     if (list_length (c->u.semi_comma.cmd)== 1) {
       ret = _buildChpSimGraph
 	(sc,
-	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop, annotate_mode, dda_pos);
       _update_label (&labels, c->label, ret);
       return ret;
     }
@@ -1421,7 +1460,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	 li; li = list_next (li)) {
       cur_pending_count = count;
       act_chp_lang_t *t = (act_chp_lang_t *) list_value (li);
-      ChpSimGraph *tmp = _buildChpSimGraph (sc, t, &tmp2);
+      ChpSimGraph *tmp = _buildChpSimGraph (sc, t, &tmp2, annotate_mode, dda_pos);
       if (tmp) {
 	if (!ret) {
 	  ret = tmp;
@@ -1441,7 +1480,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     if (list_length (c->u.semi_comma.cmd)== 1) {
       ret = _buildChpSimGraph
 	(sc,
-	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop);
+	 (act_chp_lang_t *)list_value (list_first (c->u.semi_comma.cmd)), stop, annotate_mode, dda_pos);
       _update_label (&labels, c->label, ret);
       return ret;
     }
@@ -1462,7 +1501,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     for (listitem_t *li = list_first (c->u.semi_comma.cmd);
 	 li; li = list_next (li)) {
       ret->all[i] = _buildChpSimGraph (sc,
-				      (act_chp_lang_t *)list_value (li), &tmp2);
+				      (act_chp_lang_t *)list_value (li), &tmp2, annotate_mode, dda_pos);
       if (ret->all[i]) {
 	tmp2->next = *stop;
 	count++;
@@ -1471,7 +1510,8 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     }
     if (count > 0) {
       NEW (ret->stmt, chpsimstmt);
-      ret->stmt->delay_cost = 0;
+      fprintf(stdout, "\n\npll! : %d\n\n", dda_pos);
+      ret->stmt->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, sc->cursi()) : 0;
       ret->stmt->energy_cost = 0;
       ret->stmt->bw_cost = 0;
       ret->stmt->type = CHPSIM_FORK;
@@ -1492,7 +1532,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_SELECT_NONDET:
   case ACT_CHP_LOOP:
     ret = new ChpSimGraph (sc);
-    ret->stmt = gc_to_chpsim (c->u.gc, sc);
+    ret->stmt = gc_to_chpsim (c->u.gc, sc, annotate_mode, dda_pos);
     if (c->type == ACT_CHP_LOOP) {
       ret->stmt->type = CHPSIM_LOOP;
     }
@@ -1516,7 +1556,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     count = cur_pending_count;
     for (act_chp_gc_t *gc = c->u.gc; gc; gc = gc->next) {
       cur_pending_count = count;
-      ret->all[i] = _buildChpSimGraph (sc, gc->s, &tmp2);
+      ret->all[i] = _buildChpSimGraph (sc, gc->s, &tmp2, annotate_mode, dda_pos);
       if (ret->all[i]) {
 	if (c->type == ACT_CHP_LOOP) {
 	  /* loop back */
@@ -1543,7 +1583,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_DOLOOP:
     {
       ChpSimGraph *ntmp;
-      ChpSimGraph *nret = _buildChpSimGraph (sc, c->u.gc->s, &ntmp);
+      ChpSimGraph *nret = _buildChpSimGraph (sc, c->u.gc->s, &ntmp, annotate_mode, dda_pos);
 
       ret = new ChpSimGraph (sc);
 
@@ -1552,12 +1592,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	ntmp = nret;
       }
       ntmp->next = ret;
-      ret->stmt = gc_to_chpsim (c->u.gc, sc);
+      ret->stmt = gc_to_chpsim (c->u.gc, sc, annotate_mode, dda_pos);
       ret->stmt->type = CHPSIM_LOOP;
       (*stop) = new ChpSimGraph (sc);
       ret->next = (*stop);
       MALLOC (ret->all, ChpSimGraph *, 1);
-      ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2);
+      ret->all[0] = _buildChpSimGraph (sc, c->u.gc->s, &tmp2, annotate_mode, dda_pos);
       if (!ret->all[0]) {
 	ret->all[0] = _gen_nop (sc);
 	tmp2 = ret->all[0];
@@ -1590,7 +1630,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
-      _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      fprintf(stdout, "\n\nsend! : %d\n\n", dda_pos);
+      if (annotate_mode) 
+        _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
+      else 
+        _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
       ret->stmt->type = CHPSIM_SEND;
       ret->stmt->u.sendrecv.is_struct = ch_struct;
       if (ch_struct == 0) {
@@ -1685,7 +1729,11 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
-      _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      fprintf(stdout, "\n\nrecv! : %d\n\n", dda_pos);
+      if (annotate_mode) 
+        _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
+      else 
+        _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
       ret->stmt->type = CHPSIM_RECV;
       if (ch_struct) {
 	ret->stmt->u.sendrecv.is_struct = 1;
@@ -1859,7 +1907,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
-      _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
+
+      fprintf(stdout, "\n\nassn! : %d\n\n", dda_pos);
+      if (annotate_mode) 
+        _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
+      else
+        _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
       ret->stmt->type = CHPSIM_ASSIGN;
       if (TypeFactory::isStructure (it)) {
 	ret->stmt->u.assign.is_struct = 1;
