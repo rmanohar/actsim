@@ -1132,11 +1132,39 @@ static int _get_detailed_costs (int &pos, const stateinfo_t *si)
   }
   int *dda_table = config_get_table_int (buf);
   Assert (pos>=0, "huh?!");
+  int ret;
   if (pos>=config_get_table_size(buf)) {
     warning ("Detailed annotation table mismatch!");
-    return config_get_int ("sim.chp.default_delay");
+    ret = config_get_int ("sim.chp.default_delay");
   }
-  return int(dda_table[pos++]);
+  else {
+    ret = int(dda_table[pos++]);
+  }
+  if (debug_metrics) { 
+    fprintf (stderr, "delay : %d\n", ret);
+  }
+  return ret;
+}
+
+static void _dump_debug (act_chp_lang_t *c) {
+  if (debug_metrics) {
+    if (c->type == ACT_CHP_ASSIGN || c->type == ACT_CHP_ASSIGNSELF || 
+        c->type == ACT_CHP_RECV || c->type == ACT_CHP_SEND) {
+      fprintf (stderr, "\n basic : (");
+    }
+    if (c->type == ACT_CHP_SELECT || c->type == ACT_CHP_SELECT_NONDET) {
+      fprintf (stderr, "\n select : (");
+    }
+    if (c->type == ACT_CHP_COMMA) {
+      fprintf (stderr, "\n parallel : (");
+    }
+    if (c->type == ACT_CHP_LOOP || c->type == ACT_CHP_DOLOOP) {
+      fprintf (stderr, "\n loop : (");
+    }
+    chp_print(stderr, c);
+    fprintf (stderr, ") :: ");
+  }
+  return;
 }
 
 static void _get_detailed_costs (int &pos, const stateinfo_t *si, chpsimstmt *stmt)
@@ -1507,6 +1535,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       i++;
     }
     if (count > 0) {
+      _dump_debug (c);
       NEW (ret->stmt, chpsimstmt);
       ret->stmt->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, sc->cursi()) : 0;
       ret->stmt->energy_cost = 0;
@@ -1529,6 +1558,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
   case ACT_CHP_SELECT_NONDET:
   case ACT_CHP_LOOP:
     ret = new ChpSimGraph (sc);
+    _dump_debug (c);
     ret->stmt = gc_to_chpsim (c->u.gc, sc, annotate_mode, dda_pos);
     if (c->type == ACT_CHP_LOOP) {
       ret->stmt->type = CHPSIM_LOOP;
@@ -1589,6 +1619,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	ntmp = nret;
       }
       ntmp->next = ret;
+      _dump_debug (c);
       ret->stmt = gc_to_chpsim (c->u.gc, sc, annotate_mode, dda_pos);
       ret->stmt->type = CHPSIM_LOOP;
       (*stop) = new ChpSimGraph (sc);
@@ -1628,6 +1659,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
       if (annotate_mode) {
+        _dump_debug (c);
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
       }
       else {
@@ -1728,6 +1760,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
       if (annotate_mode) {
+        _dump_debug (c);
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
       }
       else {
@@ -1908,6 +1941,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       NEW (ret->stmt, chpsimstmt);
 
       if (annotate_mode) {
+        _dump_debug (c);
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
       }
       else {
