@@ -1112,7 +1112,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
   return ret;
 }
 
-static double _get_detailed_costs (int &pos, const stateinfo_t *si) 
+static int _get_detailed_costs (int &pos, const stateinfo_t *si) 
 {
   char buf[10240];
   char *nsname = NULL;
@@ -1127,17 +1127,16 @@ static double _get_detailed_costs (int &pos, const stateinfo_t *si)
   else {
     snprintf (buf, 10240, "sim.chp.%s.delays", si->bnl->p->getName());
   }
-  Assert (config_exists(buf), "Detailed annotation not found");
-  double *dda_table = config_get_table_real (buf);
-  Assert (pos>=0, "huh?!");
-  // Assert (pos<config_get_table_size(buf), "huh?!");
-  if (!(pos<config_get_table_size(buf))) {
-    fprintf(stdout, "\npos : %d", pos);
-    fprintf(stdout, "\ntable size : %d\n\n", config_get_table_size(buf));
-    fflush(stdout);
-    Assert (false, "huh?!");
+  if (!config_exists(buf)) {
+    return config_get_int ("sim.chp.default_delay");
   }
-  return dda_table[pos++];
+  int *dda_table = config_get_table_int (buf);
+  Assert (pos>=0, "huh?!");
+  if (pos>=config_get_table_size(buf)) {
+    warning ("Detailed annotation table mismatch!");
+    return config_get_int ("sim.chp.default_delay");
+  }
+  return int(dda_table[pos++]);
 }
 
 static void _get_detailed_costs (int &pos, const stateinfo_t *si, chpsimstmt *stmt)
@@ -1158,7 +1157,6 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s, const int anno
 
   NEW (ret, chpsimstmt);
   ret->type = CHPSIM_COND;
-  fprintf(stdout, "\n\ngc! : %d\n\n", dda_pos);
   ret->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, s->cursi()) : 0;
   ret->energy_cost = 0;
   ret->bw_cost = 0;
@@ -1510,7 +1508,6 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
     }
     if (count > 0) {
       NEW (ret->stmt, chpsimstmt);
-      fprintf(stdout, "\n\npll! : %d\n\n", dda_pos);
       ret->stmt->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, sc->cursi()) : 0;
       ret->stmt->energy_cost = 0;
       ret->stmt->bw_cost = 0;
@@ -1630,11 +1627,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
-      fprintf(stdout, "\n\nsend! : %d\n\n", dda_pos);
-      if (annotate_mode) 
+      if (annotate_mode) {
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
-      else 
+      }
+      else {
         _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      }
       ret->stmt->type = CHPSIM_SEND;
       ret->stmt->u.sendrecv.is_struct = ch_struct;
       if (ch_struct == 0) {
@@ -1729,11 +1727,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       }
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
-      fprintf(stdout, "\n\nrecv! : %d\n\n", dda_pos);
-      if (annotate_mode) 
+      if (annotate_mode) {
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
-      else 
+      }
+      else {
         _get_costs (sc->cursi(), c->u.comm.chan, ret->stmt);
+      }
       ret->stmt->type = CHPSIM_RECV;
       if (ch_struct) {
 	ret->stmt->u.sendrecv.is_struct = 1;
@@ -1908,11 +1907,12 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
       ret = new ChpSimGraph (sc);
       NEW (ret->stmt, chpsimstmt);
 
-      fprintf(stdout, "\n\nassn! : %d\n\n", dda_pos);
-      if (annotate_mode) 
+      if (annotate_mode) {
         _get_detailed_costs (dda_pos, sc->cursi(), ret->stmt);
-      else
+      }
+      else {
         _get_costs (sc->cursi(), c->u.assign.id, ret->stmt);
+      }
       ret->stmt->type = CHPSIM_ASSIGN;
       if (TypeFactory::isStructure (it)) {
 	ret->stmt->u.assign.is_struct = 1;
