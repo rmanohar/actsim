@@ -162,6 +162,10 @@ static void _hse_record_ids (act_channel_state *ch,
     _hse_record_ids (ch, sc, c, ch_name, (ActId *)e->u.e.l);
     break;
 
+  case E_BITFIELD:
+    fatal_error ("Bitfields unsupported in HSE channel actions.");
+    break;
+
   case E_BUILTIN_BOOL:
   case E_BUILTIN_INT:
     _hse_record_ids (ch, sc, c, ch_name, e->u.e.l);
