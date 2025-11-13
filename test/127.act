@@ -1,0 +1,9 @@
+defproc test()
+{
+  int<128> dummy_constant;
+
+  chp {
+    dummy_constant := 0x1234567890abcdef1234567890abcdef;
+   log("%x", dummy_constant)
+  }
+}
