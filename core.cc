@@ -2928,19 +2928,29 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 		  noffset = sp->portIdx (offset);
 		}
 		else {
-		  Assert (!sp->isGlobalOffset (offset), "What?");
-		  noffset = offset + si->ports.numBools();
-		}
-		if (bitset_tst (tmpbits, noffset)) {
-		  if (!my) {
-		    my = new multi_driver_info;
+		  if (sp->isGlobalOffset (offset)) {
+		    warning ("Potential multi-driver check for global signal is being skipped");
+		    fprintf (stderr, "   Signal: `");
+		    c->Print (stderr);
+		    fprintf (stderr, "'\n");
+		    noffset = -1;
 		  }
-		  /* plus a local driver! */
-		  my->addmd (offset, 2);
+		  else {
+		    noffset = offset + si->ports.numBools();
+		  }
 		}
-		else {
-		  // record the first driver
-		  bitset_set (tmpbits, noffset);
+		if (noffset != -1) {
+		  if (bitset_tst (tmpbits, noffset)) {
+		    if (!my) {
+		      my = new multi_driver_info;
+		    }
+		    /* plus a local driver! */
+		    my->addmd (offset, 2);
+		  }
+		  else {
+		    // record the first driver
+		    bitset_set (tmpbits, noffset);
+		  }
 		}
 	      }
 	    }
