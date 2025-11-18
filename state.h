@@ -138,6 +138,8 @@ class expr_multires {
 
   BigInt allbits () const;
 
+  void hexPrint (FILE *fp) const;
+
 private:
   void _delete_objects () {
     if (nvals > 0) {

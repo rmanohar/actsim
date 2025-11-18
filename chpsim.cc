@@ -3145,6 +3145,10 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
     int off = computeOffset (d) - d->offset; 
     int off_i = d->offset + off*sc.numInts();
     int off_b = d->width + off*sc.numBools();
+
+    off_i = getGlobalOffset (off_i, 1);
+    off_b = getGlobalOffset (off_b, 0);
+
     res.fillValue (_sc, off_i, off_b);
   }
   return res;
@@ -4082,9 +4086,10 @@ int ChpSim::_structure_assign (struct chpsimderef *d, expr_multires *v, void *ca
   struct_len = 3*(ts.numInts() + ts.numBools());
   for (int i=0; i < struct_len/3; i++) {
 #if 0
-    printf ("%d (%d:w=%d) := %lu (w=%d)\n",
+    printf ("[%d] %d (%d:w=%d) := %lu (w=%d)\n",
+	    i,
 	    struct_info[3*i], struct_info[3*i+1],
-	    struct_info[3*i+2], v->v[i].v, v->v[i].width);
+	    struct_info[3*i+2], v->v[i].getVal(0), v->v[i].getWidth());
 #endif
     int off = getGlobalOffset (struct_info[3*i],
 			       struct_info[3*i+1] == 2 ?

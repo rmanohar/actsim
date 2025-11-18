@@ -354,6 +354,19 @@ void expr_multires::setAllWidths (int width)
   }
 }
 
+void expr_multires::hexPrint (FILE *fp) const
+{
+  fprintf (fp, "{");
+  for (int i=0; i < nvals; i++) {
+    v[i].hexPrint (fp);
+    fprintf (fp, ":w%d", v[i].getWidth());
+    if (i != nvals-1) {
+      fprintf (fp, ", ");
+    }
+  }
+  fprintf (fp, "}");
+}
+
 void expr_multires::setField (int idx, expr_multires *val)
 {
   Assert (_d, "Hmm");
