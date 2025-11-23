@@ -1,0 +1,15 @@
+defproc dc12 (chan?(int<0>) B)
+{
+    int<0> y;
+    chp {
+        *[ B?y; log(y) ]
+    }
+}
+defproc test () {
+    chan(int<0>) X;
+    dc12 d;
+    d.B = X;
+    chp {
+        X!1; X!2
+    }
+}
