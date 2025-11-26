@@ -1,0 +1,23 @@
+deftype s (
+    int<1> a;
+    int<1> b
+) {}
+
+defproc sb (chan?(s) IN) {
+    int<2> x;
+    chp {
+        *[ [#IN -> x:=int(IN)]; log ("got: ", x); IN? ]
+    }
+}
+
+defproc test()
+{
+   chan(s) ch;
+   sb sx(ch);
+   s sval;
+   chp {
+     sval.a := 1;
+     ch!sval
+   }
+}
+
