@@ -74,7 +74,7 @@ void ChpSimGraph::printStmt (FILE *fp, Process *p)
     fprintf (fp, "assign: ");
     if (!p) break;
     c = state->getConnFromOffset (p, stmt->u.assign.d.offset,
-				  (stmt->u.assign.isint ? 1 : 0),
+				  (stmt->u.assign.is_int ? 1 : 0),
 				  &dy);
     if (c) {
       ActId *t = c->toid();
@@ -1995,8 +1995,9 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	  ret->stmt->u.assign.d.isenum = 0;
 	}
 	if (type == 1) {
-	  Assert (width > 0, "zero-width int?");
-	  ret->stmt->u.assign.isint = width;
+	  Assert (width >= 0, "zero-width int?");
+	  ret->stmt->u.assign.is_int = 1;
+	  ret->stmt->u.assign.iwidth = width;
 
 	  if (TypeFactory::isEnum (it)) {
 	    ret->stmt->u.assign.d.isenum = 1;
@@ -2005,7 +2006,7 @@ ChpSimGraph *ChpSimGraph::_buildChpSimGraph (ActSimCore *sc,
 	}
 	else {
 	  Assert (type == 0, "Typechecking?!");
-	  ret->stmt->u.assign.isint = 0;
+	  ret->stmt->u.assign.is_int = 0;
 	  ret->stmt->u.assign.d.isbool = 1;
 	}
       }

@@ -1,0 +1,9 @@
+defproc test ()
+{
+  int<0> _va28;
+  int<18> _va29;
+  chp {
+    _va28:=int(0,0);
+    *[ _va29:=0 <- bool(_va28) ]
+  }
+}

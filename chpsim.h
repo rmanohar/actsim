@@ -96,9 +96,10 @@ struct chpsimstmt {
       list_t *l;		/* arguments */
     } fn;
     struct {
-      short isint;		/* 0 = bool, otherwise bitwidth of int
+      short iwidth;		/* 0 = bool, otherwise bitwidth of int
 				   */
       unsigned int is_struct:1;	// 1 if structure, 0 otherwise
+      unsigned int is_int:1;	/* 1 if int, 0 if bool */
       Expr *e;
       struct chpsimderef d;	/* variable deref */
     } assign;			/* var := e */

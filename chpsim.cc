@@ -1068,7 +1068,7 @@ int ChpSim::Step (Event *ev)
       off = computeOffset (&stmt->u.assign.d);
       my_loff = off;
 
-      if (stmt->u.assign.isint == 0) {
+      if (stmt->u.assign.is_int == 0) {
 	off = getGlobalOffset (off, 0);
 #if 0
 	printf (" [bglob=%d]", off);
@@ -1084,13 +1084,13 @@ int ChpSim::Step (Event *ev)
 #if 0
 	printf (" [iglob=%d]", off);
 #endif
-	v.setWidth (stmt->u.assign.isint);
+	v.setWidth (stmt->u.assign.iwidth);
 	v.toStatic ();
 
 	if (chkWatchBreakPt (1, my_loff, off, v, ev->getCause())) {
 	  _breakpt = 1;
 	}
-	v.setWidth (stmt->u.assign.isint);
+	v.setWidth (stmt->u.assign.iwidth);
 	if (stmt->u.assign.d.isenum) {
 	  BigInt tmpv (64, 0, 0);
 	  tmpv.setVal (0, stmt->u.assign.d.enum_sz);
@@ -4539,12 +4539,12 @@ void ChpSim::_zeroAllIntsChans (ChpSimGraph *g)
       }
     }
     else {
-      if (g->stmt->u.assign.isint != 0) {
+      if (g->stmt->u.assign.is_int == 1) {
 	int off;
 	BigInt v;
 	off = computeOffset (&g->stmt->u.assign.d);
 	off = getGlobalOffset (off, 1);
-	v.setWidth (g->stmt->u.assign.isint);
+	v.setWidth (g->stmt->u.assign.iwidth);
 	v.toStatic();
 	_sc->setInt (off, v);
       }
