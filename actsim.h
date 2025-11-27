@@ -55,6 +55,9 @@
 
 #define E_CHP_VARARRAY (E_NEWEND + 12)
 
+
+#define E_CHP_CHANSTRUCT_REF (E_NEWEND + 13)
+
 /*
  *
  * Core simulation library

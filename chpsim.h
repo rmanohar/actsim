@@ -46,7 +46,7 @@ struct chpsimcond {
 
 
 /**
- * This is used to hold the information necessray for a de-reference
+ * This is used to hold the information necessary for a de-reference
  */
 struct chpsimderef {
   /*

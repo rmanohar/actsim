@@ -2884,6 +2884,13 @@ BigInt ChpSim::exprEval (Expr *e)
     l = varEval (e->u.x.val, 2);
     l.setWidth (e->u.x.extra);
     break;
+
+  case E_CHP_CHANSTRUCT_REF:
+    {
+      expr_multires res = varChanEvalStruct (e->u.x.val, 2);
+      l = *res.getField ((ActId *)e->u.x.extra);
+      break;
+    }
     
   case E_CHP_VARBOOL_DEREF:
     {
@@ -3449,6 +3456,13 @@ expr_multires ChpSim::exprStruct (Expr *e)
     res = varChanEvalStruct (e->u.x.val, 2);
     break;
 
+  case E_CHP_CHANSTRUCT_REF:
+    {
+      expr_multires tmp = varChanEvalStruct (e->u.x.val, 2);
+      res = tmp.getStruct ((ActId *)e->u.x.extra);
+      break;
+    }
+
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
     break;
@@ -3636,6 +3650,8 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
   InstType *it;
 
   it = _sc->cursi()->bnl->cur->FullLookup (id, NULL);
+
+  if (!it) return;
 
   if (ActBooleanizePass::isDynamicRef (_sc->cursi()->bnl, id)) {
     

@@ -49,6 +49,46 @@ ChpSimGraph::ChpSimGraph (ActSimCore *s)
 }
 
 
+static bool is_channel_deref (Scope *sc, ActId *id)
+{
+  if (id->Rest()) {
+    InstType *it = sc->FullLookup (id->getName());
+    if (it && TypeFactory::isChanType (it)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool is_potentially_shared (act_boolean_netlist_t *bnl,
+				   act_connection *cx)
+{
+  if (cx->isglobal()) {
+    return true;
+  }
+  for (int i=0; i < A_LEN (bnl->ports); i++) {
+    if (cx == bnl->ports[i].c) {
+      return true;
+    }
+  }
+  for (int i=0; i < A_LEN (bnl->chpports); i++) {
+    if (cx == bnl->chpports[i].c) {
+      return true;
+    }
+  }
+  for (int i=0; i < A_LEN (bnl->instports); i++) {
+    if (cx == bnl->instports[i]) {
+      return true;
+    }
+  }
+  for (int i=0; i < A_LEN (bnl->instchpports); i++) {
+    if (cx == bnl->instchpports[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ChpSimGraph::printStmt (FILE *fp, Process *p)
 {
   act_connection *c;
@@ -446,6 +486,9 @@ _mk_std_deref_struct (ActId *id, InstType *it, ActSimCore *s)
   return ds;
 }
 
+/*
+ * Return runtime structure to handle standard de-reference
+ */
 static struct chpsimderef *
 _mk_std_deref (ActId *id, InstType *it, ActSimCore *s)
 {
@@ -947,103 +990,105 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
     {
       int type = -1;
 
-      InstType *it = s->cursi()->bnl->cur->FullLookup ((ActId *)e->u.e.l,
-						       NULL);
-      
-      if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
-					   ((ActId *)e->u.e.l))) {
-
-	// XXX: check for arrays here!!!
-	if (it->arrayInfo() && !((ActId *)e->u.e.l)->isDeref()) {
-	  Assert (0, "entire array that is dynamic!");
+      if (is_channel_deref (s->cursi()->bnl->cur, (ActId *)e->u.e.l)) {
+	if (((ActId *)e->u.e.l)->isDynamicDeref ()) {
+	  Assert (0, "Cannot handle dynamic references in channel expression");
 	}
-	
-	if (TypeFactory::isStructure (it)) {
-	  struct chpsimderef *ds = _mk_deref_struct ((ActId *)e->u.e.l, s);
-	  ret->u.e.l = (Expr *) ds;
-	  ret->u.e.r = (Expr *) ds->cx;
-	  ret->type = E_CHP_VARSTRUCT_DEREF;
-	}
-	else {
-	  if (TypeFactory::isBaseBoolType (it)) {
-	    type = 0;
-	  }
-	  else {
-	    type = TypeFactory::bitWidth (it);
-	  }
-
-	  struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
-	  ret->u.e.l = (Expr *) d;
-	  ret->u.e.r = (Expr *) d->cx;
-	  
-	  if (type == 0) {
-	    ret->type = E_CHP_VARBOOL_DEREF;
-	  }
-	  else {
-	    ret->type = E_CHP_VARINT_DEREF;
-	  }
-	}
-      }
-      else {
-	int w;
 	act_boolean_netlist_t *bnl = s->cursi()->bnl;
-	act_connection *cx = ((ActId *)e->u.e.l)->Canonical (bnl->cur);
+	ActId *tmp_id = new ActId (((ActId *)e->u.e.l)->getName(),
+				   ((ActId *)e->u.e.l)->arrayInfo());
+	act_connection *cx = tmp_id->Canonical (bnl->cur);
 
-	/* set potential shared variable flags */
-	if (cx->isglobal()) {
+	if (((*flags & 0x2) == 0) && is_potentially_shared (bnl, cx)) {
 	  *flags = *flags | 0x2;
 	}
-	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->ports); i++) {
-	  if (cx == bnl->ports[i].c) {
-	    *flags = *flags | 0x2;
-	  }
-	}
-	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->chpports); i++) {
-	  if (cx == bnl->chpports[i].c) {
-	    *flags = *flags | 0x2;
-	  }
-	}
-	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->instports); i++) {
-	  if (cx == bnl->instports[i]) {
-	    *flags = *flags | 0x2;
-	  }
-	}
-	for (int i=0; (((*flags) & 0x2) == 0) && i < A_LEN (bnl->instchpports); i++) {
-	  if (cx == bnl->instchpports[i]) {
-	    *flags = *flags | 0x2;
-	  }
-	}
-	
-	if (TypeFactory::isStructure (it)) {
-	  struct chpsimderef *ds =
-	    _mk_std_deref_struct ((ActId *)e->u.e.l, it, s);
 
-	  ret->u.e.l = (Expr *)ds;
-	  ret->u.e.r = (Expr *)ds->cx;
-	  ret->type = E_CHP_VARSTRUCT;
-	}
-	else if (it->arrayInfo() && !((ActId *)e->u.e.l)->Tail()->isDeref()) {
-	  struct chpsimderef *d =
-	    _mk_std_deref ((ActId *)e->u.e.l, it, s);
-	  ret->u.e.l = (Expr *) d;
-	  ret->u.e.r = (Expr *) d->cx;
-	  ret->type = E_CHP_VARARRAY;
-	}
-	else {
-	  ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
-	  ret->u.x.extra = w;
-	//ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
-	  if (type == 2) {
-	    ret->type = E_CHP_VARCHAN;
+	ret->u.x.val = s->getLocalOffset (tmp_id, s->cursi(), &type);
+	ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Rest();
+	ret->type = E_CHP_CHANSTRUCT_REF;
+	
+	tmp_id->setArray (NULL);
+	delete tmp_id;
+      }
+      else {
+	InstType *it = s->cursi()->bnl->cur->FullLookup ((ActId *)e->u.e.l,
+							 NULL);
+
+	if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
+					     ((ActId *)e->u.e.l))) {
+
+	  // XXX: check for arrays here!!!
+	  if (it->arrayInfo() && !((ActId *)e->u.e.l)->isDeref()) {
+	    Assert (0, "entire array that is dynamic!");
 	  }
-	  else if (type == 1) {
-	    ret->type = E_CHP_VARINT;
-	  }
-	  else if (type == 0) {
-	    ret->type = E_CHP_VARBOOL;
+	
+	  if (TypeFactory::isStructure (it)) {
+	    struct chpsimderef *ds = _mk_deref_struct ((ActId *)e->u.e.l, s);
+	    ret->u.e.l = (Expr *) ds;
+	    ret->u.e.r = (Expr *) ds->cx;
+	    ret->type = E_CHP_VARSTRUCT_DEREF;
 	  }
 	  else {
-	    fatal_error ("Channel output variable used in expression?");
+	    if (TypeFactory::isBaseBoolType (it)) {
+	      type = 0;
+	    }
+	    else {
+	      type = TypeFactory::bitWidth (it);
+	    }
+
+	    struct chpsimderef *d = _mk_deref ((ActId *)e->u.e.l, s, &type);
+	    ret->u.e.l = (Expr *) d;
+	    ret->u.e.r = (Expr *) d->cx;
+	  
+	    if (type == 0) {
+	      ret->type = E_CHP_VARBOOL_DEREF;
+	    }
+	    else {
+	      ret->type = E_CHP_VARINT_DEREF;
+	    }
+	  }
+	}
+	else {
+	  int w;
+	  act_boolean_netlist_t *bnl = s->cursi()->bnl;
+	  act_connection *cx = ((ActId *)e->u.e.l)->Canonical (bnl->cur);
+
+	  /* set potential shared variable flags */
+	  if (((*flags & 0x2) == 0) && is_potentially_shared (bnl, cx)) {
+	    *flags = *flags | 0x2;
+	  }
+	
+	  if (TypeFactory::isStructure (it)) {
+	    struct chpsimderef *ds =
+	      _mk_std_deref_struct ((ActId *)e->u.e.l, it, s);
+
+	    ret->u.e.l = (Expr *)ds;
+	    ret->u.e.r = (Expr *)ds->cx;
+	    ret->type = E_CHP_VARSTRUCT;
+	  }
+	  else if (it->arrayInfo() && !((ActId *)e->u.e.l)->Tail()->isDeref()) {
+	    struct chpsimderef *d =
+	      _mk_std_deref ((ActId *)e->u.e.l, it, s);
+	    ret->u.e.l = (Expr *) d;
+	    ret->u.e.r = (Expr *) d->cx;
+	    ret->type = E_CHP_VARARRAY;
+	  }
+	  else {
+	    ret->u.x.val = s->getLocalOffset ((ActId *)e->u.e.l, s->cursi(), &type, &w);
+	    ret->u.x.extra = w;
+	    //ret->u.x.extra = (unsigned long) ((ActId *)e->u.e.l)->Canonical (s->cursi()->bnl->cur);
+	    if (type == 2) {
+	      ret->type = E_CHP_VARCHAN;
+	    }
+	    else if (type == 1) {
+	      ret->type = E_CHP_VARINT;
+	    }
+	    else if (type == 0) {
+	      ret->type = E_CHP_VARBOOL;
+	    }
+	    else {
+	      fatal_error ("Channel output variable used in expression?");
+	    }
 	  }
 	}
       }
