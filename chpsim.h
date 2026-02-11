@@ -173,7 +173,7 @@ class ChpSimGraph {
   static void recordChannel (ActSimCore *, ChpSim *, act_chp_lang_t *);
 private:
   static ChpSimGraph *_buildChpSimGraph (ActSimCore *,
-					 act_chp_lang_t *, ChpSimGraph **stop, int, int&);
+					 act_chp_lang_t *, ChpSimGraph **stop, int, int&, int&);
   static int cur_pending_count;
 
 };
