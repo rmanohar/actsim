@@ -1183,6 +1183,9 @@ static int _get_detailed_costs (int &pos, int type, const stateinfo_t *si)
     }
   }
   if (!config_exists(buf)) {
+    if (debug_metrics) {
+      warning ("Could not find %s! Using defaults.", buf);
+    }
     return (type==0) ? config_get_int ("sim.chp.default_delay") : config_get_int ("sim.chp.default_energy");
   }
   int *da_table = config_get_table_int (buf);
