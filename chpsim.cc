@@ -4317,6 +4317,9 @@ int ChpSim::_chkWatchBreakPt (int verb,
 	if (umode == 2) {
 	  printf ("-wakeup");
 	}
+        else {
+	  _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
+        }
 	printf (" value: ");
 	v.decPrint (stdout);
 	printf (" (0x");
