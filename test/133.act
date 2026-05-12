@@ -1,0 +1,30 @@
+deftype STR2(
+  int<1> flag;
+  int<0> ch
+){}
+
+defproc buffer (
+    chan?(STR2) IN;
+    chan!(STR2) OUT
+) {
+  STR2 in;
+  chp{
+      *[ IN?in; OUT!in ]
+  }
+}
+
+defproc ss (
+    chan!(STR2) IN;
+    chan?(STR2) OUT
+    ) {
+      int v;
+      chp {
+         v := 0;
+        *[ v < 32 -> IN!STR2(0),OUT?; v := v + 1 ]
+      }
+    }
+
+defproc test () {
+  buffer db;
+  ss s(db.IN, db.OUT);
+}
