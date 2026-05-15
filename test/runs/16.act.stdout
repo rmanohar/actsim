@@ -1,8 +1,8 @@
 [                   0] <>  test mem
-[                   0] <m>  hi
-[                  10] <m>  there
-[                  30] <m>  hi
-[                  40] <m>  here
-[                  60] <>  got 5
+[                  10] <m>  hi
+[                  30] <m>  there
 [                  60] <m>  hi
-[                  70] <m>  there
+[                  80] <m>  here
+[                 100] <>  got 5
+[                 110] <m>  hi
+[                 130] <m>  there

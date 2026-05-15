@@ -1,12 +1,12 @@
 [                   0] <>  test mem
-[                   0] <m>  hi
-[                  10] <m>  there
-[                  30] <m>  hi
-[                  40] <m>  there
-[                  60] <m>  hi
-[                  70] <m>  here
-[                  90] <>  got 5
+[                  10] <m>  hi
+[                  20] <m>  there
+[                  50] <m>  hi
+[                  60] <m>  there
 [                  90] <m>  hi
 [                 100] <m>  here
-[                 120] <>  got 6
-[                 120] <m>  hi
+[                 120] <>  got 5
+[                 130] <m>  hi
+[                 140] <m>  here
+[                 160] <>  got 6
+[                 170] <m>  hi

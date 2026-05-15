@@ -1,12 +1,12 @@
 [                  10] <dn>  in dend
-[                  60] <dn>  Recv w v:2 0
-[                  60] <dv>  Send w v:2 0
-[                  90] <dn>  Recv w v:2 1
-[                  90] <dv>  Send w v:2 1
-[                 120] <dn>  Recv w v:2 2
-[                 120] <dv>  Send w v:2 2
-[                 150] <dn>  Recv w v:2 3
-[                 150] <dv>  Send w v:2 3
-[                 180] <dn>  Recv w v:2 4
-[                 180] <dv>  Send w v:2 4
-[                 190] <dv>  Warning: all guards false; no probes/shared vars
+[                  80] <dn>  Recv w v:2 0
+[                  80] <dv>  Send w v:2 0
+[                 130] <dn>  Recv w v:2 1
+[                 130] <dv>  Send w v:2 1
+[                 180] <dn>  Recv w v:2 2
+[                 180] <dv>  Send w v:2 2
+[                 230] <dn>  Recv w v:2 3
+[                 230] <dv>  Send w v:2 3
+[                 280] <dn>  Recv w v:2 4
+[                 280] <dv>  Send w v:2 4
+[                 310] <dv>  Warning: all guards false; no probes/shared vars

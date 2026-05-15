@@ -1,2 +1,2 @@
-[                  50] <sink>  ASSERTION failed, value mismatch; expected: 1 (0x1); got: 0 (0x0)
-[                  80] <sink>  Sink file #1 ends.
+[                  90] <sink>  ASSERTION failed, value mismatch; expected: 1 (0x1); got: 0 (0x0)
+[                 160] <sink>  Sink file #1 ends.

@@ -1,17 +1,17 @@
 [                  10] <dn>  in dend
-[                  60] <dn>  got tick
-[                  70] <dn>  Send S:0
-[                  70] <dv>  Send w v:2 0
-[                 100] <dn>  got tick
-[                 110] <dn>  Send S:0
-[                 110] <dv>  Send w v:2 1
+[                  80] <dn>  got tick
+[                  90] <dn>  Send S:0
+[                  90] <dv>  Send w v:2 0
 [                 140] <dn>  got tick
 [                 150] <dn>  Send S:0
-[                 150] <dv>  Send w v:2 2
-[                 180] <dn>  got tick
-[                 190] <dn>  Send S:0
-[                 190] <dv>  Send w v:2 3
-[                 220] <dn>  got tick
-[                 230] <dn>  Send S:0
-[                 230] <dv>  Send w v:2 4
-[                 240] <dv>  Warning: all guards false; no probes/shared vars
+[                 150] <dv>  Send w v:2 1
+[                 200] <dn>  got tick
+[                 210] <dn>  Send S:0
+[                 210] <dv>  Send w v:2 2
+[                 260] <dn>  got tick
+[                 270] <dn>  Send S:0
+[                 270] <dv>  Send w v:2 3
+[                 320] <dn>  got tick
+[                 330] <dn>  Send S:0
+[                 330] <dv>  Send w v:2 4
+[                 360] <dv>  Warning: all guards false; no probes/shared vars

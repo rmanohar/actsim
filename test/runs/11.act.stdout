@@ -1,200 +1,200 @@
-[                  30] <source>  w = 1
-[                  30] <b>  got a value 1
-[                  60] <b>  got a value 1
-[                  60] <source>  w = 2
-[                  90] <b>  got a value 1
-[                  90] <source>  w = 3
+[                  40] <source>  w = 1
+[                  40] <b>  got a value 1
+[                  80] <b>  got a value 1
+[                  80] <source>  w = 2
 [                 120] <b>  got a value 1
-[                 120] <source>  w = 4
-[                 150] <b>  got a value 1
-[                 150] <source>  w = 5
-[                 180] <b>  got a value 1
-[                 180] <source>  w = 6
-[                 210] <b>  got a value 1
-[                 210] <source>  w = 7
+[                 120] <source>  w = 3
+[                 160] <b>  got a value 1
+[                 160] <source>  w = 4
+[                 200] <b>  got a value 1
+[                 200] <source>  w = 5
 [                 240] <b>  got a value 1
-[                 240] <source>  w = 8
-[                 270] <b>  got a value 1
-[                 270] <source>  w = 9
-[                 300] <b>  got a value 1
-[                 300] <source>  w = 10
-[                 330] <b>  got a value 1
-[                 330] <source>  w = 11
+[                 240] <source>  w = 6
+[                 280] <b>  got a value 1
+[                 280] <source>  w = 7
+[                 320] <b>  got a value 1
+[                 320] <source>  w = 8
 [                 360] <b>  got a value 1
-[                 360] <source>  w = 12
-[                 390] <b>  got a value 1
-[                 390] <source>  w = 13
-[                 420] <b>  got a value 1
-[                 420] <source>  w = 14
-[                 450] <b>  got a value 1
-[                 450] <source>  w = 15
+[                 360] <source>  w = 9
+[                 400] <b>  got a value 1
+[                 400] <source>  w = 10
+[                 440] <b>  got a value 1
+[                 440] <source>  w = 11
 [                 480] <b>  got a value 1
-[                 480] <source>  w = 16
-[                 510] <b>  got a value 1
-[                 510] <source>  w = 17
-[                 540] <b>  got a value 1
-[                 540] <source>  w = 18
-[                 570] <b>  got a value 1
-[                 570] <source>  w = 19
+[                 480] <source>  w = 12
+[                 520] <b>  got a value 1
+[                 520] <source>  w = 13
+[                 560] <b>  got a value 1
+[                 560] <source>  w = 14
 [                 600] <b>  got a value 1
-[                 600] <source>  w = 20
-[                 630] <b>  got a value 1
-[                 630] <source>  w = 21
-[                 660] <b>  got a value 1
-[                 660] <source>  w = 22
-[                 690] <b>  got a value 1
-[                 690] <source>  w = 23
+[                 600] <source>  w = 15
+[                 640] <b>  got a value 1
+[                 640] <source>  w = 16
+[                 680] <b>  got a value 1
+[                 680] <source>  w = 17
 [                 720] <b>  got a value 1
-[                 720] <source>  w = 24
-[                 750] <b>  got a value 1
-[                 750] <source>  w = 25
-[                 780] <b>  got a value 1
-[                 780] <source>  w = 26
-[                 810] <b>  got a value 1
-[                 810] <source>  w = 27
+[                 720] <source>  w = 18
+[                 760] <b>  got a value 1
+[                 760] <source>  w = 19
+[                 800] <b>  got a value 1
+[                 800] <source>  w = 20
 [                 840] <b>  got a value 1
-[                 840] <source>  w = 28
-[                 870] <b>  got a value 1
-[                 870] <source>  w = 29
-[                 900] <b>  got a value 1
-[                 900] <source>  w = 30
-[                 930] <b>  got a value 1
-[                 930] <source>  w = 31
+[                 840] <source>  w = 21
+[                 880] <b>  got a value 1
+[                 880] <source>  w = 22
+[                 920] <b>  got a value 1
+[                 920] <source>  w = 23
 [                 960] <b>  got a value 1
-[                 960] <source>  w = 32
-[                 990] <b>  got a value 1
-[                 990] <source>  w = 33
-[                1020] <b>  got a value 1
-[                1020] <source>  w = 34
-[                1050] <b>  got a value 1
-[                1050] <source>  w = 35
+[                 960] <source>  w = 24
+[                1000] <b>  got a value 1
+[                1000] <source>  w = 25
+[                1040] <b>  got a value 1
+[                1040] <source>  w = 26
 [                1080] <b>  got a value 1
-[                1080] <source>  w = 36
-[                1110] <b>  got a value 1
-[                1110] <source>  w = 37
-[                1140] <b>  got a value 1
-[                1140] <source>  w = 38
-[                1170] <b>  got a value 1
-[                1170] <source>  w = 39
+[                1080] <source>  w = 27
+[                1120] <b>  got a value 1
+[                1120] <source>  w = 28
+[                1160] <b>  got a value 1
+[                1160] <source>  w = 29
 [                1200] <b>  got a value 1
-[                1200] <source>  w = 40
-[                1230] <b>  got a value 1
-[                1230] <source>  w = 41
-[                1260] <b>  got a value 1
-[                1260] <source>  w = 42
-[                1290] <b>  got a value 1
-[                1290] <source>  w = 43
+[                1200] <source>  w = 30
+[                1240] <b>  got a value 1
+[                1240] <source>  w = 31
+[                1280] <b>  got a value 1
+[                1280] <source>  w = 32
 [                1320] <b>  got a value 1
-[                1320] <source>  w = 44
-[                1350] <b>  got a value 1
-[                1350] <source>  w = 45
-[                1380] <b>  got a value 1
-[                1380] <source>  w = 46
-[                1410] <b>  got a value 1
-[                1410] <source>  w = 47
+[                1320] <source>  w = 33
+[                1360] <b>  got a value 1
+[                1360] <source>  w = 34
+[                1400] <b>  got a value 1
+[                1400] <source>  w = 35
 [                1440] <b>  got a value 1
-[                1440] <source>  w = 48
-[                1470] <b>  got a value 1
-[                1470] <source>  w = 49
-[                1500] <b>  got a value 1
-[                1500] <source>  w = 50
-[                1530] <b>  got a value 1
-[                1530] <source>  w = 51
+[                1440] <source>  w = 36
+[                1480] <b>  got a value 1
+[                1480] <source>  w = 37
+[                1520] <b>  got a value 1
+[                1520] <source>  w = 38
 [                1560] <b>  got a value 1
-[                1560] <source>  w = 52
-[                1590] <b>  got a value 1
-[                1590] <source>  w = 53
-[                1620] <b>  got a value 1
-[                1620] <source>  w = 54
-[                1650] <b>  got a value 1
-[                1650] <source>  w = 55
+[                1560] <source>  w = 39
+[                1600] <b>  got a value 1
+[                1600] <source>  w = 40
+[                1640] <b>  got a value 1
+[                1640] <source>  w = 41
 [                1680] <b>  got a value 1
-[                1680] <source>  w = 56
-[                1710] <b>  got a value 1
-[                1710] <source>  w = 57
-[                1740] <b>  got a value 1
-[                1740] <source>  w = 58
-[                1770] <b>  got a value 1
-[                1770] <source>  w = 59
+[                1680] <source>  w = 42
+[                1720] <b>  got a value 1
+[                1720] <source>  w = 43
+[                1760] <b>  got a value 1
+[                1760] <source>  w = 44
 [                1800] <b>  got a value 1
-[                1800] <source>  w = 60
-[                1830] <b>  got a value 1
-[                1830] <source>  w = 61
-[                1860] <b>  got a value 1
-[                1860] <source>  w = 62
-[                1890] <b>  got a value 1
-[                1890] <source>  w = 63
+[                1800] <source>  w = 45
+[                1840] <b>  got a value 1
+[                1840] <source>  w = 46
+[                1880] <b>  got a value 1
+[                1880] <source>  w = 47
 [                1920] <b>  got a value 1
-[                1920] <source>  w = 64
-[                1950] <b>  got a value 1
-[                1950] <source>  w = 65
-[                1980] <b>  got a value 1
-[                1980] <source>  w = 66
-[                2010] <b>  got a value 1
-[                2010] <source>  w = 67
+[                1920] <source>  w = 48
+[                1960] <b>  got a value 1
+[                1960] <source>  w = 49
+[                2000] <b>  got a value 1
+[                2000] <source>  w = 50
 [                2040] <b>  got a value 1
-[                2040] <source>  w = 68
-[                2070] <b>  got a value 1
-[                2070] <source>  w = 69
-[                2100] <b>  got a value 1
-[                2100] <source>  w = 70
-[                2130] <b>  got a value 1
-[                2130] <source>  w = 71
+[                2040] <source>  w = 51
+[                2080] <b>  got a value 1
+[                2080] <source>  w = 52
+[                2120] <b>  got a value 1
+[                2120] <source>  w = 53
 [                2160] <b>  got a value 1
-[                2160] <source>  w = 72
-[                2190] <b>  got a value 1
-[                2190] <source>  w = 73
-[                2220] <b>  got a value 1
-[                2220] <source>  w = 74
-[                2250] <b>  got a value 1
-[                2250] <source>  w = 75
+[                2160] <source>  w = 54
+[                2200] <b>  got a value 1
+[                2200] <source>  w = 55
+[                2240] <b>  got a value 1
+[                2240] <source>  w = 56
 [                2280] <b>  got a value 1
-[                2280] <source>  w = 76
-[                2310] <b>  got a value 1
-[                2310] <source>  w = 77
-[                2340] <b>  got a value 1
-[                2340] <source>  w = 78
-[                2370] <b>  got a value 1
-[                2370] <source>  w = 79
+[                2280] <source>  w = 57
+[                2320] <b>  got a value 1
+[                2320] <source>  w = 58
+[                2360] <b>  got a value 1
+[                2360] <source>  w = 59
 [                2400] <b>  got a value 1
-[                2400] <source>  w = 80
-[                2430] <b>  got a value 1
-[                2430] <source>  w = 81
-[                2460] <b>  got a value 1
-[                2460] <source>  w = 82
-[                2490] <b>  got a value 1
-[                2490] <source>  w = 83
+[                2400] <source>  w = 60
+[                2440] <b>  got a value 1
+[                2440] <source>  w = 61
+[                2480] <b>  got a value 1
+[                2480] <source>  w = 62
 [                2520] <b>  got a value 1
-[                2520] <source>  w = 84
-[                2550] <b>  got a value 1
-[                2550] <source>  w = 85
-[                2580] <b>  got a value 1
-[                2580] <source>  w = 86
-[                2610] <b>  got a value 1
-[                2610] <source>  w = 87
+[                2520] <source>  w = 63
+[                2560] <b>  got a value 1
+[                2560] <source>  w = 64
+[                2600] <b>  got a value 1
+[                2600] <source>  w = 65
 [                2640] <b>  got a value 1
-[                2640] <source>  w = 88
-[                2670] <b>  got a value 1
-[                2670] <source>  w = 89
-[                2700] <b>  got a value 1
-[                2700] <source>  w = 90
-[                2730] <b>  got a value 1
-[                2730] <source>  w = 91
+[                2640] <source>  w = 66
+[                2680] <b>  got a value 1
+[                2680] <source>  w = 67
+[                2720] <b>  got a value 1
+[                2720] <source>  w = 68
 [                2760] <b>  got a value 1
-[                2760] <source>  w = 92
-[                2790] <b>  got a value 1
-[                2790] <source>  w = 93
-[                2820] <b>  got a value 1
-[                2820] <source>  w = 94
-[                2850] <b>  got a value 1
-[                2850] <source>  w = 95
+[                2760] <source>  w = 69
+[                2800] <b>  got a value 1
+[                2800] <source>  w = 70
+[                2840] <b>  got a value 1
+[                2840] <source>  w = 71
 [                2880] <b>  got a value 1
-[                2880] <source>  w = 96
-[                2910] <b>  got a value 1
-[                2910] <source>  w = 97
-[                2940] <b>  got a value 1
-[                2940] <source>  w = 98
-[                2970] <b>  got a value 1
-[                2970] <source>  w = 99
+[                2880] <source>  w = 72
+[                2920] <b>  got a value 1
+[                2920] <source>  w = 73
+[                2960] <b>  got a value 1
+[                2960] <source>  w = 74
 [                3000] <b>  got a value 1
-[                3000] <source>  w = 100
+[                3000] <source>  w = 75
+[                3040] <b>  got a value 1
+[                3040] <source>  w = 76
+[                3080] <b>  got a value 1
+[                3080] <source>  w = 77
+[                3120] <b>  got a value 1
+[                3120] <source>  w = 78
+[                3160] <b>  got a value 1
+[                3160] <source>  w = 79
+[                3200] <b>  got a value 1
+[                3200] <source>  w = 80
+[                3240] <b>  got a value 1
+[                3240] <source>  w = 81
+[                3280] <b>  got a value 1
+[                3280] <source>  w = 82
+[                3320] <b>  got a value 1
+[                3320] <source>  w = 83
+[                3360] <b>  got a value 1
+[                3360] <source>  w = 84
+[                3400] <b>  got a value 1
+[                3400] <source>  w = 85
+[                3440] <b>  got a value 1
+[                3440] <source>  w = 86
+[                3480] <b>  got a value 1
+[                3480] <source>  w = 87
+[                3520] <b>  got a value 1
+[                3520] <source>  w = 88
+[                3560] <b>  got a value 1
+[                3560] <source>  w = 89
+[                3600] <b>  got a value 1
+[                3600] <source>  w = 90
+[                3640] <b>  got a value 1
+[                3640] <source>  w = 91
+[                3680] <b>  got a value 1
+[                3680] <source>  w = 92
+[                3720] <b>  got a value 1
+[                3720] <source>  w = 93
+[                3760] <b>  got a value 1
+[                3760] <source>  w = 94
+[                3800] <b>  got a value 1
+[                3800] <source>  w = 95
+[                3840] <b>  got a value 1
+[                3840] <source>  w = 96
+[                3880] <b>  got a value 1
+[                3880] <source>  w = 97
+[                3920] <b>  got a value 1
+[                3920] <source>  w = 98
+[                3960] <b>  got a value 1
+[                3960] <source>  w = 99
+[                4000] <b>  got a value 1
+[                4000] <source>  w = 100

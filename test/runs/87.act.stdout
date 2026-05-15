@@ -1,6 +1,6 @@
-[                  20] <>  got 2
-[                  40] <>  got 4
-[                  60] <>  got 6
-[                  80] <>  got 8
-[                 100] <>  got 10
-[                 110] <>  Warning: all guards false; no probes/shared vars
+[                  40] <>  got 2
+[                  80] <>  got 4
+[                 120] <>  got 6
+[                 160] <>  got 8
+[                 200] <>  got 10
+[                 230] <>  Warning: all guards false; no probes/shared vars

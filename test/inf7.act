@@ -1,0 +1,28 @@
+defproc checkprobe(chan(int) X)
+{
+  int i;
+  chp {
+   *[ [| #X -> X?i; log ("got ", i)
+      [] ~#X -> skip
+      |]
+    ]
+  }
+}
+
+defproc src(chan(int) O)
+{
+  int x;
+  chp {
+    x := 0;
+    x := 1;
+    O!0;
+    O!1;
+    O!2
+   }
+}
+      
+defproc test()
+{
+  src s;
+  checkprobe c(s.O);
+}

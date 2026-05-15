@@ -1,22 +1,22 @@
 [                  10] <dn>  in dend
-[                  60] <dn>  Recv w v:2 0
-[                  60] <dv>  Send w v:2 0
-[                  90] <dn>  got tick
-[                 100] <dn>  Send S:0
-[                 120] <dn>  Recv w v:2 1
-[                 120] <dv>  Send w v:2 1
-[                 150] <dn>  got tick
-[                 160] <dn>  Send S:2
-[                 180] <dn>  Recv w v:2 2
-[                 180] <dv>  Send w v:2 2
+[                  80] <dn>  Recv w v:2 0
+[                  80] <dv>  Send w v:2 0
+[                 120] <dn>  got tick
+[                 130] <dn>  Send S:0
+[                 170] <dn>  Recv w v:2 1
+[                 170] <dv>  Send w v:2 1
 [                 210] <dn>  got tick
-[                 220] <dn>  Send S:4
-[                 240] <dn>  Recv w v:2 3
-[                 240] <dv>  Send w v:2 3
-[                 270] <dn>  got tick
-[                 280] <dn>  Send S:6
-[                 300] <dn>  Recv w v:2 4
-[                 300] <dv>  Send w v:2 4
-[                 330] <dn>  got tick
-[                 340] <dn>  Send S:8
-[                 340] <dv>  Warning: all guards false; no probes/shared vars
+[                 220] <dn>  Send S:2
+[                 260] <dn>  Recv w v:2 2
+[                 260] <dv>  Send w v:2 2
+[                 300] <dn>  got tick
+[                 310] <dn>  Send S:4
+[                 350] <dn>  Recv w v:2 3
+[                 350] <dv>  Send w v:2 3
+[                 390] <dn>  got tick
+[                 400] <dn>  Send S:6
+[                 440] <dn>  Recv w v:2 4
+[                 440] <dv>  Send w v:2 4
+[                 480] <dn>  got tick
+[                 490] <dn>  Send S:8
+[                 510] <dv>  Warning: all guards false; no probes/shared vars

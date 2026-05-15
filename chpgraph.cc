@@ -1247,8 +1247,8 @@ static chpsimstmt *gc_to_chpsim (act_chp_gc_t *gc, ActSimCore *s, const int anno
 
   NEW (ret, chpsimstmt);
   ret->type = CHPSIM_COND;
-  ret->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, 0, s->cursi()) : 0;
-  ret->energy_cost = (annotate_mode) ? _get_detailed_costs(dea_pos, 1, s->cursi()) : 0;
+  ret->delay_cost = (annotate_mode) ? _get_detailed_costs(dda_pos, 0, s->cursi()) : config_get_int ("sim.chp.default_delay");
+  ret->energy_cost = (annotate_mode) ? _get_detailed_costs(dea_pos, 1, s->cursi()) : config_get_int ("sim.chp.default_energy");
   ret->bw_cost = 0;
   tmp = NULL;
   ret->u.cond.stats = -1;
