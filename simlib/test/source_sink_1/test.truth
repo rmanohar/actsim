@@ -4,3 +4,4 @@
 <src>  snk.I : send-blocked value: 5 (0x5)
 <snk>  snk.I: recv value: 5 (0x5)
 <src>  snk.I : send complete   [by snk]
+<src>  snk.I : send-blocked value: 5 (0x5)

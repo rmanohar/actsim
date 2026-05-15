@@ -6,5 +6,5 @@
 <src>  snk.I : send value: 9 (0x9)
 <snk>  snk.I: recv-wakeup value: 9 (0x9)   [by src]
 <snk>  Sink 0: Received value 9 (0x9)
-<snk>  snk.I: recv-blocked
 <src>  Source 0: Sequence ended.
+<snk>  snk.I: recv-blocked

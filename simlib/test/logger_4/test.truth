@@ -1,5 +1,5 @@
-<snk_0>  snk_0.I: recv-blocked
 <snk_1>  snk_1.I: recv-blocked
+<snk_0>  snk_0.I: recv-blocked
 <src>  log.I[0] : send-blocked value: 3 (0x3)
 <log>  snk_1.I : send value: 3 (0x3)
 <log>  snk_0.I : send value: 3 (0x3)
@@ -44,5 +44,5 @@
 <log>  log.I[0]: recv value: 4 (0x4)
 <src>  log.I[0] : send complete   [by log]
 <snk_1>  snk_1.I: recv-blocked
-<snk_0>  snk_0.I: recv-blocked
 <src>  Source 0: Sequence ended.
+<snk_0>  snk_0.I: recv-blocked

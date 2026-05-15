@@ -1,6 +1,6 @@
 <buf>  Buffer 0: Written 4 (0x4) to buffer
-<buf>  Buffer 0: Written 7 (0x7) to buffer
 <buf>  Buffer 0: Read 4 (0x4) from buffer
+<buf>  Buffer 0: Written 7 (0x7) to buffer
 <buf>  Buffer 0: Read 7 (0x7) from buffer
 <buf>  Buffer 0: Written 1 (0x1) to buffer
 <buf>  Buffer 0: Read 1 (0x1) from buffer
