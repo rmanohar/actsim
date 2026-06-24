@@ -632,6 +632,7 @@ static void _free_chp_expr (Expr *e)
   case E_CHP_VARINT_DEREF:
   case E_CHP_VARSTRUCT:
   case E_CHP_VARSTRUCT_DEREF:
+  case E_CHP_VARARRAY:
     {
       struct chpsimderef *d = (struct chpsimderef *)e->u.e.l;
       _free_deref (d);
@@ -667,8 +668,6 @@ static void _free_chp_expr (Expr *e)
     _free_chp_expr (e->u.e.l);
     _free_chp_expr (e->u.e.r);
     break;
-
-
 
   default:
     fatal_error ("Unknown expression type %d\n", e->type);
