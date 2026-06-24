@@ -643,6 +643,7 @@ static void _free_chp_expr (Expr *e)
   case E_CHP_VARCHAN:
   case E_CHP_VARINT:
   case E_CHP_VARBOOL:
+  case E_CHP_CHANSTRUCT_REF:
     break;
     
   case E_PROBEIN:
