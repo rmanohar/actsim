@@ -850,7 +850,19 @@ static void _process_print_int (BigInt &v,
       //actsim_log ("%" ACT_EXPR_RES_PRINTF "u", v.getVal (0));
     }
     else if (int_type == 1) {
-      actsim_log ("%" ACT_EXPR_RES_PRINTF "d", v.getVal (0));
+      // check if the MSB is 1
+      BigInt tmp = v;
+      tmp >>= (tmp.getWidth() - 1);
+      if (tmp.getVal (0) & 1) {
+	// negative number
+	tmp = -v;
+	tmp.toUnsigned ();
+	fprintf (actsim_log_fp(), "-");
+	tmp.decPrint (actsim_log_fp());
+      }
+      else {
+	v.decPrint (actsim_log_fp());
+      }
     }
     else if (int_type == 2) {
       v.hexPrint (actsim_log_fp ());

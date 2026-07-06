@@ -1,0 +1,15 @@
+defproc test ()
+{
+  int<8> x;
+
+  chp {
+    x := 0xff;
+    log ("x=", x, "%d signed x=", x);
+    x := 10;
+    log ("x=", x, "%d signed x=", x);
+    x := 0x7f;
+    log ("x=", x, "%d signed x=", x);
+    x := 0x8f;
+    log ("x=", x, "%d signed x=", x)
+  }
+}
