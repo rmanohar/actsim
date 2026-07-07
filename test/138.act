@@ -1,0 +1,28 @@
+defenum foo {
+   A, B, C
+};
+
+deftype myblah(foo f; bool q) { }
+
+defproc test()
+{
+ foo x, y;
+ bool p;
+ myblah b[2];
+ int i;
+ chan(myblah) ch;
+
+ chp {
+   i := 0;
+   x := foo.B;
+   y := x;
+   p := (x = foo.A);
+   b[i].f := x;
+   b[i].q := true;
+   log (" b.f is ", b[i].f, " ", b[i].q);
+   ch!b[0];
+   log ("should be blocked")
+ }
+}
+
+test t;

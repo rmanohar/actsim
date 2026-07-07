@@ -217,7 +217,7 @@ void expr_multires::_init_helper (Data *d, int *pos)
 	sz--;
       }
     }
-    else if (TypeFactory::isIntType (it)) {
+    else if (TypeFactory::isIntType (it) || TypeFactory::isEnum (it)) {
       while (sz > 0) {
 	v[*pos].setWidth (1);
 	v[*pos].setVal (0, 0);
@@ -282,13 +282,16 @@ void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, in
 	sz--;
       }
     }
-    else if (TypeFactory::isIntType (it)) {
+    else if (TypeFactory::isIntType (it) || TypeFactory::isEnum (it)) {
       while (sz > 0) {
 	v[*pos] = *(sc->getInt (*oi));
 	*oi = *oi + 1;
 	*pos = *pos + 1;
 	sz--;
       }
+    }
+    else {
+      Assert (0, "in fill_helper, missing case?");
     }
   }
 }

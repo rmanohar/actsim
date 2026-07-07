@@ -1,0 +1,16 @@
+defenum foo {
+   A, B, C
+};
+
+defproc test()
+{
+ foo x, y;
+ bool p;
+
+ chp {
+   x := foo.B;
+   y := x;
+   p := (x = foo.A);
+   log (" x is ", x)
+ }
+}

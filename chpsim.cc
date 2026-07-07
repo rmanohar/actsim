@@ -4038,7 +4038,7 @@ static void _add_deref_struct2 (Data *d,
 	Assert (x, "What?");
 	_add_deref_struct2 (x, idx, off_i, off_b, off);
       }
-      else if (TypeFactory::isIntType (it)) {
+      else if (TypeFactory::isIntType (it) || TypeFactory::isEnum (it)) {
 	idx[*off] = *off_i;
 	idx[*off+1] = 1;
 	idx[*off+2] = TypeFactory::bitWidth (it);
