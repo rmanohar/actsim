@@ -535,6 +535,7 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
   case E_NOT:
   case E_BUILTIN_BOOL:
   case E_BUILTIN_INT:
+  case E_BITFIELD:
     ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
     break;
 
@@ -556,15 +557,6 @@ int ChpSim::_collect_sharedvars (Expr *e, int pc, int undo)
     } while (e);
     break;
 
-  case E_BITFIELD:
-    ret = ret | _collect_sharedvars (e->u.e.l, pc, undo);
-    break;
-
-  case E_CHP_BITFIELD:
-    if (((struct chpsimderef *)e->u.e.l)->offset < 0) {
-      ret = 1;
-    }
-    break;
 
   case E_CHP_VARBOOL:
   case E_CHP_VARINT:
@@ -2852,10 +2844,9 @@ BigInt ChpSim::exprEval (Expr *e)
     }
     break;
 
-  case E_CHP_BITFIELD:
+  case E_BITFIELD:
     {
       int lo, hi;
-      int off = computeOffset ((struct chpsimderef *)e->u.e.l);
 
       hi = (long)e->u.e.r->u.e.r->u.ival.v;
       if (e->u.e.r->u.e.l) {
@@ -2865,8 +2856,7 @@ BigInt ChpSim::exprEval (Expr *e)
 	lo = hi;
       }
       /* is an int */
-      l = varEval (off, 1);
-      l.setWidth (((struct chpsimderef *)e->u.e.l)->width);
+      l = exprEval (e->u.e.l);
       l >>= lo;
 
       if (hi < lo) {
@@ -3012,48 +3002,6 @@ BigInt ChpSim::exprEval (Expr *e)
     printf ("ERROR: Evaluating a structure as an expression; skipping and using value 0.");
     l.setWidth (1);
     l.setVal (0, 0);
-    break;
-
-  case E_BITFIELD:
-    {
-      ActId *xid = (ActId *) e->u.e.l;
-      int lo, hi;
-
-      Assert (!list_isempty (_statestk), "What?");
-
-      struct Hashtable *state = ((struct Hashtable *)stack_peek (_statestk));
-      Assert (state,"what?");
-      hash_bucket_t *b = hash_lookup (state, xid->getName());
-      Assert (b, "what?");
-      Assert (_cureval, "What?");
-      InstType *xit = _cureval->Lookup (xid->getName());
-      if (TypeFactory::isStructure (xit)) {
-	expr_multires *x2 = (expr_multires *)b->v;
-	l = *(x2->getField (xid->Rest()));
-      }
-      else {
-	l = *((BigInt *)b->v);
-      }
-
-      hi = (long)e->u.e.r->u.e.r->u.ival.v;
-      if (e->u.e.r->u.e.l) {
-	lo = (long)e->u.e.r->u.e.l->u.ival.v;
-      }
-      else {
-	lo = hi;
-      }
-      l >>= lo;
-      if (hi < lo) {
-	msgPrefix();
-	printf ("bit-field {%d..%d} is invalid; using one-bit result",
-		hi, lo);
-	printf ("\n");
-	l.setWidth (1);
-      }
-      else {
-	l.setWidth (hi - lo + 1);
-      }
-    }
     break;
 
   case E_PROBE:
@@ -3807,6 +3755,7 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
   case E_COMPLEMENT:
   case E_BUILTIN_BOOL:
   case E_BUILTIN_INT:
+  case E_BITFIELD:
     _compute_used_variables_helper (e->u.e.l);
     break;
 
@@ -3826,11 +3775,6 @@ void ChpSim::_compute_used_variables_helper (Expr *e)
       _compute_used_variables_helper (e->u.e.l);
       e = e->u.e.r;
     }
-    break;
-
-  case E_BITFIELD:
-    /* l is an Id */
-    _mark_vars_used (_sc, (ActId *)e->u.e.l, _tmpused);
     break;
 
   case E_TRUE:

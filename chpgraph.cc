@@ -607,16 +607,10 @@ static void _free_chp_expr (Expr *e)
     _free_chp_expr (e->u.e.r);
     break;
 
-  case E_CHP_BITFIELD:
+  case E_BITFIELD:
+    _free_chp_expr (e->u.e.l);
     _free_chp_expr (e->u.e.r->u.e.l);
     _free_chp_expr (e->u.e.r->u.e.r);
-    FREE (e->u.e.r);
-    {
-      struct chpsimderef *d;
-      d = (struct chpsimderef *)e->u.e.l;
-      _free_deref (d);
-      FREE (d);
-    }
     break;
 
   case E_TRUE:
@@ -719,6 +713,7 @@ static void fn_expr_bitwidth (Scope *sc, Expr *e, ActSimCore *s)
   case E_NOT:
   case E_UMINUS:
   case E_COMPLEMENT:
+  case E_BITFIELD:
     fn_expr_bitwidth (sc, e->u.e.l, s);
     {
       phash_bucket_t *b;
@@ -758,7 +753,6 @@ static void fn_expr_bitwidth (Scope *sc, Expr *e, ActSimCore *s)
     } while (e);
     break;
 
-  case E_BITFIELD:
   case E_TRUE:
   case E_FALSE:
   case E_INT:
@@ -952,26 +946,11 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
   case E_BITFIELD:
     {
-      int type;
-      struct chpsimderef *d;
-
-      if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
-					   ((ActId *)e->u.e.l))) {
-	type = 1;
-	d = _mk_deref ((ActId *)e->u.e.l, s, &type);
-      }
-      else {
-	InstType *xit;
-	act_type_var (s->cursi()->bnl->cur, (ActId *)e->u.e.l, &xit);
-	Assert (xit, "Hmm");
-	d = _mk_std_deref ((ActId *)e->u.e.l, xit, s);
-      }
-      
-      ret->u.e.l = (Expr *) d;
+      ret->u.e.l = expr_to_chp_expr (e->u.e.l, s, flags);
       NEW (ret->u.e.r, Expr);
+      ret->u.e.r->type = E_BITFIELD;
       ret->u.e.r->u.e.l = e->u.e.r->u.e.l;
       ret->u.e.r->u.e.r = e->u.e.r->u.e.r;
-      ret->type = E_CHP_BITFIELD;
     }
     break;
 
@@ -2131,6 +2110,7 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
   case E_UMINUS:
   case E_COMPLEMENT:
   case E_NOT:
+  case E_BITFIELD:
     checkFragmentation (sc, c, e->u.e.l);
     break;
 
@@ -2152,9 +2132,6 @@ void ChpSimGraph::checkFragmentation (ActSimCore *sc, ChpSim *c, Expr *e)
     } while (e);
     break;
 
-  case E_BITFIELD:
-    checkFragmentation (sc, c, (ActId *)e->u.e.l, 1);
-    break;
 
   case E_VAR:
     checkFragmentation (sc, c, (ActId *)e->u.e.l, 1);
