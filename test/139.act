@@ -1,0 +1,15 @@
+defchan e1of2 <: chan(enum<2>) (bool d[2]; bool e) { }
+
+defproc buffer (chan?(enum<2>) l; chan!(enum<2>) r) {
+  enum<2> x;
+  chp { *[ l?x; r!x ] }
+}
+
+// Concrete child: PRS implementation that refines the channel ports to e1of2.
+// This is exactly the §14 "implementation relation & overrides" idiom.
+defproc test <: buffer ()
++{ e1of2 l, r; }       // override block: l, r become e1of2
+{
+  bool one;
+  prs { one => one+ }  // any PRS rule here triggers the crash
+}

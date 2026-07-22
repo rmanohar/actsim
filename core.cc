@@ -2788,6 +2788,11 @@ void ActSimCore::_computeMultiDrivers (Process *p)
   while ((pb = phash_iter_next (bnl->cH, &pit))) {
     act_booleanized_var_t *v = (act_booleanized_var_t *) pb->v;
 
+    // we are only doing this for bools
+    if (v->isint || v->ischan) continue;
+    // ... in hse or prs
+    if (v->used == 0) continue;
+
     if (ActBooleanizePass::isDynamicRef (bnl, v->id)) continue;
     
     offset = getLocalOffset ((act_connection *)pb->key, si, &type, NULL);
