@@ -1,3 +1,5 @@
+/* based on a test case provided by Ruiqi "Richard" Niu <rniu5@jh.edu> */
+
 defchan e1of2 <: chan(enum<2>) (bool d[2]; bool e) { }
 
 defproc buffer (chan?(enum<2>) l; chan!(enum<2>) r) {
