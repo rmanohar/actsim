@@ -95,7 +95,7 @@ extern "C" expr_res actsim_rand_get(int argc, struct expr_res* args) {
 
     ret.width = r->bitwidth;
     ret.v = local_rand_r(&r->seed);
-    if (r->min != 0 && r->max != 0) {
+    if (!(r->min == 0 && r->max == 0)) {
         if (r->min == r->max) {
             ret.v = r->min;
         } else {
@@ -103,7 +103,7 @@ extern "C" expr_res actsim_rand_get(int argc, struct expr_res* args) {
         }
     }
     if (ret.width < 64) {
-        ret.v = ret.v & ((1 << ret.width) - 1);
+        ret.v = ret.v & ((1UL << ret.width) - 1);
     }
     ret.width = 64;
     return ret;

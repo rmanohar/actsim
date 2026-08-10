@@ -57,12 +57,13 @@ defproc gen_source_simple_en(chan!(int<D_WIDTH>) O; bool enable)
     int<D_WIDTH> buf;
 
     chp {
+        [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         // initialize the PRG
         prg_id := init(D_WIDTH);
 
         *[
             // wait for the enable flag
-  	    [~INCLUDE_ENABLE|enable];
+  	    [enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -107,12 +108,13 @@ defproc gen_source_simple_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool ena
     int<D_WIDTH> buf;
 
     chp {
+        [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         // initialize the PRG
         prg_id := init(D_WIDTH);
 
         *[
             // wait for the enable flag
-            [~INCLUDE_ENABLE|enable];
+            [enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -161,12 +163,13 @@ defproc gen_source_range_en(chan!(int<D_WIDTH>) O; bool enable)
     int<D_WIDTH> buf;
 
     chp {
+        [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         // initialize the PRG
         prg_id := init_range(D_WIDTH, MIN_VAL, MAX_VAL);
 
         *[
             // wait for the enable flag
-            [~INCLUDE_ENABLE|enable];
+            [enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
@@ -215,12 +218,13 @@ defproc gen_source_range_multi_en(chan!(int<D_WIDTH>) O[OUT_CHANNELS]; bool enab
     int<D_WIDTH> buf;
 
     chp {
+        [~INCLUDE_ENABLE -> enable+ [] else -> skip ];
         // initialize the PRG
         prg_id := init_range(D_WIDTH, MIN_VAL, MAX_VAL);
 
         *[
             // wait for the enable flag
-            [~INCLUDE_ENABLE|enable];
+            [enable];
 
             // get a new pseudo random value
             buf := get(prg_id);
