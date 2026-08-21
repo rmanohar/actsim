@@ -1291,7 +1291,7 @@ void ActSimCore::_add_all_inst (Scope *sc)
       if (!as || vx->isPrimary (as->index())) {
 	if (as) {
 	  tmpid->setArray (as->toArray());
-	  if (as->curProc() != x) {
+	  if (as->curProc() && as->curProc() != x) {
 	    x = as->curProc ();
 	    si = sp->getStateInfo (x);
 	    _curproc = x;
@@ -2896,7 +2896,7 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 	}
 	if (as) {
 	  Assert (!as->isend(), "What?");
-	  if (as->curProc() != px) {
+	  if (as->curProc() && as->curProc() != px) {
 	    px = as->curProc ();
 	    subsi = sp->getStateInfo (px);
 	  }
