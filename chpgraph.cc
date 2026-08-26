@@ -224,7 +224,9 @@ static void _free_deref (struct chpsimderef *d)
       }
       FREE (d->chp_idx);
     }
-    FREE (d->idx);
+    if (d->idx) {
+      FREE (d->idx);
+    }
   }
   else {
     if (d->idx) {
@@ -355,14 +357,22 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   d->range = vx->t->arrayInfo();
   Assert (d->range, "What?");
   Assert (d->range->nDims() > 0, "What?");
-  MALLOC (d->idx, int, d->range->nDims());
-  MALLOC (d->chp_idx, Expr *, d->range->nDims());
+
+  if (id->Tail()->arrayInfo()) {
+    MALLOC (d->idx, int, d->range->nDims());
+    MALLOC (d->chp_idx, Expr *, d->range->nDims());
   
-  /* now convert array deref into a chp array deref! */
-  for (int i = 0; i < d->range->nDims(); i++) {
-    int flags = 0;
-    d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s, &flags);
-    d->idx[i] = -1;
+    /* now convert array deref into a chp array deref! */
+    for (int i = 0; i < d->range->nDims(); i++) {
+      int flags = 0;
+      d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s, &flags);
+      d->idx[i] = -1;
+    }
+  }
+  else {
+    /* this is an array reference! */
+    d->idx = NULL;
+    d->chp_idx = NULL;
   }
   
   return d;
@@ -478,10 +488,15 @@ _mk_std_deref_struct (ActId *id, InstType *it, ActSimCore *s)
       delete a;
     }
     tail->setArray (NULL);
+
+    ds->range = it->arrayInfo();
   }
 
   Assert (ds->offset == 3*array_sz*(ts.numInts() + ts.numBools()), "What?");
-  
+  if (ds->range) {
+    ds->offset = 0;
+  }
+ 
   ds->cx = id->Canonical (sc);
   return ds;
 }
@@ -990,14 +1005,15 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	delete tmp_id;
       }
       else {
+	Array *aref;
 	InstType *it = s->cursi()->bnl->cur->FullLookup ((ActId *)e->u.e.l,
-							 NULL);
+							 &aref);
 
 	if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
 					     ((ActId *)e->u.e.l))) {
 
 	  // XXX: check for arrays here!!!
-	  if (it->arrayInfo() && !((ActId *)e->u.e.l)->isDeref()) {
+	  if (it->arrayInfo() && !aref) {
 	    Assert (0, "entire array that is dynamic!");
 	  }
 	
@@ -1036,7 +1052,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	  if (((*flags & 0x2) == 0) && is_potentially_shared (bnl, cx)) {
 	    *flags = *flags | 0x2;
 	  }
-	
+
 	  if (TypeFactory::isStructure (it)) {
 	    struct chpsimderef *ds =
 	      _mk_std_deref_struct ((ActId *)e->u.e.l, it, s);
@@ -1044,8 +1060,7 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 	    ret->u.e.l = (Expr *)ds;
 	    ret->u.e.r = (Expr *)ds->cx;
 	    ret->type = E_CHP_VARSTRUCT;
-	  }
-	  else if (it->arrayInfo() && !((ActId *)e->u.e.l)->Tail()->isDeref()) {
+	  } else if (it->arrayInfo() && !aref) {
 	    struct chpsimderef *d =
 	      _mk_std_deref ((ActId *)e->u.e.l, it, s);
 	    ret->u.e.l = (Expr *) d;

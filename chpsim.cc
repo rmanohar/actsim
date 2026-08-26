@@ -739,6 +739,10 @@ int ChpSim::computeOffset (const struct chpsimderef *d)
   if (!d->range) {
     return d->offset;
   }
+  if (!d->chp_idx) {
+    // full array dereference!
+    return 0;
+  }
   Assert (d->chp_idx, "What?");
   for (int i=0; i < d->range->nDims(); i++) {
     BigInt res = exprEval (d->chp_idx[i]);
@@ -3094,7 +3098,14 @@ BigInt ChpSim::exprEval (Expr *e)
 
 expr_multires ChpSim::varStruct (struct chpsimderef *d)
 {
-  expr_multires res (d->d);
+  Array *atmp = NULL;
+  if (d->range && !d->chp_idx) {
+    atmp = d->range;
+  }
+  else {
+    atmp = NULL;
+  }
+  expr_multires res (d->d, atmp);
   if (!d->range) {
     for (int i=0; i < res.nvals; i++) {
       res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1] == 2 ? 1 : d->idx[3*i+1]);
@@ -3104,6 +3115,7 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
     /*-- structure deref --*/
     state_counts sc;
     ActStatePass::getStructCount (d->d, &sc);
+    
 
     /* d->offset is used differently in this context; take it out.
        The remaining off is just the stride * index calculation */
@@ -3344,6 +3356,14 @@ expr_multires ChpSim::exprArray (Expr *e)
     }
     break;
 
+  case E_CHP_VARSTRUCT:
+    {
+      // structure array!
+      Assert (0, "Fixme!");
+    }
+    break;
+    
+
   case E_FUNCTION:
     /* function is e->u.fn.s */
     {
@@ -3363,7 +3383,6 @@ expr_multires ChpSim::exprArray (Expr *e)
   }
   return res;
 }
-
 
 expr_multires ChpSim::exprStruct (Expr *e)
 {
