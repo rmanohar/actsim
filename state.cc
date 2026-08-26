@@ -304,9 +304,12 @@ void expr_multires::_fill_helper (Data *d, ActSimCore *sc, int *pos, int *oi, in
   }
 }
 
-void expr_multires::fillValue (ActSimCore *sc, int off_i, int off_b, int pos)
+void expr_multires::fillValue (ActSimCore *sc, int off_i, int off_b, int pos, int repeat)
 {
-  _fill_helper (_d, sc, &pos, &off_i, &off_b);
+  while (repeat > 0) {
+    _fill_helper (_d, sc, &pos, &off_i, &off_b);
+    repeat--;
+  }
 }
 
 
@@ -452,7 +455,13 @@ expr_multires expr_multires::getStruct (ActId *x)
   Data *d = dynamic_cast<Data *> (it->BaseType());
   Assert (d, "Hmm");
 
-  expr_multires m(d);
+  Array *arr = it->arrayInfo();
+  if (arr) {
+    if (x->Tail()->arrayInfo()) {
+      arr = NULL;
+    }
+  }
+  expr_multires m(d, arr);
 
   Assert (m.nvals == sz, "What are we doing?");
 

@@ -2424,6 +2424,24 @@ BigInt ChpSim::funcEval (Function *f, int nargs, void **vargs)
   /*-- allocate state and bindings --*/
   lstate = hash_new (4);
 
+#if 0
+  printf ("--\neval: %s\n", f->getName());
+  for (int i=0; i < f->getNumPorts(); i++) {
+    printf (" arg %d -> ", i);
+    if (f->getPortType (i)->arrayInfo() ||
+	TypeFactory::isStructure (f->getPortType(i))) {
+      expr_multires *m = (expr_multires *) vargs[i];
+      m->Print (stdout);
+    }
+    else {
+      BigInt *m = (BigInt *) vargs[i];
+      m->hexPrint (stdout);
+    }
+    printf ("\n--\n");
+  }
+#endif  
+      
+
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;
@@ -3106,7 +3124,7 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
     atmp = NULL;
   }
   expr_multires res (d->d, atmp);
-  if (!d->range) {
+  if (!d->range || atmp) {
     for (int i=0; i < res.nvals; i++) {
       res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1] == 2 ? 1 : d->idx[3*i+1]);
     }
@@ -3116,7 +3134,6 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
     state_counts sc;
     ActStatePass::getStructCount (d->d, &sc);
     
-
     /* d->offset is used differently in this context; take it out.
        The remaining off is just the stride * index calculation */
     int off = computeOffset (d) - d->offset; 
@@ -3153,6 +3170,23 @@ expr_multires ChpSim::funcStruct (Function *f, int nargs, void **vargs)
   /*-- allocate state and bindings --*/
   lstate = hash_new (4);
 
+#if 0
+  printf ("--\neval: %s\n", f->getName());
+  for (int i=0; i < f->getNumPorts(); i++) {
+    printf (" arg %d -> ", i);
+    if (f->getPortType (i)->arrayInfo() ||
+	TypeFactory::isStructure (f->getPortType(i))) {
+      expr_multires *m = (expr_multires *) vargs[i];
+      m->Print (stdout);
+    }
+    else {
+      BigInt *m = (BigInt *) vargs[i];
+      m->hexPrint (stdout);
+    }
+    printf ("\n--\n");
+  }
+#endif  
+      
   for (it = it.begin(); it != it.end(); it++) {
     ValueIdx *vx = (*it);
     if (TypeFactory::isParamType (vx->t)) continue;

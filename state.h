@@ -121,7 +121,7 @@ class expr_multires {
   }
 
   /* this can only be used to fill one structure */
-  void fillValue (ActSimCore *sc, int off_i, int off_b, int pos = 0);
+  void fillValue (ActSimCore *sc, int off_i, int off_b, int pos = 0, int repeat = 1);
 
   // field write to a structure
   void setField (ActId *field, BigInt *v);
