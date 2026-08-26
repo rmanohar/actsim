@@ -3702,38 +3702,67 @@ static void _mark_vars_used (ActSimCore *_sc, ActId *id, struct iHashtable *H)
     }
   }
   else {
-    if (TypeFactory::isStructure (it)) {
+    bool is_array = false;
+    if (it->arrayInfo() && !id->Tail()->arrayInfo()) {
+      is_array = true;
+    }
+    if (TypeFactory::isStructure (it) || is_array) {
       /* walk through all pieces of the struct and mark it used */
+      Array *arr = (is_array ? it->arrayInfo() : NULL);
       Data *d = dynamic_cast<Data *>(it->BaseType());
       ActId *tmp, *tail;
       tail = id;
       while (tail->Rest()) {
 	tail = tail->Rest();
       }
-      
-      for (int i=0; i < d->getNumPorts(); i++) {
-	InstType *xit;
-	tmp = new ActId (d->getPortName(i));
-	tail->Append (tmp);
-	xit = d->getPortType (i);
+      Array *orig_arr = tail->arrayInfo();
+      Arraystep *outer_as = NULL;
+      if (arr) {
+	outer_as = arr->stepper ();
+      }
+      do {
+	Array *xa;
+	if (outer_as) {
+	  xa = outer_as->toArray();
+	  tail->setArray (xa);
+	}
+	if (d) {
+	  for (int i=0; i < d->getNumPorts(); i++) {
+	    InstType *xit;
+	    tmp = new ActId (d->getPortName(i));
+	    tail->Append (tmp);
+	    xit = d->getPortType (i);
 
-	if (xit->arrayInfo()) {
-	  Arraystep *as = xit->arrayInfo()->stepper();
-	  while (!as->isend()) {
-	    Array *a = as->toArray();
-	    tmp->setArray (a);
-	    _mark_vars_used (_sc, id, H);
-	    delete a;
-	    as->step();
+	    if (xit->arrayInfo()) {
+	      Arraystep *as = xit->arrayInfo()->stepper();
+	      while (!as->isend()) {
+		Array *a = as->toArray();
+		tmp->setArray (a);
+		_mark_vars_used (_sc, id, H);
+		delete a;
+		as->step();
+	      }
+	      tmp->setArray (NULL);
+	      delete as;
+	    }
+	    else {
+	      _mark_vars_used (_sc, id, H);
+	    }
+	    tail->prune();
+	    delete tmp;
 	  }
-	  tmp->setArray (NULL);
-	  delete as;
 	}
 	else {
 	  _mark_vars_used (_sc, id, H);
 	}
-	tail->prune();
-	delete tmp;
+	tail->setArray (orig_arr);
+	if (outer_as) {
+	  delete xa;
+	  outer_as->step ();
+	}
+      } while (outer_as && !outer_as->isend());
+      if (outer_as) {
+	delete outer_as;
       }
     }
     else {
