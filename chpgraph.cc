@@ -686,6 +686,8 @@ static void _free_chp_expr (Expr *e)
   FREE (e);
 }
 
+static void process_func_body_exprs (Function *f, act_chp_lang_t *c, ActSimCore *s);
+
 /*
  * Record static bitwidths for -, ~, and concat for  function
  * expressions. 
@@ -778,6 +780,11 @@ static void fn_expr_bitwidth (Scope *sc, Expr *e, ActSimCore *s)
     
   case E_FUNCTION:
     {
+      Function *f = (Function *)e->u.fn.s;
+      if (f->getlang() && f->getlang()->getchp()) {
+	act_chp *chp = f->getlang()->getchp();
+	process_func_body_exprs (f, chp->c, s);
+      }
       e = e->u.fn.r;
       while (e) {
 	fn_expr_bitwidth (sc, e->u.e.l, s);
