@@ -684,6 +684,7 @@ static int id_to_siminfo_raw (char *s,
 			      ActSimObj **pobj)
 {
   ActId *id = my_parse_id (s);
+  *ptype = 0;
   if (!id) {
     fprintf (stderr, "Could not parse `%s' into an identifier\n", s);
     return 0;

@@ -1699,7 +1699,12 @@ void OnePrsSim::sPrintCause (char *buf, int sz)
 
 int OnePrsSim::causeGlobalIdx ()
 {
-  return _proc->getGlobalOffset (_me->vid, 0);
+  if (_me->type == PRSSIM_RULE) {
+    return _proc->getGlobalOffset (_me->vid, 0);
+  }
+  else {
+    return _proc->getGlobalOffset (_me->t2, 0);
+  }
 }
 
 
