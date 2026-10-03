@@ -1688,12 +1688,23 @@ void OnePrsSim::sPrintCause (char *buf, int sz)
     sz--;
     if (sz <= 1) return;
   }
-  _proc->sPrintName (buf + pos, sz, _me->vid);
+  if (_me->type == PRSSIM_RULE) {
+    _proc->sPrintName (buf + pos, sz, _me->vid);
+  }
+  else {
+    _proc->sPrintName (buf + pos, sz, _me->t2);
+  }
   len = strlen (buf + pos);
   pos += len;
   sz -= len;
   if (sz <= 1) return;
-  int cv = _proc->getBool (_me->vid);
+  int cv;
+  if (_me->type == PRSSIM_RULE) {
+    cv = _proc->getBool (_me->vid);
+  }
+  else {
+    cv = _proc->getBool (_me->t2);
+  }
   snprintf (buf + pos, sz, " <- %c", (cv == 2 ? 'X' : ((char)cv + '0')));
 }
 
