@@ -4321,15 +4321,17 @@ int ChpSim::_chkWatchBreakPt (int verb,
     int oval = _sc->getBool (goff);
     if (oval != v.getVal (0)) {
       if (verb & 1) {
-	msgPrefix ();
-	printf ("%s := %c", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
-	if (cause) {
-	  char buf[1024];
-	  ActSimDES *x = (ActSimDES *) cause;
-	  x->sPrintCause (buf, 1024);
-	  printf ("   [by %s]", buf);
+	if (nm->watch) {
+	  msgPrefix ();
+	  printf ("%s := %c", nm->s, (v.getVal (0) == 2 ? 'X' : ((char)v.getVal (0) + '0')));
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	}
-	printf ("\n");
 	_sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
       }
       if (verb & 2) {
@@ -4343,19 +4345,21 @@ int ChpSim::_chkWatchBreakPt (int verb,
     BigInt *otmp = _sc->getInt (goff);
     if (*otmp != v) {
       if (verb & 1) {
-	msgPrefix ();
-	printf ("%s := ", nm->s);
-	v.decPrint (stdout);
-	printf (" (0x");
-	v.hexPrint (stdout);
-	printf (")");
-	if (cause) {
-	  char buf[1024];
-	  ActSimDES *x = (ActSimDES *) cause;
-	  x->sPrintCause (buf, 1024);
-	  printf ("   [by %s]", buf);
+	if (nm->watch) {
+	  msgPrefix ();
+	  printf ("%s := ", nm->s);
+	  v.decPrint (stdout);
+	  printf (" (0x");
+	  v.hexPrint (stdout);
+	  printf (")");
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	}
-	printf ("\n");
 	_sc->recordTrace (nm, type, ACT_CHAN_IDLE, v);
       }
       if (verb & 2) {
@@ -4373,33 +4377,44 @@ int ChpSim::_chkWatchBreakPt (int verb,
     if (verb & 1) {
       int umode;
       umode = (flag >> 1);
-      msgPrefix();
-      printf ("%s: recv", nm->s);
+
+      if (nm->watch) {
+	msgPrefix();
+	printf ("%s: recv", nm->s);
+      }
 
       if (umode == 1) {
-	printf ("-blocked");
+	if (nm->watch) {
+	  printf ("-blocked");
+	}
 	_sc->recordTrace (nm, 2, ACT_CHAN_RECV_BLOCKED, v);
       }
       else if (umode == 0 || umode == 2) {
 	if (umode == 2) {
-	  printf ("-wakeup");
+	  if (nm->watch) {
+	    printf ("-wakeup");
+	  }
 	}
         else {
 	  _sc->recordTrace (nm, 2, ACT_CHAN_VALUE, v);
         }
-	printf (" value: ");
-	v.decPrint (stdout);
-	printf (" (0x");
-	v.hexPrint (stdout);
-	printf (")");
+	if (nm->watch) {
+	  printf (" value: ");
+	  v.decPrint (stdout);
+	  printf (" (0x");
+	  v.hexPrint (stdout);
+	  printf (")");
+	}
       }
-      if (cause) {
-	char buf[1024];
-	ActSimDES *x = (ActSimDES *) cause;
-	x->sPrintCause (buf, 1024);
-	printf ("   [by %s]", buf);
+      if (nm->watch) {
+	if (cause) {
+	  char buf[1024];
+	  ActSimDES *x = (ActSimDES *) cause;
+	  x->sPrintCause (buf, 1024);
+	  printf ("   [by %s]", buf);
+	}
+	printf ("\n");
       }
-      printf ("\n");
     }
     if (verb & 2) {
       msgPrefix ();
@@ -4413,25 +4428,29 @@ int ChpSim::_chkWatchBreakPt (int verb,
     */
     if (verb & 1) {
       int umode;
-      msgPrefix ();
+      if (nm->watch) {
+	msgPrefix ();
+      }
       umode = (flag >> 1);
       if (umode == 0 || umode == 1) {
-	printf ("%s : send%s", nm->s, umode == 1 ? "-blocked" : "");
-	if (!(flag & 1)) {
-	  /* not fragmented, display value */
-	  printf (" value: ");
-	  v.decPrint (stdout);
-	  printf (" (0x");
-	  v.hexPrint (stdout);
-	  printf (")");
+	if (nm->watch) {
+	  printf ("%s : send%s", nm->s, umode == 1 ? "-blocked" : "");
+	  if (!(flag & 1)) {
+	    /* not fragmented, display value */
+	    printf (" value: ");
+	    v.decPrint (stdout);
+	    printf (" (0x");
+	    v.hexPrint (stdout);
+	    printf (")");
+	  }
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	}
-	if (cause) {
-	  char buf[1024];
-	  ActSimDES *x = (ActSimDES *) cause;
-	  x->sPrintCause (buf, 1024);
-	  printf ("   [by %s]", buf);
-	}
-	printf ("\n");
 	if (umode == 1) {
 	  _sc->recordTrace (nm, 2, ACT_CHAN_SEND_BLOCKED, v);
 	  ChanTraceDelayed *obj = new ChanTraceDelayed (nm, v);
@@ -4446,16 +4465,17 @@ int ChpSim::_chkWatchBreakPt (int verb,
       else {
 	ChanTraceDelayed *obj = new ChanTraceDelayed (nm);
 	new Event (obj, SIM_EV_MKTYPE (0, 0), 1);
-	printf ("%s : send complete", nm->s);
-	if (cause) {
-	  char buf[1024];
-	  ActSimDES *x = (ActSimDES *) cause;
-	  x->sPrintCause (buf, 1024);
-	  printf ("   [by %s]", buf);
+	if (nm->watch) {
+	  printf ("%s : send complete", nm->s);
+	  if (cause) {
+	    char buf[1024];
+	    ActSimDES *x = (ActSimDES *) cause;
+	    x->sPrintCause (buf, 1024);
+	    printf ("   [by %s]", buf);
+	  }
+	  printf ("\n");
 	}
-	printf ("\n");
       }
-	
       if (verb & 2) {
 	msgPrefix ();
 	printf ("*** breakpoint %s\n", nm2);

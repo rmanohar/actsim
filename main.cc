@@ -1358,9 +1358,6 @@ static void _obj_watchall (ActSimObj *obj, char *prefix,
     Assert (b_si, "What happened");
 
     if (b_si2) {
-      buf[len+extra_len] = '.';
-      extra_len++;
-      
       int *type_array;
       ActId **ids = dv->isstruct->getStructFields (&type_array);
       /* for structs, b_si is the bool offset, and b_si2 is the int offset */

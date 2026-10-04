@@ -1487,16 +1487,17 @@ bool PrsSim::setBool (int lid, int v, OnePrsSim *me, ActSimObj *cause)
     if (verb) {
       if (oval != v) {
 	if (verb & 1) {
-	  msgPrefix ();
-	  printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
-	  if (cause) {
-	    ActSimDES *xx = (ActSimDES *) cause;
-	    char buf[1024];
-	    xx->sPrintCause (buf, 1024);
-	    printf ("   [by %s]", buf);
+	  if (nm->watch) {
+	    msgPrefix ();
+	    printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+	    if (cause) {
+	      ActSimDES *xx = (ActSimDES *) cause;
+	      char buf[1024];
+	      xx->sPrintCause (buf, 1024);
+	      printf ("   [by %s]", buf);
+	    }
+	    printf ("\n");
 	  }
-	  printf ("\n");
-
 	  BigInt tmpv;
 	  tmpv = v;
 	  _sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
