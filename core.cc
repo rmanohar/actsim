@@ -2151,7 +2151,7 @@ void ActSimCore::_add_hazard (int *ids, int sz)
 void ActSimCore::recordTrace (const watchpt_bucket *w, int type, 
 			      act_chan_state_t state, const BigInt &val)
 {
-  if (w->ignore_fmt == ~0U) {
+  if (w->ignore_fmt == ~0U || !w->trace) {
     return;
   }
   

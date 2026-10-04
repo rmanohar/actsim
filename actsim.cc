@@ -568,14 +568,15 @@ ActSimObj::~ActSimObj()
 }
 
 
-void ActSimObj::addWatchPoint (int type, int offset, const char *name)
+void ActSimObj::addWatchPoint (int type, int offset, const char *name,
+			       bool watch_pt, bool trace_pt)
 {
   if (type == 3) {
     type = 2;
   }
 
   int glob = getGlobalOffset (offset, type);
-  _sc->addWatchPt (type, glob, name);
+  _sc->addWatchPt (type, glob, name, watch_pt, trace_pt);
 }
 
 void ActSimObj::toggleBreakPt (int type, int offset, const char *name)
@@ -589,14 +590,15 @@ void ActSimObj::toggleBreakPt (int type, int offset, const char *name)
 }
 
 
-void ActSimObj::delWatchPoint (int type, int offset)
+void ActSimObj::delWatchPoint (int type, int offset,
+			       bool watch_pt, bool trace_pt)
 {
   if (type == 3) {
     type = 2;
   }
 
   int glob = getGlobalOffset (offset, type);
-  _sc->delWatchPt (type, glob);
+  _sc->delWatchPt (type, glob, watch_pt, trace_pt);
 }
 
 void ActSimObj::msgPrefix (FILE *fp)

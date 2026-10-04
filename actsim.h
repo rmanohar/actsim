@@ -176,9 +176,10 @@ public:
   virtual void computeFanout() { printf ("should not be here\n"); }
 
   /* manipulate object watchpoint, using local index values */
-  void addWatchPoint (int type, int idx, const char *name);
+  void addWatchPoint (int type, int idx, const char *name, bool watch_pt,
+		     bool trace_pt);
   void toggleBreakPt (int type, int idx, const char *name);
-  void delWatchPoint (int type, int idx);
+  void delWatchPoint (int type, int idx, bool watch_pt, bool trace_pt);
 
   void msgPrefix (FILE *fp = NULL);
 
@@ -464,11 +465,16 @@ class ActSimCore {
 
   struct watchpt_bucket {
     char *s;
-    unsigned int ignore_fmt;
+    unsigned int trace:1;    // 1 if this is a trace point
+    unsigned int watch:1;    // 1 if this is a watch point
+    unsigned int ignore_fmt; // bit-vector saying which trace file
+			     // formats should be ignored for this
+			     // particular signal
     void *node[TRACE_NUM_FORMATS];
   };
 
-  inline void addWatchPt (int type, unsigned long off, const char *name) {
+  inline void addWatchPt (int type, unsigned long off, const char *name,
+			  bool watch_pt, bool trace_pt) {
     ihash_bucket_t *b;
     watchpt_bucket *w;
     if (type == 3) { type = 2; }
@@ -485,6 +491,9 @@ class ActSimCore {
     b->v = w;
     w->s = Strdup (name);
     w->ignore_fmt = ~0U;
+    /* watch command adds both watch and trace point */
+    w->trace = trace_pt ? 1 : 0;
+    w->watch = watch_pt ? 1 : 0;
     for (int i=0; i < TRACE_NUM_FORMATS; i++) {
       w->node[i] = NULL;
     }
@@ -504,16 +513,26 @@ class ActSimCore {
     }
   }
 
-  inline void delWatchPt (int type, unsigned long off) {
+  inline void delWatchPt (int type, unsigned long off, bool watch_pt = true,
+			 bool trace_pt = false) {
     ihash_bucket_t *b;
     watchpt_bucket *w;
+    if (!watch_pt && !trace_pt) return; // why did I get called?!
     if (type == 3) { type = 2; }
     b = ihash_lookup (_W, ((unsigned long)type) | (off << 2));
     if (b) {
       w = (watchpt_bucket *) b->v;
-      ihash_delete (_W, ((unsigned long)type) | (off << 2));
-      FREE (w->s);
-      FREE (w);
+      if (watch_pt) {
+	w->watch = 0;
+      }
+      if (trace_pt) {
+	w->trace = 0;
+      }
+      if (!w->watch && !w->trace) {
+	ihash_delete (_W, ((unsigned long)type) | (off << 2));
+	FREE (w->s);
+	FREE (w);
+      }
     }
   }
 

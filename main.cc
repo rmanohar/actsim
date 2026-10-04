@@ -33,6 +33,7 @@
 #include <lisp.h>
 #include <lispCli.h>
 #include <ctype.h>
+#include <regex.h>
 
 static ActId *my_parse_id (const char *s)
 {
@@ -1192,26 +1193,6 @@ int process_mget (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_watch (int argc, char **argv)
-{
-  if (argc < 2) {
-    fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
-    return LISP_RET_ERROR;
-  }
-
-  int type, offset;
-  ActSimObj *obj;
-
-  for (int i=1; i < argc; i++) {
-    if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
-      return LISP_RET_ERROR;
-    } 
-    obj->addWatchPoint (type, offset, argv[i]);
-  }
-
-  return LISP_RET_TRUE;
-}
-
 int process_breakpt (int argc, char **argv)
 {
   if (argc != 2) {
@@ -1231,7 +1212,7 @@ int process_breakpt (int argc, char **argv)
   return LISP_RET_TRUE;
 }
 
-int process_unwatch (int argc, char **argv)
+static int _watch (int argc, char **argv, bool undo, bool iswatch)
 {
   if (argc < 2) {
     fprintf (stderr, "Usage: %s <n1> <n2> ...\n", argv[0]);
@@ -1245,10 +1226,308 @@ int process_unwatch (int argc, char **argv)
     if (!id_to_siminfo (argv[i], &type, &offset, &obj)) {
       return LISP_RET_ERROR;
     }
-    obj->delWatchPoint (type, offset);
+    if (undo) {
+      obj->delWatchPoint (type, offset, iswatch, !iswatch);
+    }
+    else {
+      obj->addWatchPoint (type, offset, argv[i], iswatch, !iswatch);
+    }
   }
 
   return LISP_RET_TRUE;
+}
+
+static void _obj_watchall (ActSimObj *obj, char *prefix,
+			   bool undo, bool watch)
+{
+  stateinfo_t *si;
+  si = glob_sp->getStateInfo (obj->getProc ());
+  if (!si) {
+    fprintf (stderr, "Could not find info for process `%s'\n",
+	     obj->getProc()->getName());
+    return;
+  }
+
+  /* walk through all instances */
+  phash_bucket_t *b;
+  phash_iter_t it;
+  int len;
+  len = strlen (prefix);
+  char *buf;
+
+#define EXTRA_LEN 512  
+
+  if (!undo) {
+    MALLOC (buf, char, len + EXTRA_LEN);
+    snprintf (buf, len + EXTRA_LEN, "%s", prefix);
+  }
+
+  /* walk through all the non-memory elements */
+  phash_iter_init (si->bnl->cH, &it);
+  while ((b = phash_iter_next (si->bnl->cH, &it))) {
+    int type, offset;
+    act_booleanized_var_t *v = (act_booleanized_var_t *) b->v;
+    act_connection *c = (act_connection *) b->key;
+
+    if (v->ischan) {
+      type = 2;
+    }
+    else if (v->isint) {
+      type = 1;
+    }
+    else {
+      type = 0;
+    }
+
+    int glob;
+    stateinfo_t *tmpsi;
+    if (c->isglobal()) {
+      glob = 1;
+      tmpsi = glob_sp->rootStateInfo ();
+    }
+    else {
+      glob = 0;
+      tmpsi = si;
+    }
+    phash_bucket_t *b_si;
+    b_si = phash_lookup (tmpsi->map, c);
+    if (b_si) {
+      if (glob) {
+	offset = 2*b_si->i;
+      }
+      else {
+	if (b_si->i < 0) {
+	  offset = 2*b_si->i + 1;
+	}
+	else {
+	  offset = b_si->i;
+	}
+      }
+      if (!undo) {
+	ActId *x = c->toid();
+	x->sPrint (buf+len, EXTRA_LEN);
+	delete x;
+      }
+      if (undo) {
+	obj->delWatchPoint (type, offset, watch, !watch);
+      }
+      else {
+	obj->addWatchPoint (type, offset, glob ? buf+len : buf,
+			    watch, !watch);
+      }
+    }
+    else {
+      /* XXX: something went wrong! */
+    }
+  }
+
+  phash_iter_init (si->bnl->cdH, &it);
+  while ((b = phash_iter_next (si->bnl->cdH, &it))) {
+    act_dynamic_var_t *dv = (act_dynamic_var_t *) b->v;
+    act_connection  *c = (act_connection *) b->key;
+    phash_bucket_t *b_si;
+    phash_bucket_t *b_si2;
+    int type;
+    int nb, ni;
+    char tmpbuf[128];
+    int extra_len;
+
+    {
+      ActId *nm = c->toid();
+      nm->sPrint (tmpbuf, 128);
+      delete nm;
+      snprintf (buf+len, EXTRA_LEN, "%s", tmpbuf);
+      extra_len = strlen (buf+len);
+    }
+
+    b_si2 = NULL;
+    if (dv->isstruct) {
+      type = -1;
+      b_si2 = phash_lookup (si->map, b->key|1);
+      dv->isstruct->getStructCount (&nb, &ni);
+      Assert (b_si2, "What?");
+    }
+    else if (dv->isint) {
+      type = 1;
+    }
+    else {
+      type = 0;
+    }
+    
+    b_si = phash_lookup (si->map, c);
+    Assert (b_si, "What happened");
+
+    if (b_si2) {
+      buf[len+extra_len] = '.';
+      extra_len++;
+      
+      int *type_array;
+      ActId **ids = dv->isstruct->getStructFields (&type_array);
+      /* for structs, b_si is the bool offset, and b_si2 is the int offset */
+      /* nb, ni are the number of bools per array element */
+      /* add watch points for each individual element */
+      int i_off = 0;
+      int b_off = 0;
+
+      int orig_extra = extra_len;
+
+      for (int i=0; i < dv->a->size(); i++) {
+	for (int j=0; j < ni + nb; j++) {
+	  extra_len = orig_extra;
+	  if (!undo) {
+	    Array *ta = dv->a->unOffset (i);
+	    ta->sPrint (buf+len+extra_len, EXTRA_LEN - extra_len);
+	    delete ta;
+	    extra_len += strlen (buf + len + extra_len);
+	    snprintf (buf+len+extra_len, EXTRA_LEN - extra_len, ".");
+	    extra_len += strlen (buf+len+extra_len);
+	    ids[j]->sPrint (buf+len + extra_len, EXTRA_LEN - extra_len);
+	  }
+	  if (type_array[j] == 0) {
+	    /* bool */
+	    if (undo) {
+	      obj->delWatchPoint (0, b_off + b_si->i, watch, !watch);
+	    }
+	    else {
+	      obj->addWatchPoint (0, b_off + b_si->i, buf, watch, !watch);
+	    }
+	    b_off++;
+	  }
+	  else {
+	    /* int */
+	    if (undo) {
+	      obj->delWatchPoint (1, i_off + b_si2->i, watch, !watch);
+	    }
+	    else {
+	      obj->addWatchPoint (1, i_off + b_si2->i, buf, watch, !watch);
+	    }
+	    i_off++;
+	  }
+	}
+      }
+      for (int i=0; i < ni + nb; i++) {
+	delete ids[i];
+      }
+      FREE (ids);
+      FREE (type_array);
+    }
+    else {
+      for (int i=0; i < dv->a->size(); i++) {
+	if (!undo) {
+	  Array *ta = dv->a->unOffset (i);
+	  ta->sPrint (buf+len+extra_len, EXTRA_LEN - extra_len);
+	  delete ta;
+	}
+	if (undo) {
+	  obj->delWatchPoint (type, b_si->i + i, watch, !watch);
+	}
+	else {
+	  obj->addWatchPoint (type, b_si->i + i, buf, watch, !watch);
+	}
+      }
+    }
+  }
+  if (!undo) {
+    FREE (buf);
+  }
+}
+
+
+
+
+static void _watchall_recursive (ActInstTable *x, regex_t *match,
+				 bool undo, bool watch)
+{
+  char buf[10240];
+  if (!x) return;
+  if (x->obj) {
+    if (x->obj->getName()) {
+      x->obj->getName()->sPrint (buf, 10240);
+    }
+    else {
+      buf[0] = '\0';
+    }
+    if (regexec (match, buf, 0, NULL, 0) == 0) {
+      if (buf[0] != '\0' && (strlen (buf) < 10239)) {
+	strcat (buf, ".");
+      }
+      _obj_watchall (x->obj, buf, undo, watch);
+    }
+  }
+  if (x->H) {
+    hash_bucket_t *b;
+    hash_iter_t i;
+    hash_iter_init (x->H, &i);
+    while ((b = hash_iter_next (x->H, &i))) {
+      ActInstTable *tmp = (ActInstTable *) b->v;
+      _watchall_recursive (tmp, match, undo, watch);
+    }
+  }
+}
+
+int _watchall (int argc, char **argv, bool undo, bool watch)
+{
+  regex_t match;
+  const char *reg;
+  if (argc != 1 && argc != 2) {
+    fprintf (stderr, "Usage: %s [<regexp>]\n", argv[0]);
+    return LISP_RET_ERROR;
+  }
+  if (argc == 2) {
+    reg = argv[1];
+  }
+  else {
+    reg = ".*";
+  }
+  if (regcomp (&match, reg, REG_EXTENDED) != 0) {
+    fprintf (stderr, "%s: Regular expression `%s' didn't compile; skipped.",
+	     argv[0], reg);
+    return LISP_RET_ERROR;
+  }
+  _watchall_recursive (glob_sim->getInstTable(), &match, undo, watch);
+
+  return LISP_RET_TRUE;
+}
+
+/* stubs for watch/trace functions */
+int process_watch (int argc, char **argv)
+{
+  return _watch (argc, argv, false, true);
+}
+
+int process_unwatch (int argc, char **argv)
+{
+  return _watch (argc, argv, true, true);
+}
+
+int process_trace (int argc, char **argv)
+{
+  return _watch (argc, argv, false, false);
+}
+
+int process_untrace (int argc, char **argv)
+{
+  return _watch (argc, argv, true, false);
+}
+
+int process_traceall (int argc, char **argv)
+{
+  return _watchall (argc, argv, false, false);
+}
+
+int process_untraceall (int argc, char **argv)
+{
+  return _watchall (argc, argv, true, false);
+}
+
+int process_watchall (int argc, char **argv)
+{
+  return _watchall (argc, argv, false, true);
+}
+
+int process_unwatchall (int argc, char **argv)
+{
+  return _watchall (argc, argv, true, true);
 }
 
 int process_chcount (int argc, char **argv)
@@ -1771,7 +2050,13 @@ struct LispCliCommand Cmds[] = {
   { "chcount", "<name> [#f] - return the number of completed actions on named channel", process_chcount },
 
   { "watch", "<n1> <n2> ... - add watchpoint for <n1> etc.", process_watch },
+  { "trace", "<n1> <n2> ... - add tracepoint for <n1> etc.", process_trace },
   { "unwatch", "<n1> <n2> ... - delete watchpoint for <n1> etc.", process_unwatch },
+  { "untrace", "<n1> <n2> ... - remove tracepoint for <n1> etc.", process_untrace },
+  { "watchall", "[<regexp>] - add watchpoints for all variables in the instances that match the regexp", process_watchall },
+  { "unwatchall", "[<regexp>] - remove watchpoints for all variables in the instances that match the regexp", process_unwatchall },
+  { "traceall", "[<regexp>] - add tracepoint for all variables in the instances that match the regexp", process_traceall },
+  { "untraceall", "[<regexp>] - add tracepoint for all variables in the instances that match the regexp", process_untraceall },
   { "breakpt", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "break", "<n> - toggle breakpoint for <n>", process_breakpt },
   { "assert", "<name> <value> - compares the value of a variable or the channel status to a wanted value - exists sim if exit-on-warn is set", process_assert },

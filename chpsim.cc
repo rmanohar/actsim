@@ -75,7 +75,7 @@ class ChanTraceDelayed : public SimDES {
     
     for (int fmt=0; fmt < TRACE_NUM_FORMATS; fmt++) {
       act_trace_t *tr = glob_sim->getTrace (fmt);
-      if (tr && !((_n->ignore_fmt >> fmt) & 1)) {
+      if (tr && !((_n->ignore_fmt >> fmt) & 1) && _n->trace) {
 	if (act_trace_has_alt (tr->t)) {
 	  if (_has_val) {
 	    if (_v.getLen() == 1) {
