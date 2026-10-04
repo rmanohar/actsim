@@ -612,6 +612,13 @@ static int id_obj_to_siminfo (ActSimObj *obj,
     return 0;
   }
 
+  if (TypeFactory::isStructure (it)) {
+    fprintf (stderr, "Identifier `");
+    id->Print (stderr);
+    fprintf (stderr, "' is a structure\n");
+    return 0;
+  }
+    
   if (!id->validateDeref (si->bnl->cur)) {
     fprintf (stderr, "Array index is missing/out of bounds in `");
     id->Print (stderr);
@@ -636,34 +643,86 @@ static int id_obj_to_siminfo (ActSimObj *obj,
   }
   Assert (c, "What?");
 
+
   int type, offset;
 
   res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
   if (!res) {
-    /* it is possible that it is an array reference */
+    /* it is possible that it is a dynamic array reference */
     Array *ta = NULL;
     ActId *orig = id;
-    while (id->Rest()) {
-      id = id->Rest();
-    }
+
     ta = id->arrayInfo();
+    
     if (ta) {
+
+      if (TypeFactory::isBaseIntType (it) || TypeFactory::isEnum (it)) {
+	type = 1;
+      }
+      else {
+	Assert (TypeFactory::isBaseBoolType (it), "What?");
+	type = 0;
+      }
+
+      /* now get the actual array */
+      ActId *tail = id->Rest();
       InstType *it;
       id->setArray (NULL);
+      id->prune ();
       it = si->bnl->cur->FullLookup (orig, NULL);
       if (!it) {
 	fprintf (stderr, "Could not find identifier `");
 	orig->Print (stderr);
 	fprintf (stderr, "' within process `%s'\n", obj->getProc()->getName());
 	id->setArray (ta);
+	id->Append (tail);
 	return 0;
       }
+      Assert (it->arrayInfo(), "What?");
+
       c = orig->Canonical (si->bnl->cur);
       Assert (c, "Hmm...");
-      res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
-      if (res) {
-	Assert (it->arrayInfo(), "What?");
-	offset += it->arrayInfo()->Offset (ta);
+      id->Append (tail);
+
+      if (TypeFactory::isStructure (it)) {
+	int off_i, off_b;
+	if (!glob_sim->getLocalDynamicStructOffset (c, si, &off_i, &off_b)) {
+	  fprintf (stderr, "Could not find identifier `");
+	  orig->Print (stderr);
+	  fprintf (stderr, "' within process `%s'\n", obj->getProc()->getName());
+	  return 0;
+	}
+	int off = it->arrayInfo()->Offset (ta);
+	Data *du = dynamic_cast<Data *> (it->BaseType());
+	if (!du || !TypeFactory::isStructure (du)) {
+	  fprintf (stderr, "Could not find identifier `");
+	  orig->Print (stderr);
+	  fprintf (stderr, "' within process `%s'\n", obj->getProc()->getName());
+	  return 0;
+	}
+	int field_i, field_b;
+	int ni, nb;
+	du->getStructCount (&nb, &ni);
+	if (!du->getStructOffsetPair (tail, &field_b, &field_i)) {
+	  fprintf (stderr, "Could not find identifier `");
+	  orig->Print (stderr);
+	  fprintf (stderr, "' within process `%s'\n", obj->getProc()->getName());
+	  return 0;
+	}
+	if (type == 1) {
+	  offset = off_i + off*ni + field_i;
+	}
+	else {
+	  offset = off_b + off*nb + field_b;
+	}
+	res = 1;
+      }
+      else {
+	Assert (!tail, "What?");
+	res = glob_sp->getTypeOffset (si, c, &offset, &type, NULL);
+	if (res) {
+	  offset += it->arrayInfo()->Offset (ta);
+	}
       }
       id->setArray (ta);
     }
@@ -771,7 +830,7 @@ int process_set (int argc, char **argv)
     fprintf (stderr, "Usage: %s <name> <val>\n", argv[0]);
     return LISP_RET_ERROR;
   }
-
+  
   int type, offset;
 
   if (!id_to_siminfo_glob (argv[1], &type, &offset, NULL)) {
