@@ -1701,9 +1701,13 @@ int process_random (int argc, char **argv)
 	fprintf (stderr, "Usage: %s [-u] [min max]\n", argv[0]);
 	return LISP_RET_ERROR;
       }
+      glob_sim->setRandom (atoi (argv[2]), atoi(argv[3]),
+			   (argc == 4 ? true : false));
     }
-    glob_sim->setRandom (atoi (argv[1]), atoi(argv[2]),
-			 (argc == 4 ? true : false));
+    else {
+      glob_sim->setRandom (atoi (argv[1]), atoi(argv[2]),
+			   (argc == 4 ? true : false));
+    }
   }
   else if (argc == 2) {
     if (strcmp (argv[1], "-u") != 0) {
