@@ -896,17 +896,33 @@ void XyceActInterface::initXyce ()
 
   /* -- initialize waveforms -- */
   const char *_cinit_xyce[] =
-    { "Xyce", "-quiet", "-l", "_xyce.log", "_xyce.sp" };
+    { "Xyce", "-quiet", "-l", "_xyce.log", "_xyce.sp", NULL };
   
   int num = 5;
   char **_init_xyce;
 
+  if (config_exists ("sim.device.plugin")) {
+    num += 2;
+  }
+
   MALLOC (_init_xyce, char *, num+1);
 
+  int j = 0;
   for (int i=0; i < num; i++) {
-    _init_xyce[i] = Strdup (_cinit_xyce[i]);
+    if (_cinit_xyce[j]) {
+      _init_xyce[i] = Strdup (_cinit_xyce[j]);
+      j++;
+    }
+    else {
+      _init_xyce[i] = NULL;
+    }
   }
   _init_xyce[num] = NULL;
+
+  if (config_exists ("sim.device.plugin")) {
+    _init_xyce[num-2] = Strdup ("-plugin");
+    _init_xyce[num-1] = Strdup (config_get_string ("sim.device.plugin"));
+  }
   xyce_initialize_early (&_xyce_ptr, num, _init_xyce);
 
   _ioiface = new xyceIO (config_get_string ("sim.device.outfile"),
@@ -1188,11 +1204,14 @@ XyceSim::~XyceSim()
   XyceActInterface::stopXyce();
 }
 
+static int _breakpt;
+
 int XyceSim::Step (Event * /*ev*/)
 {
   /* run simulation for X units of delay */
+  _breakpt = 0;
   XyceActInterface::getXyceInterface()->step ();
-  return 1;
+  return 1-_breakpt;
 }
 
 void XyceActInterface::initGlobalFanout (ActSimCore *sc, XyceSim *x)
@@ -1238,7 +1257,36 @@ void XyceSim::setBool (int lid, int v)
 
 void XyceSim::setGlobalBool (int off, int v)
 {
-  _sc->setBool (off, v);
+  const ActSimCore::watchpt_bucket *nm;
+  const char *nm2;
+  int verb = 0;
+  
+  if ((nm = _sc->chkWatchPt (0, off))) {
+    verb = 1;
+  }
+  if ((nm2 = _sc->chkBreakPt (0, off))) {
+    verb |= 2;
+  }
+  
+  if (_sc->setBool (off, v)) {
+    if (verb) {
+      if (verb & 1) {
+	if (nm->watch) {
+	  msgPrefix ();
+	  printf ("%s := %c", nm->s, (v == 2 ? 'X' : ((char)v + '0')));
+	  printf ("   [by Xyce]\n");
+	}
+	BigInt tmpv;
+	tmpv = v;
+	_sc->recordTrace (nm, 0, ACT_CHAN_IDLE, tmpv);
+      }
+      if (verb & 2) {
+	msgPrefix ();
+	printf ("*** breakpoint %s\n", nm2);
+	_breakpt = 1;
+      }
+    }
+  }
   SimDES **arr = _sc->getFO (off, 0);
   for (int i=0; i < _sc->numFanout (off, 0); i++) {
     ActSimDES *p = dynamic_cast<ActSimDES *>(arr[i]);
