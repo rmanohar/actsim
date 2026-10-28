@@ -1011,7 +1011,11 @@ int OnePrsSim::Step (Event *ev)
   }
 
   _breakpt = 0;
-  _pending = NULL;
+  /* an X event superseded by DO_SET_VAL is not tracked; it must not
+     clear the event that is */
+  if (_pending == ev) {
+    _pending = NULL;
+  }
 
   /*-- fire rule --*/
   switch (_me->type) {
@@ -1157,6 +1161,7 @@ int OnePrsSim::matches (int val)
 	(obj)->flags = 0;						\
 	if ((obj)->_pending) {						\
 	  (obj)->_pending->Remove();					\
+	  (obj)->_pending = NULL;					\
 	}								\
       }									\
     }									\
@@ -1669,6 +1674,7 @@ void OnePrsSim::flushPending ()
 {
   if (_pending) {
     _pending->Remove ();
+    _pending = NULL;
     flags = PENDING_NONE;
   }
 }
@@ -1867,7 +1873,9 @@ int MultiPrsSim::Step (Event *ev)
   }
 
   _breakpt = 0;
-  _objs[0]->_pending = NULL;
+  if (_objs[0]->_pending == ev) {
+    _objs[0]->_pending = NULL;
+  }
 
   if (_objs[0]->flags == (1 + t)) {
     _objs[0]->flags = PENDING_NONE;

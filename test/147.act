@@ -1,0 +1,20 @@
+/*
+ * A node is scheduled to go X and, before that event fires, to fall; the
+ * pull-down then turns off before the fall: the fall is unstable and the
+ * node must stay X.  x goes X through an X guard (both rules in one
+ * process), y through interference (one rule in each of two processes).
+ */
+defproc pu(bool? b; bool z) { prs { ~b -> z+ } }
+defproc pd(bool? a; bool z) { prs { a -> z- } }
+
+defproc test()
+{
+  bool a, b, x;
+  prs {
+    ~b -> x+
+    a -> x-
+  }
+  bool c, d, y;
+  pu p(d, y);
+  pd q(c, y);
+}
