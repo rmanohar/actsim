@@ -1,0 +1,15 @@
+p: 1
+q: 1
+r: 0
+t: 0
+s: 1
+[                  10] <u0>  WARNING: weak-interference on `z'   [by -cmd-]
+[                  10] <d1>  WARNING: weak-interference on `z'   [by -cmd-]
+[                  10] <d2>  WARNING: weak-interference on `z'   [by -cmd-]
+[                  10] <d3>  WARNING: weak-interference on `z'   [by -cmd-]
+[                  10] <>  WARNING: weak-interference on `s'   [by -cmd-]
+p: X
+q: X
+r: X
+t: X
+s: X

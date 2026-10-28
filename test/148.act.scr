@@ -1,0 +1,32 @@
+set a0 0
+set b0 0
+set a1 0
+set b1 0
+set b2 1
+set a2 1
+set b3 1
+set a3 1
+set a4 0
+set b4 0
+cycle
+get p
+get q
+get r
+get t
+get s
+set b0 X
+set a0 1
+set b1 X
+set a1 1
+set a2 X
+set b2 0
+set a3 X
+set b3 0
+set b4 X
+set a4 1
+cycle
+get p
+get q
+get r
+get t
+get s

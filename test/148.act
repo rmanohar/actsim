@@ -1,0 +1,26 @@
+/*
+ * Nodes with one rule in each of two processes: one guard X, the other
+ * rule on. As with both rules in one process (s), the node must go X,
+ * whatever the order of the drivers.
+ */
+defproc pu(bool? b; bool z) { prs { ~b -> z+ } }
+defproc pd(bool? a; bool z) { prs { a -> z- } }
+
+defproc test()
+{
+  bool a0, b0, p, a1, b1, q, a2, b2, r, a3, b3, t;
+  pu u0(b0, p);
+  pd d0(a0, p);
+  pd d1(a1, q);
+  pu u1(b1, q);
+  pu u2(b2, r);
+  pd d2(a2, r);
+  pd d3(a3, t);
+  pu u3(b3, t);
+
+  bool a4, b4, s;
+  prs {
+    ~b4 -> s+
+    a4 -> s-
+  }
+}
