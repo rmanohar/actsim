@@ -1,0 +1,9 @@
+[                  10] <q>  WARNING: interference on `z'   [by -cmd-]
+x: 1
+y: 1
+[                  11] <>  WARNING: unstable transition on `x'   [by -cmd-]
+[                  11] <q>  WARNING: unstable transition on `z'   [by -cmd-]
+[                  12] <>  x := X   [by -cmd-]
+[                  12] <q>  y := X   [by -cmd-]
+x: X
+y: X

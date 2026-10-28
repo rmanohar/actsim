@@ -987,6 +987,9 @@ static int _breakpt;
 	  ed = ((x) == 0 ? (ob)->_me->delayDn (0) : (ob)->_me->delayUp (0)); \
 	}								\
 	ed = (ob)->_proc->getDelay (ed);				\
+	if ((of)->_pending && (of)->flags != 0) {			\
+	  (of)->_pending->Remove ();					\
+	}								\
 	(of)->flags = (1 + (x));					\
 	(of)->_pending = new Event (this, SIM_EV_MKTYPE ((x), 0), ed);	\
       }									\
@@ -1890,7 +1893,7 @@ int MultiPrsSim::Step (Event *ev)
     u_state = 0;
     u_idx = 0;
     for (int i=0; i < _count; i++) {
-      u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
+      u_state = _or_table[u_state][_objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid)];
       if (u_state == 1) {
 	u_idx = i;
 	break;
@@ -1898,7 +1901,7 @@ int MultiPrsSim::Step (Event *ev)
     }
     if (!u_state) {
       for (int i=0; i < _count; i++) {
-	u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
+	u_state = _or_table[u_state][_objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid)];
 	if (u_state == 1) {
 	  u_idx = i;
 	  break;
@@ -1913,7 +1916,7 @@ int MultiPrsSim::Step (Event *ev)
     d_state = 0;
     d_idx = 0;
     for (int i=0; i < _count; i++) {
-      d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
+      d_state = _or_table[d_state][_objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid)];
       if (d_state == 1) {
 	d_idx = i;
 	break;
@@ -1921,7 +1924,7 @@ int MultiPrsSim::Step (Event *ev)
     }
     if (!d_state) {
       for (int i=0; i < _count; i++) {
-	d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
+	d_state = _or_table[d_state][_objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid)];
 	if (d_state == 1) {
 	  d_idx = i;
 	  break;
@@ -1986,7 +1989,7 @@ void MultiPrsSim::propagate (void *cause)
   u_state = 0;
   u_idx = 0;
   for (int i=0; i < _count; i++) {
-    u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
+    u_state = _or_table[u_state][_objs[i]->eval (_objs[i]->_me->up[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid)];
     if (u_state == 1) {
       u_idx = i;
       break;
@@ -1994,7 +1997,7 @@ void MultiPrsSim::propagate (void *cause)
   }
   if (!u_state) {
     for (int i=0; i < _count; i++) {
-      u_state = _objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
+      u_state = _or_table[u_state][_objs[i]->eval (_objs[i]->_me->up[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid)];
       if (u_state == 1) {
 	u_idx = i;
 	break;
@@ -2009,7 +2012,7 @@ void MultiPrsSim::propagate (void *cause)
   d_state = 0;
   d_idx = 0;
   for (int i=0; i < _count; i++) {
-    d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid);
+    d_state = _or_table[d_state][_objs[i]->eval (_objs[i]->_me->dn[PRSSIM_NORM], causeid, causeid == -1 ? NULL : &lid)];
     if (d_state == 1) {
       d_idx = i;
       break;
@@ -2017,7 +2020,7 @@ void MultiPrsSim::propagate (void *cause)
   }
   if (!d_state) {
     for (int i=0; i < _count; i++) {
-      d_state = _objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid);
+      d_state = _or_table[d_state][_objs[i]->eval (_objs[i]->_me->dn[PRSSIM_WEAK], causeid, causeid == -1 ? NULL : &lid)];
       if (d_state == 1) {
 	d_idx = i;
 	break;

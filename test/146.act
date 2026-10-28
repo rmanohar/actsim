@@ -1,0 +1,17 @@
+/* nodes driven by production rules in several processes */
+defproc up(bool? a; bool s) { prs { [keeper=0] ~a -> s+ } }
+defproc dn(bool? a; bool s) { prs { [keeper=0] a -> s- } }
+defproc two(bool? u, d; bool s) { up p(u, s); dn n(d, s); }
+
+defproc test()
+{
+  /* s: two drivers in x, plus a single driver in y declared after x */
+  bool u, d, v, s;
+  two x(u, d, s);
+  up y(v, s);
+
+  /* t: two drivers in z, plus a local driver */
+  bool zu, zd, l, t;
+  two z(zu, zd, t);
+  prs { [keeper=0] ~l -> t+ }
+}

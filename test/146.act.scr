@@ -1,0 +1,30 @@
+set u 1
+set v 1
+set d 1
+set zu 1
+set l 1
+set zd 1
+cycle
+get s
+get t
+set d 0
+set v 0
+set zd 0
+set l 0
+cycle
+get s
+get t
+set v 1
+set d 1
+set l 1
+set zd 1
+cycle
+get s
+get t
+set d 0
+set u 0
+set zd 0
+set zu 0
+cycle
+get s
+get t

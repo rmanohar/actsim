@@ -1,0 +1,10 @@
+[                   0] <x.n>  WARNING: weak-interference on `s'   [by -cmd-]
+[                   0] <>  WARNING: weak-interference on `t'   [by -cmd-]
+s: 0
+t: 0
+s: 1
+t: 1
+s: 0
+t: 0
+s: 1
+t: 1

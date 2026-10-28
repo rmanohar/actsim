@@ -2899,6 +2899,13 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 	  if (as->curProc() && as->curProc() != px) {
 	    px = as->curProc ();
 	    subsi = sp->getStateInfo (px);
+	    mb = phash_lookup (_multi_driver, px);
+	    if (mb) {
+	      submd = (multi_driver_info *)mb->v;
+	    }
+	    else {
+	      submd = NULL;
+	    }
 	  }
 	}
 	sz--;
@@ -2949,7 +2956,32 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 		if (!my) {
 		  my = new multi_driver_info;
 		}
-		my->addmd (offset, subcount);
+		/*
+		  check if there is a locally recorded driver in the
+		  bit-vector; if so add it to the count.
+		*/
+		int noffset;
+		if (sp->isPortOffset (offset)) {
+		  noffset = sp->portIdx (offset);
+		}
+		else {
+		  if (sp->isGlobalOffset (offset)) {
+		    warning ("Potential multi-driver check for global signal is being skipped");
+		    fprintf (stderr, "   Signal: `");
+		    c->Print (stderr);
+		    fprintf (stderr, "'\n");
+		    noffset = -1;
+		  }
+		  else {
+		    noffset = offset + si->ports.numBools();
+		  }
+		}
+		if (noffset != -1 && bitset_tst (tmpbits, noffset)) {
+		  my->addmd (offset, subcount+1);
+		}
+		else {
+		  my->addmd (offset, subcount);
+		}
 	      }
 	      else if (my && my->getcount (offset) > 0) {
 		// we've registered the multi-driver already
