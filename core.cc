@@ -2949,6 +2949,15 @@ void ActSimCore::_computeMultiDrivers (Process *p)
 		if (!my) {
 		  my = new multi_driver_info;
 		}
+		if (my->getcount (offset) == 0 && !sp->isGlobalOffset (offset)) {
+		  // a single driver seen so far (local or in an earlier
+		  // instance) is only in tmpbits: count it too
+		  int noffset = sp->isPortOffset (offset) ? sp->portIdx (offset)
+		    : offset + si->ports.numBools();
+		  if (bitset_tst (tmpbits, noffset)) {
+		    subcount++;
+		  }
+		}
 		my->addmd (offset, subcount);
 	      }
 	      else if (my && my->getcount (offset) > 0) {
