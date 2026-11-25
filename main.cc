@@ -1073,7 +1073,7 @@ int process_assert (int argc, char **argv)
     else {
       printf("Warning: WRONG ASSERT:\t\"%s\" has value ", argv[1]);
       ival->decPrint (stdout);
-      printf("and not");
+      printf(" and not ");
       expected_val.decPrint (stdout);
       printf("\n");
       assert_false = true;
