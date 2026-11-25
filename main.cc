@@ -1246,7 +1246,17 @@ int process_mget (int argc, char **argv)
     else if (type == 1) {
       BigInt *ival;
       ival = glob_sim->getInt (offset);
-      printf ("%s: %lu  (0x%lx)\n", argv[i], ival->getVal(0), ival->getVal (0));
+      if (ival->getLen() > 1) {
+        printf ("%s: ", argv[i]);
+        ival->decPrint (stdout);
+        printf ("  (0x");
+        ival->hexPrint (stdout);
+        printf (")\n");
+      }
+      else {
+        val = ival->getVal (0);
+        printf ("%s: %lu  (0x%lx)\n", argv[i], val, val);
+      }
     }
   }
   return LISP_RET_TRUE;
