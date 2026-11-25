@@ -393,10 +393,10 @@ int process_procinfo (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = my_parse_id (argv[1]);
+    id = my_parse_id (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[1]);
+	       argv[2]);
       return LISP_RET_ERROR;
     }
   }
@@ -516,10 +516,10 @@ int process_coverage (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = my_parse_id (argv[1]);
+    id = my_parse_id (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[1]);
+	       argv[2]);
       return LISP_RET_ERROR;
     }
   }
