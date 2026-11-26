@@ -3143,7 +3143,7 @@ expr_multires ChpSim::varStruct (struct chpsimderef *d)
   else {
     atmp = NULL;
   }
-  expr_multires res (d->d, atmp);
+  expr_multires res (d->dret, atmp);
   if (!d->range || atmp) {
     for (int i=0; i < res.nvals; i++) {
       res.v[i] = varEval (d->idx[3*i], d->idx[3*i+1] == 2 ? 1 : d->idx[3*i+1]);

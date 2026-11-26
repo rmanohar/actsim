@@ -1,0 +1,24 @@
+deftype inner(int<16> x) {}
+deftype outer(inner f) {}
+
+function myfunc (inner x) : int
+{
+  chp {
+    self := x.x
+  }
+}
+
+defproc test() {
+  outer mem[32];
+  int<5> i;
+  chp {
+    i := 2;
+    mem[2].f.x := 3;
+    mem[3].f.x := 2;
+    i := myfunc(mem[i].f);
+    log ("got ", i);
+    i := myfunc(mem[i].f);
+    log ("got ", i)
+  }
+}
+

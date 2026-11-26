@@ -60,13 +60,14 @@ struct chpsimderef {
   Array *range;			// this is used to contain array dimensions
 
   Expr **chp_idx;		// this contains the array de-reference
-  
+
   int *idx;			// for structures, we use this
 				// array. Length is 3x the # of items
 				// in the struct. Format: offset,
 				// width, type
   
   Data *d;			// used for structures to record the type
+  Data *dret;			// actual structure
 
   int offset;			// offset / offseti for struct
   int stride;			// stride for struct arrays
@@ -74,7 +75,7 @@ struct chpsimderef {
   unsigned int isenum:1;	// is this an enumeration?
   int enum_sz;			// used for enumerations
   int width;
-  
+
   act_connection *cx;		// for printing/debugging
 };
 

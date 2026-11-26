@@ -317,6 +317,13 @@ BigInt *expr_multires::getField (ActId *x)
 {
   Assert (x, "setField with scalar called with NULL ID value");
   int off = _d->getStructOffset (x, NULL);
+  if (off < 0) {
+    fprintf (stderr, "Field ");
+    x->Print (stderr);
+    fprintf (stderr, " missing from type `%s'\n",
+	     _d ? _d->getFullName() : "(NULL!)");
+    fatal_error ("Inconsistency/typechecking issue");
+  }
   Assert (0 <= off && off < nvals, "Hmm");
   return &v[off];
 }

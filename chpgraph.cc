@@ -235,6 +235,9 @@ static void _free_deref (struct chpsimderef *d)
   }
 }
 
+/*
+ * Return a bool/int deref for a dynamic array access
+ */
 static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
 				      int *width = NULL)
 {
@@ -249,6 +252,7 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   d->stride = 1;
   d->idx = NULL;
   d->d = NULL;
+  d->dret = NULL;
   d->cx = vx->connection();
 
   /*
@@ -330,7 +334,10 @@ static struct chpsimderef *_mk_deref (ActId *id, ActSimCore *s, int *type,
   return d;
 }
 
-
+/*
+ * Return a chpsim dynamic deref, where the return value is a
+ * structure.
+ */
 static struct chpsimderef *
 _mk_deref_struct (ActId *id, ActSimCore *s)
 {
@@ -344,13 +351,14 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   d->stride = 1;
   d->cx = vx->connection();
   d->d = dynamic_cast<Data *> (vx->t->BaseType());
+  d->dret = d->d;
   d->isbool = 0;
   d->isenum = 0;
   Assert (d->d, "what?");
   if (!s->getLocalDynamicStructOffset (vx->connection()->primary(),
 				       s->cursi(),
 				       &d->offset, &d->width)) {
-    fatal_error ("Structure derefence generation failed!");
+    fatal_error ("Structure dereference generation failed!");
     return NULL;
   }
     
@@ -358,7 +366,7 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
   Assert (d->range, "What?");
   Assert (d->range->nDims() > 0, "What?");
 
-  if (id->Tail()->arrayInfo()) {
+  if (id->arrayInfo()) {
     MALLOC (d->idx, int, d->range->nDims());
     MALLOC (d->chp_idx, Expr *, d->range->nDims());
   
@@ -368,13 +376,18 @@ _mk_deref_struct (ActId *id, ActSimCore *s)
       d->chp_idx[i] = expr_to_chp_expr (id->arrayInfo()->getDeref(i), s, &flags);
       d->idx[i] = -1;
     }
+
+    if (id->Rest()) {
+      InstType *it = d->d->CurScope()->FullLookup (id->Rest(), NULL);
+      Assert (TypeFactory::isStructure (it), "What?");
+      d->dret = dynamic_cast<Data *> (it->BaseType());
+    }
   }
   else {
     /* this is an array reference! */
     d->idx = NULL;
     d->chp_idx = NULL;
   }
-  
   return d;
 }
 
@@ -457,6 +470,7 @@ _mk_std_deref_struct (ActId *id, InstType *it, ActSimCore *s)
   ds->chp_idx = NULL;
   ds->idx = NULL;
   ds->d = d;
+  ds->dret = d;
   ds->isbool = 0;
   ds->isenum = 0;
 
@@ -526,6 +540,7 @@ _mk_std_deref (ActId *id, InstType *it, ActSimCore *s)
   d->chp_idx = NULL;
   d->idx = NULL;
   d->d = NULL;
+  d->dret = NULL;
   d->isbool = 0;
   d->isenum = 0;
 
@@ -1018,7 +1033,6 @@ static Expr *expr_to_chp_expr (Expr *e, ActSimCore *s, int *flags)
 
 	if (ActBooleanizePass::isDynamicRef (s->cursi()->bnl,
 					     ((ActId *)e->u.e.l))) {
-
 	  // XXX: check for arrays here!!!
 	  if (it->arrayInfo() && !aref) {
 	    Assert (0, "entire array that is dynamic!");
