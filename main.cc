@@ -393,10 +393,10 @@ int process_procinfo (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = my_parse_id (argv[1]);
+    id = my_parse_id (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[1]);
+	       argv[2]);
       return LISP_RET_ERROR;
     }
   }
@@ -516,10 +516,10 @@ int process_coverage (int argc, char **argv)
     id = NULL;
   }
   else {
-    id = my_parse_id (argv[1]);
+    id = my_parse_id (argv[2]);
     if (id == NULL) {
       fprintf (stderr, "Could not parse `%s' into an instance name\n",
-	       argv[1]);
+	       argv[2]);
       return LISP_RET_ERROR;
     }
   }
@@ -1073,7 +1073,7 @@ int process_assert (int argc, char **argv)
     else {
       printf("Warning: WRONG ASSERT:\t\"%s\" has value ", argv[1]);
       ival->decPrint (stdout);
-      printf("and not");
+      printf(" and not ");
       expected_val.decPrint (stdout);
       printf("\n");
       assert_false = true;
@@ -1246,7 +1246,17 @@ int process_mget (int argc, char **argv)
     else if (type == 1) {
       BigInt *ival;
       ival = glob_sim->getInt (offset);
-      printf ("%s: %lu  (0x%lx)\n", argv[i], ival->getVal(0), ival->getVal (0));
+      if (ival->getLen() > 1) {
+        printf ("%s: ", argv[i]);
+        ival->decPrint (stdout);
+        printf ("  (0x");
+        ival->hexPrint (stdout);
+        printf (")\n");
+      }
+      else {
+        val = ival->getVal (0);
+        printf ("%s: %lu  (0x%lx)\n", argv[i], val, val);
+      }
     }
   }
   return LISP_RET_TRUE;
