@@ -32,7 +32,7 @@ echo "Xyce build dir: $xyce_build"
 
 if [ -f $xyce_build/link.txt ]
 then
-    $file=$xyce_build/link.txt
+    file=$xyce_build/link.txt
 else    
     if [ ! -d $xyce_build ]
     then
